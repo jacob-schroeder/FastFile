@@ -1,0 +1,48 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Debug / Release folders
+[Dd]ebug/
+[Rr]elease/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NuGet
+packages/
+*.nupkg
+
+# Test results
+TestResults/
+
+# Publish output
+publish/
+
+# Temporary files
+*.tmp
+*.cache
+
+# Dotnet local tools
+.dotnet/
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user

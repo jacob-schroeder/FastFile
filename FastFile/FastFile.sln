@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.UI", "FastFile.UI\FastFile.UI.csproj", "{BA81A97B-5ADF-4BB8-98FA-C478B1705E07}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.Models", "FastFile.Models\FastFile.Models.csproj", "{F4B42010-F4B6-4953-815D-F79D58024056}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.Logic", "FastFile.Logic\FastFile.Logic.csproj", "{5B961DFB-5012-4B6D-8C7B-11C7D91135C7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BA81A97B-5ADF-4BB8-98FA-C478B1705E07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA81A97B-5ADF-4BB8-98FA-C478B1705E07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA81A97B-5ADF-4BB8-98FA-C478B1705E07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA81A97B-5ADF-4BB8-98FA-C478B1705E07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F4B42010-F4B6-4953-815D-F79D58024056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F4B42010-F4B6-4953-815D-F79D58024056}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F4B42010-F4B6-4953-815D-F79D58024056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F4B42010-F4B6-4953-815D-F79D58024056}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5B961DFB-5012-4B6D-8C7B-11C7D91135C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B961DFB-5012-4B6D-8C7B-11C7D91135C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B961DFB-5012-4B6D-8C7B-11C7D91135C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5B961DFB-5012-4B6D-8C7B-11C7D91135C7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
