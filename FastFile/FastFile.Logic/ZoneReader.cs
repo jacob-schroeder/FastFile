@@ -12,7 +12,9 @@ public sealed class ZoneReader(byte[] buffer)
     private int _position = 0;
     private int _length = buffer.Length;
     
-    private readonly IList<string> Warnings = new List<string>();
+    private readonly IList<string> _warnings = new List<string>();
+
+    public IReadOnlyList<string> Warnings => _warnings.AsReadOnly();
 
     private ReadOnlySpan<byte> Span => _memory.Span;
 
@@ -162,7 +164,7 @@ public sealed class ZoneReader(byte[] buffer)
 
     private UnknownAsset ReadUnknownAsset(XAssetType type)
     {
-        Warnings.Add($"No asset reader registered for {type} at offset {_position}.");
+        _warnings.Add($"No asset reader registered for {type} at offset {_position}.");
 
         return new UnknownAsset(type)
         {

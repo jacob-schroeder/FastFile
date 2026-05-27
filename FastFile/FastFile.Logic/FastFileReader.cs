@@ -12,7 +12,9 @@ public sealed class FastFileReader(byte[] buffer, int length)
     private int _position;
     private int _length;
     
-    private readonly IList<string> Warnings = new List<string>();
+    private readonly IList<string> _warnings = new List<string>();
+
+    public IReadOnlyList<string> Warnings => _warnings.AsReadOnly();
 
     private ReadOnlySpan<byte> Span => _memory.Span;
 
@@ -54,7 +56,7 @@ public sealed class FastFileReader(byte[] buffer, int length)
             //Bypass fastfiles compiled out of spec
             if (blockSize is 0 or 1)
             {
-                Warnings.Add($"Encountered invalid block size: {blockSize}");
+                _warnings.Add($"Encountered invalid block size: {blockSize}");
                 _position += DEF.ZLIB_HEAD_SIZE;
                 continue;
             }
@@ -72,7 +74,7 @@ public sealed class FastFileReader(byte[] buffer, int length)
             if (actual != checksum)
             {
                 //instead of exception throw a warning
-                Warnings.Add($"Checksum mismatch. Expected {checksum:X8}, got {actual:X8}");
+                _warnings.Add($"Checksum mismatch. Expected {checksum:X8}, got {actual:X8}");
             }
 
         }

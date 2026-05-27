@@ -1,0 +1,91 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:tabs="clr-namespace:UI.Tabs"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="UI.MainWindow"
+        Title="FastFile"
+        Background="#F4F8FF">
+    <Window.Styles>
+        <StyleInclude Source="/Styles/MainWindowStyles.axaml" />
+    </Window.Styles>
+
+    <Grid RowDefinitions="34,*">
+        <Menu Grid.Row="0" Classes="mainMenu">
+            <MenuItem Header="_File" Classes="topMenuItem">
+                <MenuItem Header="_Open" Click="OpenMenuItem_Click" />
+                <Separator />
+                <MenuItem Header="_Close" Click="CloseMenuItem_Click" />
+            </MenuItem>
+            <MenuItem Header="_About" Classes="topMenuItem" Click="AboutMenuItem_Click" />
+        </Menu>
+
+        <Grid Grid.Row="1" ClipToBounds="True">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#EAF4FF" Offset="0" />
+                    <GradientStop Color="#F7FBFF" Offset="0.48" />
+                    <GradientStop Color="#DDEAFF" Offset="1" />
+                </LinearGradientBrush>
+            </Grid.Background>
+
+            <Ellipse Width="420"
+                     Height="260"
+                     Fill="#65AEEBFF"
+                     IsHitTestVisible="False"
+                     Opacity="0.7"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Top"
+                     Margin="-120,-90,0,0" />
+            <Ellipse Width="360"
+                     Height="260"
+                     Fill="#55FFFFFF"
+                     IsHitTestVisible="False"
+                     Opacity="0.85"
+                     HorizontalAlignment="Right"
+                     VerticalAlignment="Bottom"
+                     Margin="0,0,-90,-80" />
+
+            <TabControl Classes="mainTabs"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch">
+                <TabItem>
+                    <TabItem.Header>
+                        <Border Classes="tabHeader">
+                            <TextBlock Classes="tabHeaderText" Text="FastFile" />
+                        </Border>
+                    </TabItem.Header>
+                    <tabs:FastFileTab x:Name="FastFileTabView" />
+                </TabItem>
+
+                <TabItem>
+                    <TabItem.Header>
+                        <Border Classes="tabHeader">
+                            <TextBlock Classes="tabHeaderText" Text="Zone" />
+                        </Border>
+                    </TabItem.Header>
+                    <tabs:ZoneTab />
+                </TabItem>
+
+                <TabItem>
+                    <TabItem.Header>
+                        <Border Classes="tabHeader">
+                            <TextBlock Classes="tabHeaderText" Text="Assets" />
+                        </Border>
+                    </TabItem.Header>
+                    <tabs:AssetsTab />
+                </TabItem>
+
+                <TabItem>
+                    <TabItem.Header>
+                        <Border Classes="tabHeader">
+                            <TextBlock Classes="tabHeaderText" Text="Log" />
+                        </Border>
+                    </TabItem.Header>
+                    <tabs:LogTab x:Name="LogTabView" />
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </Grid>
+</Window>

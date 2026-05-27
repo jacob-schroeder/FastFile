@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="UI.Tabs.AssetsTab">
+    <Border Margin="22"
+            Padding="18"
+            CornerRadius="14"
+            Background="#B8FFFFFF"
+            BorderBrush="#70A8D7FF"
+            BorderThickness="1">
+        <TextBlock Text="Parsed assets will appear here."
+                   Foreground="#6D7F96" />
+    </Border>
+</UserControl>

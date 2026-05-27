@@ -1,0 +1,129 @@
+<Styles xmlns="https://github.com/avaloniaui">
+    <Style Selector="Menu.mainMenu">
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="Background">
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#2F8CFF" Offset="0" />
+                <GradientStop Color="#06438F" Offset="1" />
+            </LinearGradientBrush>
+        </Setter>
+    </Style>
+
+    <Style Selector="MenuItem.topMenuItem">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="TabControl.mainTabs">
+        <Setter Property="Margin" Value="16" />
+        <Setter Property="Background" Value="#7AFFFFFF" />
+    </Style>
+
+    <Style Selector="TabItem">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="2,0,2,0" />
+    </Style>
+
+    <Style Selector="Border.tabHeader">
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Padding" Value="16,9" />
+        <Setter Property="CornerRadius" Value="8,8,0,0" />
+        <Setter Property="BorderBrush" Value="#8BB9E9" />
+        <Setter Property="BorderThickness" Value="1,1,1,0" />
+        <Setter Property="Background">
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#F8FBFF" Offset="0" />
+                <GradientStop Color="#DDEEFF" Offset="1" />
+            </LinearGradientBrush>
+        </Setter>
+    </Style>
+
+    <Style Selector="TextBlock.tabHeaderText">
+        <Setter Property="Foreground" Value="#111827" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TabItem:pointerover Border.tabHeader">
+        <Setter Property="Background">
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#EAF4FF" Offset="0" />
+                <GradientStop Color="#C9E2FF" Offset="1" />
+            </LinearGradientBrush>
+        </Setter>
+        <Setter Property="BorderBrush" Value="#06438F" />
+    </Style>
+
+    <Style Selector="TabItem:pointerover TextBlock.tabHeaderText">
+        <Setter Property="Foreground" Value="#06438F" />
+    </Style>
+
+    <Style Selector="TabItem:selected Border.tabHeader">
+        <Setter Property="Background">
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#FFFFFF" Offset="0" />
+                <GradientStop Color="#D8ECFF" Offset="1" />
+            </LinearGradientBrush>
+        </Setter>
+        <Setter Property="BorderBrush" Value="#2F8CFF" />
+    </Style>
+
+    <Style Selector="TabItem:selected TextBlock.tabHeaderText">
+        <Setter Property="Foreground" Value="#06438F" />
+    </Style>
+
+    <Style Selector="Border.listGroup">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="Border.listGroupItem">
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="Border.listGroupItemLast">
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="TextBlock.listGroupLabel">
+        <Setter Property="Foreground" Value="#212529" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.badge">
+        <Setter Property="MinWidth" Value="48" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Background" Value="#0D6EFD" />
+    </Style>
+
+    <Style Selector="TextBlock.badgeText">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.logOutput">
+        <Setter Property="Background" Value="#111827" />
+        <Setter Property="BorderBrush" Value="#334155" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+
+    <Style Selector="TextBlock.logText">
+        <Setter Property="Foreground" Value="#E5E7EB" />
+        <Setter Property="FontFamily" Value="Courier New" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="LineHeight" Value="20" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+</Styles>
