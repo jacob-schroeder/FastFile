@@ -16,6 +16,12 @@ Primary research references and technical findings are based on the collective i
 
 ---
 
+## Dependencies
+
+- Avalonia: for desktop UI support
+
+---
+
 # Current Scope
 
 At this stage, development is focused exclusively on:
