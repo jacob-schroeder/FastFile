@@ -59,6 +59,7 @@ public partial class MainWindow : Window
 
             ParseFastFile(_buffer);
             UpdateFastFileHeaderView();
+            UpdateZoneTabView();
 
             FastFileTabView.SetStatus($"Opened: {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
             AddLog("INFO", "File load complete");
@@ -100,6 +101,11 @@ public partial class MainWindow : Window
         FastFileTabView.UpdateHeader(_fastFileHeader);
     }
 
+    private void UpdateZoneTabView()
+    {
+        ZoneTabView.UpdateZone(_zoneHeader);
+    }
+
     private void ResetLog()
     {
         _logMessages.Clear();
@@ -135,17 +141,59 @@ public partial class MainWindow : Window
 
     private async void AboutMenuItem_Click(object? sender, RoutedEventArgs e)
     {
+        var repoUri = new Uri("https://github.com/jacob-schroeder/FastFile");
+        var docsUri = new Uri("https://codresearch.dev/index.php/Main_Page");
+
         var dialog = new Window
         {
             Title = "About FastFile",
-            Width = 320,
-            Height = 180,
+            SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false,
-            Content = new TextBlock
+            Content = new StackPanel
             {
-                Text = "FastFile",
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                Margin = new Avalonia.Thickness(24),
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "FastFile",
+                        FontSize = 20,
+                        FontWeight = Avalonia.Media.FontWeight.SemiBold
+                    },
+                    new TextBlock
+                    {
+                        Text = "Created by: Jacob Schroeder"
+                    },
+                    new StackPanel
+                    {
+                        Spacing = 2,
+                        Children =
+                        {
+                            new TextBlock { Text = "Repository" },
+                            new HyperlinkButton
+                            {
+                                Content = repoUri.ToString(),
+                                NavigateUri = repoUri,
+                                Padding = new Avalonia.Thickness(0)
+                            }
+                        }
+                    },
+                    new StackPanel
+                    {
+                        Spacing = 2,
+                        Children =
+                        {
+                            new TextBlock { Text = "Research" },
+                            new HyperlinkButton
+                            {
+                                Content = docsUri.ToString(),
+                                NavigateUri = docsUri,
+                                Padding = new Avalonia.Thickness(0)
+                            }
+                        }
+                    }
+                }
             }
         };
 

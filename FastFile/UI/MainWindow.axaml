@@ -65,7 +65,7 @@
                             <TextBlock Classes="tabHeaderText" Text="Zone" />
                         </Border>
                     </TabItem.Header>
-                    <tabs:ZoneTab />
+                    <tabs:ZoneTab x:Name="ZoneTabView" />
                 </TabItem>
 
                 <TabItem>

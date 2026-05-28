@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:tabs="clr-namespace:UI.Tabs"
+             xmlns:models="clr-namespace:UI.Models"
              x:Class="UI.Tabs.FastFileTab">
     <Grid RowDefinitions="Auto,*" Margin="12">
         <StackPanel Spacing="6">
@@ -26,7 +26,7 @@
                         VerticalAlignment="Top">
                     <ItemsControl x:Name="HeaderItemsControl">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="tabs:KeyValueListItem">
+                            <DataTemplate x:DataType="models:KeyValueListItem">
                                 <Border Classes="listGroupItem">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Classes="listGroupLabel"

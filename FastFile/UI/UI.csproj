@@ -26,4 +26,8 @@
     <ItemGroup>
         <ProjectReference Include="..\FastFile.Logic\FastFile.Logic.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Components\" />
+    </ItemGroup>
 </Project>

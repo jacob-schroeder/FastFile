@@ -3,15 +3,9 @@ using Avalonia.Controls;
 using FastFile.Models;
 using System.Collections.Generic;
 using System.Linq;
+using UI.Models;
 
 namespace UI.Tabs;
-
-public sealed class KeyValueListItem(string key, string value)
-{
-    public string Key { get; } = key;
-
-    public string Value { get; } = value;
-}
 
 public partial class FastFileTab : UserControl
 {

@@ -1,13 +1,40 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:UI.Models"
              x:Class="UI.Tabs.ZoneTab">
-    <Border Margin="22"
-            Padding="18"
-            CornerRadius="14"
-            Background="#B8FFFFFF"
-            BorderBrush="#70A8D7FF"
-            BorderThickness="1">
-        <TextBlock Text="Zone header details will appear here."
-                   Foreground="#6D7F96" />
-    </Border>
+    <Grid RowDefinitions="Auto,*" Margin="12">
+
+        <Border Grid.Row="1"
+                Margin="0,20,0,0"
+                Padding="0"
+                CornerRadius="14"
+                Background="#B8FFFFFF"
+                BorderBrush="#70A8D7FF"
+                BorderThickness="1">
+            <ScrollViewer Margin="18"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <Border Classes="listGroup"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Top">
+                    <ItemsControl x:Name="HeaderItemsControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:KeyValueListItem">
+                                <Border Classes="listGroupItem">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Classes="listGroupLabel"
+                                                   Text="{Binding Key}" />
+                                        <Border Grid.Column="1" Classes="badge">
+                                            <TextBlock Classes="badgeText"
+                                                       Text="{Binding Value}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </ScrollViewer>
+        </Border>
+    </Grid>
 </UserControl>
