@@ -60,7 +60,7 @@ public partial class MainWindow : Window
             ParseFastFile(_buffer);
             UpdateFastFileHeaderView();
 
-            FastFileTabView.SetStatus($"Opened {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
+            FastFileTabView.SetStatus($"Opened: {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
             AddLog("INFO", "File load complete");
             UpdateLogView();
         }
@@ -83,7 +83,7 @@ public partial class MainWindow : Window
         var zone = ffReader.UnpackZone();
         AddLog("INFO", $"Zone unpacked: {zone.Length:N0} bytes");
         AddWarnings("FastFileReader", ffReader.Warnings);
-
+        
         var zoneReader = new ZoneReader(zone);
         AddLog("INFO", "Parsing zone header");
         _zoneHeader = zoneReader.ParseHeader();

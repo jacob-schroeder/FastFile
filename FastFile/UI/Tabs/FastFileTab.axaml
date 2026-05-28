@@ -1,12 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tabs="clr-namespace:UI.Tabs"
              x:Class="UI.Tabs.FastFileTab">
     <Grid RowDefinitions="Auto,*" Margin="12">
         <StackPanel Spacing="6">
-            <TextBlock Text="FastFile"
-                       FontSize="24"
-                       FontWeight="SemiBold"
-                       Foreground="#11345D" />
             <TextBlock x:Name="StatusTextBlock"
                        Text="Open a fastfile to inspect its zone assets."
                        FontSize="14"
@@ -21,45 +18,30 @@
                 Background="#B8FFFFFF"
                 BorderBrush="#70A8D7FF"
                 BorderThickness="1">
-            <Border Classes="listGroup"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Top"
-                    Margin="18">
-                <StackPanel>
-                    <Border Classes="listGroupItem">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Classes="listGroupLabel" Text="Magic" />
-                            <Border Grid.Column="1" Classes="badge">
-                                <TextBlock x:Name="MagicValueTextBlock"
-                                           Classes="badgeText"
-                                           Text="-" />
-                            </Border>
-                        </Grid>
-                    </Border>
-
-                    <Border Classes="listGroupItem">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Classes="listGroupLabel" Text="Version" />
-                            <Border Grid.Column="1" Classes="badge">
-                                <TextBlock x:Name="VersionValueTextBlock"
-                                           Classes="badgeText"
-                                           Text="-" />
-                            </Border>
-                        </Grid>
-                    </Border>
-
-                    <Border Classes="listGroupItem listGroupItemLast">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Classes="listGroupLabel" Text="Size" />
-                            <Border Grid.Column="1" Classes="badge">
-                                <TextBlock x:Name="SizeValueTextBlock"
-                                           Classes="badgeText"
-                                           Text="-" />
-                            </Border>
-                        </Grid>
-                    </Border>
-                </StackPanel>
-            </Border>
+            <ScrollViewer Margin="18"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <Border Classes="listGroup"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Top">
+                    <ItemsControl x:Name="HeaderItemsControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="tabs:KeyValueListItem">
+                                <Border Classes="listGroupItem">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Classes="listGroupLabel"
+                                                   Text="{Binding Key}" />
+                                        <Border Grid.Column="1" Classes="badge">
+                                            <TextBlock Classes="badgeText"
+                                                       Text="{Binding Value}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </ScrollViewer>
         </Border>
     </Grid>
 </UserControl>
