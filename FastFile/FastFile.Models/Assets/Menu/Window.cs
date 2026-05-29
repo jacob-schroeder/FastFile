@@ -31,7 +31,5 @@ public class Window
     public Vec4 borderColor { get; set; }
     public Vec4 outlineColor { get; set; }
     public Vec4 disableColor { get; set; }
-    
-    public ZonePointer<int> MaterialPtr { get; set; }
-    //public Material *background { get; set; }
+    public ZonePointer<Material.Material> MaterialPtr { get; set; }
 }
