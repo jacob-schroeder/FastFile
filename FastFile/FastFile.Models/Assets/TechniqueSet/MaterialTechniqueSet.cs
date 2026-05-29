@@ -19,6 +19,7 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
     public MaterialWorldVertexFormat WorldVertexFormat { get; set; }
 
     //This is not int, just placeholder for the first asset in my test.ff
+    //TODO: FINISH TECHSET
     public ZonePointer<int>[] Techniques { get; set; } = new ZonePointer<int>[MAX_TECHNIQUES];
 
     public override string? GetDisplayName => Name;

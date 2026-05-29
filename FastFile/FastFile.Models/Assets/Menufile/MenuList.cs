@@ -8,7 +8,7 @@ public class MenuList() : BaseAsset(XAssetType.MenuFile)
 {
     public ZonePointer<string> NamePtr { get; set; }
     public int MenuCount { get; set; }
-    public ZonePointer<ZonePointer<MenuDef[]>> Menus { get; set; }
+    public ZonePointer<ZonePointer<MenuDef>[]> Menus { get; set; }
 
     public override string? GetDisplayName => NamePtr.IsResolved ? NamePtr.Result : string.Empty;
 }

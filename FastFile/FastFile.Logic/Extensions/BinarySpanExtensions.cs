@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using FastFile.Models.Assets.Menu.Elements;
 
 namespace FastFile.Logic.Extensions;
 
@@ -19,6 +20,28 @@ public static class BinarySpanExtensions
             _ => throw new InvalidDataException($"Invalid boolean value {value}"),
         };
     }
+
+    public static byte ReadByte(
+        this ReadOnlySpan<byte> span,
+        ref int offset)
+    {
+        byte value = span[offset];
+        offset++;
+
+        return value;
+    }
+    
+    public static float ReadFloat(
+        this ReadOnlySpan<byte> span,
+        ref int offset)
+    {
+        float value = BinaryPrimitives.ReadSingleBigEndian(
+            span.Slice(offset, 4));
+
+        offset += 4;
+        return value;
+    }
+    
     public static int ReadInt32(
         this ReadOnlySpan<byte> span,
         ref int offset)
@@ -97,5 +120,18 @@ public static class BinarySpanExtensions
         byte[] result = span.Slice(offset, length).ToArray();
         offset += length;
         return result;
+    }
+
+    public static Vec4 ReadVec4(
+        this ReadOnlySpan<byte> span,
+        ref int offset)
+    {
+        return new Vec4
+        {
+            A = span.ReadFloat(ref offset),
+            R = span.ReadFloat(ref offset),
+            G = span.ReadFloat(ref offset),
+            B = span.ReadFloat(ref offset)
+        };
     }
 }
