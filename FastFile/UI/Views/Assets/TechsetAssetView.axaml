@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="UI.Views.Assets.TechsetAssetView">
+    <Grid>
+        <TextBlock Text="Techset Details"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Foreground="#11345D"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+    </Grid>
+</UserControl>
