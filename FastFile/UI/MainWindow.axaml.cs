@@ -103,7 +103,7 @@ public partial class MainWindow : Window
 
     private void UpdateZoneTabView()
     {
-        ZoneTabView.UpdateZone(_zoneHeader);
+        ZoneTabView.UpdateZone(_zoneHeader,  _assetList);
     }
 
     private void ResetLog()

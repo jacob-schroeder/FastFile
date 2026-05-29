@@ -126,4 +126,56 @@
         <Setter Property="LineHeight" Value="20" />
         <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
+
+    <Style Selector="Button.actionButton">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="5" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.actionButtonDanger">
+        <Setter Property="Background" Value="#DC3545" />
+        <Setter Property="BorderBrush" Value="#DC3545" />
+    </Style>
+
+    <Style Selector="Button.actionButtonDanger:pointerover">
+        <Setter Property="Background" Value="#BB2D3B" />
+        <Setter Property="BorderBrush" Value="#B02A37" />
+    </Style>
+
+    <Style Selector="Button.actionButtonPrimary">
+        <Setter Property="Background" Value="#0D6EFD" />
+        <Setter Property="BorderBrush" Value="#0D6EFD" />
+    </Style>
+
+    <Style Selector="Button.actionButtonPrimary:pointerover">
+        <Setter Property="Background" Value="#0B5ED7" />
+        <Setter Property="BorderBrush" Value="#0A58CA" />
+    </Style>
+
+    <Style Selector="Button.actionButtonSuccess">
+        <Setter Property="Background" Value="#198754" />
+        <Setter Property="BorderBrush" Value="#198754" />
+    </Style>
+
+    <Style Selector="Button.actionButtonSuccess:pointerover">
+        <Setter Property="Background" Value="#157347" />
+        <Setter Property="BorderBrush" Value="#146C43" />
+    </Style>
 </Styles>
