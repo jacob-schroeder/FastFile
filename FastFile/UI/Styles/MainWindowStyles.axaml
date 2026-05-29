@@ -111,6 +111,160 @@
         <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
 
+    <Style Selector="Border.badgeDanger">
+        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Background" Value="#DC3545" />
+    </Style>
+
+    <Style Selector="Border.assetTreeCountBadge">
+        <Setter Property="MinWidth" Value="28" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Background" Value="#DC3545" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.assetTreeCountBadgeText">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.accordion">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="Border.accordionItem">
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="Border.accordionItemLast">
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="Button.accordionHeaderButton">
+        <Setter Property="Padding" Value="22,14" />
+        <Setter Property="Background" Value="#F8F9FA" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.accordionHeaderButton:pointerover">
+        <Setter Property="Background" Value="#E7F1FF" />
+    </Style>
+
+    <Style Selector="Border.accordionBody">
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+    </Style>
+
+    <Style Selector="Border.assetTree">
+        <Setter Property="Background" Value="#1E1F22" />
+        <Setter Property="BorderBrush" Value="#393B40" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="TextBlock.assetTreeHeader">
+        <Setter Property="Foreground" Value="#F3F4F6" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.assetTreeFolderButton">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.assetTreeFolderButton:pointerover">
+        <Setter Property="Background" Value="#2B2D31" />
+    </Style>
+
+    <Style Selector="TextBlock.assetTreeText">
+        <Setter Property="Foreground" Value="#E5E7EB" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.assetTreeMutedText">
+        <Setter Property="Foreground" Value="#9CA3AF" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.assetTreeAssetRow">
+        <Setter Property="Padding" Value="32,0,0,0" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button.assetTreeAssetButton">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Padding" Value="14,7,10,7" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.assetTreeAssetButton:pointerover">
+        <Setter Property="Background" Value="#2B2D31" />
+    </Style>
+
+    <Style Selector="Border.assetDetailHost">
+        <Setter Property="Background" Value="#F8FBFF" />
+        <Setter Property="BorderBrush" Value="#70A8D7FF" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="14" />
+    </Style>
+
+    <Style Selector="StackPanel.assetTreeGroup">
+        <Setter Property="Margin" Value="0,4" />
+    </Style>
+
     <Style Selector="Border.logOutput">
         <Setter Property="Background" Value="#111827" />
         <Setter Property="BorderBrush" Value="#334155" />

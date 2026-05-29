@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using FastFile.Logic;
 using FastFile.Models;
 using FastFile.Models.Zone;
@@ -27,6 +28,11 @@ public partial class MainWindow : Window
     }
 
     private async void OpenMenuItem_Click(object? sender, RoutedEventArgs e)
+    {
+        await Dispatcher.UIThread.InvokeAsync(OpenFastFileAsync, DispatcherPriority.Background);
+    }
+
+    private async Task OpenFastFileAsync()
     {
         try
         {
@@ -57,9 +63,10 @@ public partial class MainWindow : Window
             _buffer = memoryStream.ToArray();
             AddLog("INFO", $"Read {_buffer.Length:N0} bytes");
 
-            ParseFastFile(_buffer);
+            await Task.Run(() => ParseFastFile(_buffer));
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
+            UpdateAssetsTabView();
 
             FastFileTabView.SetStatus($"Opened: {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
             AddLog("INFO", "File load complete");
@@ -104,6 +111,11 @@ public partial class MainWindow : Window
     private void UpdateZoneTabView()
     {
         ZoneTabView.UpdateZone(_zoneHeader,  _assetList);
+    }
+
+    private void UpdateAssetsTabView()
+    {
+        AssetsTabView.UpdateAssets(_assetList);
     }
 
     private void ResetLog()

@@ -1,13 +1,105 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:models="clr-namespace:UI.Models"
              x:Class="UI.Tabs.AssetsTab">
-    <Border Margin="22"
-            Padding="18"
-            CornerRadius="14"
-            Background="#B8FFFFFF"
-            BorderBrush="#70A8D7FF"
-            BorderThickness="1">
-        <TextBlock Text="Parsed assets will appear here."
-                   Foreground="#6D7F96" />
-    </Border>
+    <Grid ColumnDefinitions="3*,7*" ColumnSpacing="12" Margin="12">
+        <Border Grid.Column="0"
+                Padding="0"
+                CornerRadius="14"
+                Background="#1E1F22"
+                BorderBrush="#393B40"
+                BorderThickness="1">
+            <Grid RowDefinitions="Auto,*" Margin="0">
+                <Border Padding="14,12"
+                        BorderBrush="#393B40"
+                        BorderThickness="0,0,0,1">
+                    <TextBlock Classes="assetTreeHeader"
+                               Text="Zone" />
+                </Border>
+
+                <ScrollViewer Grid.Row="1"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <Border Classes="assetTree">
+                        <ItemsControl x:Name="AssetGroupsItemsControl"
+                                      HorizontalAlignment="Stretch">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:AssetGroupDisplayItem">
+                                    <StackPanel Classes="assetTreeGroup">
+                                    <Button Classes="assetTreeFolderButton"
+                                            HorizontalAlignment="Stretch"
+                                            Tag="{Binding Id}"
+                                            Click="AssetGroupHeader_Click">
+                                        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+                                              ColumnSpacing="10"
+                                              HorizontalAlignment="Stretch"
+                                              Margin="4,0">
+                                                <materialIcons:MaterialIcon Grid.Column="0"
+                                                                            Width="16"
+                                                                            Height="16"
+                                                                            Foreground="#C4C8D4"
+                                                                            IsVisible="{Binding IsCollapsed}"
+                                                                            Kind="MenuRight" />
+                                                <materialIcons:MaterialIcon Grid.Column="0"
+                                                                            Width="16"
+                                                                            Height="16"
+                                                                            Foreground="#C4C8D4"
+                                                                            IsVisible="{Binding IsExpanded}"
+                                                                            Kind="CaretDown" />
+                                                <materialIcons:MaterialIcon Grid.Column="1"
+                                                                            Width="16"
+                                                                            Height="16"
+                                                                            Foreground="#C4C8D4"
+                                                                            Kind="FolderOpenOutline" />
+                                                <TextBlock Grid.Column="2"
+                                                           Classes="assetTreeText"
+                                                           Text="{Binding Name}" />
+                                                <Border Grid.Column="3"
+                                                        Classes="assetTreeCountBadge">
+                                                    <TextBlock Classes="assetTreeCountBadgeText"
+                                                               Text="{Binding Count}" />
+                                                </Border>
+                                            </Grid>
+                                        </Button>
+
+                                        <ItemsControl IsVisible="{Binding IsExpanded}"
+                                                      ItemsSource="{Binding Assets}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="models:DisplayItem">
+                                                    <Border Classes="assetTreeAssetRow">
+                                                        <Button Classes="assetTreeAssetButton"
+                                                                HorizontalAlignment="Stretch"
+                                                                Tag="{Binding Id}"
+                                                                Click="AssetItem_Click">
+                                                            <Grid ColumnDefinitions="Auto,*">
+                                                                <materialIcons:MaterialIcon Grid.Column="0"
+                                                                                            Width="15"
+                                                                                            Height="15"
+                                                                                            Margin="0,0,8,0"
+                                                                                            Foreground="#8EA8C3"
+                                                                                            Kind="FileDocumentOutline" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Classes="assetTreeText"
+                                                                           Text="{Binding Display}" />
+                                                            </Grid>
+                                                        </Button>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="1"
+                Classes="assetDetailHost">
+            <ContentControl x:Name="AssetDetailContentControl" />
+        </Border>
+    </Grid>
 </UserControl>

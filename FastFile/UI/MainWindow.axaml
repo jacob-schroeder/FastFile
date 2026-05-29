@@ -74,7 +74,7 @@
                             <TextBlock Classes="tabHeaderText" Text="Assets" />
                         </Border>
                     </TabItem.Header>
-                    <tabs:AssetsTab />
+                    <tabs:AssetsTab x:Name="AssetsTabView" />
                 </TabItem>
 
                 <TabItem>
