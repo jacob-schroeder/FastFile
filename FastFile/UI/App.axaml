@@ -8,6 +8,7 @@
 
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
         <materialIcons:MaterialIconStyles />
     </Application.Styles>
 </Application>

@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using FastFile.Models.Assets.RawFiles;
 using FastFile.Models.Zone;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,6 +40,7 @@ public partial class AssetsTab : UserControl
                     {
                         Id = item.Index,
                         Display = item.Asset.XAssetPtr.Result?.GetDisplayName ?? $"Asset {item.Index:N0}",
+                        Asset = item.Asset.XAssetPtr.Result,
                         AssetType = item.Asset.Type
                     })
                     .ToArray()
@@ -68,18 +70,24 @@ public partial class AssetsTab : UserControl
 
     private void AssetItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: int id })
+        if (sender is not Button { Tag: DisplayItem asset })
         {
             return;
         }
 
-        var asset = _assetGroups
-            .SelectMany(group => group.Assets)
-            .FirstOrDefault(item => item.Id == id);
-        if (asset?.AssetType == XAssetType.Techset)
+        switch (asset.AssetType)
         {
-            AssetDetailContentControl.Content = new TechsetAssetView();
-            return;
+            case XAssetType.Techset:
+                AssetDetailContentControl.Content = new TechsetAssetView();
+                return;
+            case XAssetType.RawFile:
+                if (asset.Asset is RawFile rawFile)
+                {
+                    AssetDetailContentControl.Content = new RawfileAssetView(rawFile);
+                    return;
+                }
+
+                break;
         }
 
         ShowDefaultAssetView();

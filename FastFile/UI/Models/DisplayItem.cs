@@ -1,5 +1,6 @@
 namespace UI.Models;
 
+using FastFile.Models.Assets;
 using FastFile.Models.Zone;
 
 public class DisplayItem
@@ -7,6 +8,8 @@ public class DisplayItem
     public int Id { get; set; }
 
     public string Display { get; set; } = string.Empty;
+
+    public BaseAsset? Asset { get; set; }
 
     public XAssetType? AssetType { get; set; }
 

@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:avaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             x:Class="UI.Views.Assets.RawfileAssetView">
+    <Grid Background="#111827">
+        <avaloniaEdit:TextEditor x:Name="RawFileTextEditor"
+                                 Background="#111827"
+                                 FontFamily="Menlo, Consolas, Courier New"
+                                 FontSize="13"
+                                 Foreground="#D4D4D4"
+                                 HorizontalAlignment="Stretch"
+                                 HorizontalScrollBarVisibility="Auto"
+                                 Padding="10,8"
+                                 ShowLineNumbers="True"
+                                 VerticalAlignment="Stretch"
+                                 VerticalScrollBarVisibility="Auto"
+                                 WordWrap="False" />
+    </Grid>
+</UserControl>

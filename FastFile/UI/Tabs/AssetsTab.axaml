@@ -70,7 +70,7 @@
                                                     <Border Classes="assetTreeAssetRow">
                                                         <Button Classes="assetTreeAssetButton"
                                                                 HorizontalAlignment="Stretch"
-                                                                Tag="{Binding Id}"
+                                                                Tag="{Binding}"
                                                                 Click="AssetItem_Click">
                                                             <Grid ColumnDefinitions="Auto,*">
                                                                 <materialIcons:MaterialIcon Grid.Column="0"
