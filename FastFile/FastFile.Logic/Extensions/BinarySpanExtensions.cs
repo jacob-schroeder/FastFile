@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using FastFile.Models.Assets.Menu.Elements;
+using FastFile.Models.Utils;
 
 namespace FastFile.Logic.Extensions;
 

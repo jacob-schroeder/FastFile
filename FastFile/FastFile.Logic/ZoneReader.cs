@@ -1,5 +1,5 @@
 using FastFile.Logic.Assets;
-using FastFile.Logic.Extensions;
+using FastFile.Logic.Assets.Generic;
 using FastFile.Models.Assets;
 using FastFile.Models.Zone;
 using FastFile.Models.Data;
@@ -15,161 +15,135 @@ public sealed class ZoneReader(byte[] buffer)
     private readonly IList<string> _warnings = new List<string>();
 
     public IReadOnlyList<string> Warnings => _warnings.AsReadOnly();
+    public Action<string, int, int>? Trace { get; set; }
 
     private ReadOnlySpan<byte> Span => _memory.Span;
 
     public XFile ParseHeader()
     {
+        var context = new ZoneReadContext(Span, _position);
         var header = new XFile
         {
-            Size = Span.ReadInt32(ref _position),
-            ExternalSize = Span.ReadInt32(ref _position),
+            Size = context.ReadInt32(),
+            ExternalSize = context.ReadInt32(),
             BlockSize = new int[(int)XFILE_BLOCK.MAX_XFILE_COUNT]
         };
         
         for(int i = 0; i < (int)XFILE_BLOCK.MAX_XFILE_COUNT; i++)
-            header.BlockSize[i] = Span.ReadInt32(ref _position);
+            header.BlockSize[i] = context.ReadInt32();
 
+        _position = context.Position;
         return header;
     }
 
     public XAssetList ParseXAssetList()
     {
-        XAssetList assetList = ReadXAssetList();
-        ResolveXAssetList(assetList);
+        var context = new ZoneReadContext(Span, _position);
+        context.Trace = Trace;
+        var assetList = ReadXAssetList(ref context);
         
+        context.ResolveQueued();
+        _position = context.Position;
+
         return assetList;
     }
 
-    private XAssetList ReadXAssetList()
+    private static XAssetList ReadXAssetList(ref ZoneReadContext context)
     {
+        var scriptStringCount = context.ReadInt32();
+        var scriptStringsPtr = context.ReadPointer<ZonePointer<string?>[]>(
+            (ref ZoneReadContext pointerContext, ZonePointer<ZonePointer<string?>[]> pointer) =>
+            {
+                var pointers = ReadScriptStringPointers(ref pointerContext, scriptStringCount);
+                pointer.SetResult(pointers);
+
+                foreach (var scriptStringPointer in pointers)
+                {
+                    if (scriptStringPointer.Kind == PointerKind.Null)
+                    {
+                        scriptStringPointer.SetResult(default);
+                        continue;
+                    }
+
+                    var scriptString = pointerContext.ReadPointerValue(
+                        scriptStringPointer,
+                        GenericReader.ReadCString);
+
+                    scriptStringPointer.SetResult(scriptString);
+                }
+            });
+        var assetCount = context.ReadInt32();
+        var assetsPtr = context.ReadPointer<XAsset[]>(
+            (ref ZoneReadContext pointerContext, ZonePointer<XAsset[]> pointer) =>
+            {
+                var assets = ReadAssets(ref pointerContext, assetCount);
+                pointer.SetResult(assets);
+            });
+
         return new XAssetList
         {
-            ScriptStringCount = Span.ReadInt32(ref _position),
-            ScriptStringsPtr = ReadPointer<ZonePointer<string?>[]>(),
-
-            AssetCount = Span.ReadInt32(ref _position),
-            AssetsPtr = ReadPointer<XAsset[]>(),
+            ScriptStringCount = scriptStringCount,
+            ScriptStringsPtr = scriptStringsPtr,
+            AssetCount = assetCount,
+            AssetsPtr = assetsPtr,
         };
     }
 
-    private void ResolveXAssetList(XAssetList assetList)
+    private static ZonePointer<string?>[] ReadScriptStringPointers(
+        ref ZoneReadContext context,
+        int count)
     {
-        ResolveScriptStrings(assetList.ScriptStringCount, assetList.ScriptStringsPtr);
+        var pointers = new ZonePointer<string?>[count];
+        for (var i = 0; i < count; i++)
+            pointers[i] = context.ReadPointer<string?>();
 
-        assetList.ScriptStrings = assetList.ScriptStringsPtr.Result!
-            .Select(ptr => ptr.Result)
-            .ToArray();
-
-        ResolveAssets(assetList.AssetCount, assetList.AssetsPtr);
-
-        assetList.Assets = assetList.AssetsPtr.Result!;
+        return pointers;
     }
-    
-    #region Pointers
-    private void ResolvePointer(Pointer ptr)
+
+    private static XAsset[] ReadAssets(ref ZoneReadContext context, int count)
     {
-        Memory.ResolvePointer(ptr, _position);
-    }
-    
-    private ZonePointer<T> ReadPointer<T>()
-    {
-        return Memory.ReadPointer<T>(Span, ref _position);
-    }
-    #endregion
-    
-    #region Implementations
-    private void ResolveScriptStrings(
-        int count,
-        ZonePointer<ZonePointer<string?>[]> scriptStringsPtr)
-    {
-        ResolvePointer(scriptStringsPtr);
-
-        var stringPointers = new ZonePointer<string?>[count];
-
-        for (int i = 0; i < count; i++)
-        {
-            stringPointers[i] = ReadPointer<string?>();
-        }
-
-        scriptStringsPtr.SetResult(stringPointers);
-
-        for (int i = 0; i < count; i++)
-        {
-            var stringPtr = stringPointers[i];
-
-            if (stringPtr.Kind == PointerKind.Null)
-            {
-                stringPtr.SetResult(null);
-                continue;
-            }
-
-            ResolvePointer(stringPtr);
-
-            _position = stringPtr.Offset;
-
-            string value = Span.ReadCStringAt(ref _position);
-            stringPtr.SetResult(value);
-        }
-    }
-    
-    private void ResolveAssets(
-        int count,
-        ZonePointer<XAsset[]> assetTablePtr)
-    {
-        ResolvePointer(assetTablePtr);
-
         var assets = new XAsset[count];
+        for (var i = 0; i < count; i++)
+            assets[i] = ReadAsset(ref context, i);
 
-        for (int i = 0; i < count; i++)
-        {
-            assets[i] = new XAsset()
-            {
-                Type = (XAssetType)Span.ReadInt32(ref _position),
-                XAssetPtr = ReadPointer<BaseAsset>()
-            };
-        }
-        
-        assetTablePtr.SetResult(assets);
-
-        for (int i = 0; i < count; i++)
-        {
-            var asset = assets[i];
-
-            ResolvePointer(asset.XAssetPtr);
-            _position = asset.XAssetPtr.Offset;
-
-            if (asset.XAssetPtr.Kind == PointerKind.Null)
-            {
-                asset.XAssetPtr.SetResult(null);
-                continue;
-            }
-
-            BaseAsset value = ReadAssetHeader(asset.Type);
-
-            if (value is UnknownAsset)
-                break;
-            
-            asset.XAssetPtr.SetResult(value);
-        }
+        return assets;
     }
 
-    private BaseAsset ReadAssetHeader(XAssetType type)
+    private static XAsset ReadAsset(ref ZoneReadContext context, int index)
     {
-        if (XAssetReaderRegistry.TryGetReader(type, out XAssetReader reader))
-            return reader(Span, ref _position);
-        
-        return ReadUnknownAsset(type);
-    }
+        var type = (XAssetType)context.ReadInt32();
 
-    private UnknownAsset ReadUnknownAsset(XAssetType type)
-    {
-        _warnings.Add($"No asset reader registered for {type} at offset {_position}.");
-
-        return new UnknownAsset(type)
+        return new XAsset
         {
-            Offset = _position
+            Type = type,
+            XAssetPtr = context.ReadPointer<BaseAsset>(
+                (ref ZoneReadContext pointerContext, ZonePointer<BaseAsset> pointer) =>
+                {
+                    var start = pointerContext.Position;
+
+                    if (!XAssetReaderRegistry.TryGetReader(type, out var reader))
+                    {
+                        pointer.SetResult(new UnknownAsset(type)
+                        {
+                            Offset = pointerContext.Position
+                        });
+                        pointerContext.Trace?.Invoke($"Asset[{index}] {type}", start, pointerContext.Position);
+                        return;
+                    }
+
+                    try
+                    {
+                        var asset = reader(ref pointerContext);
+                        pointer.SetResult(asset);
+                        pointerContext.Trace?.Invoke($"Asset[{index}] {type}", start, pointerContext.Position);
+                    }
+                    catch (Exception ex) when (ex is not InvalidDataException { InnerException: not null })
+                    {
+                        throw new InvalidDataException(
+                            $"Failed to read asset[{index}] {type} at zone offset 0x{pointerContext.Position:X8} ({pointerContext.Position:N0}); raw pointer=0x{pointer.Raw:X8}.",
+                            ex);
+                    }
+                }),
         };
     }
-    #endregion
 }

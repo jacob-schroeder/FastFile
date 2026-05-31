@@ -6,9 +6,13 @@ public class XAssetList
 {
     public int ScriptStringCount { get; set; }
     public ZonePointer<ZonePointer<string?>[]> ScriptStringsPtr { get; set; }
-    public string?[] ScriptStrings { get; set; } = [];
+    public string?[] ScriptStrings => ScriptStringsPtr is { IsResolved: true, Result: not null }
+        ? ScriptStringsPtr.Result.Select(pointer => pointer.Result).ToArray()
+        : Array.Empty<string?>();
     
     public int AssetCount { get; set; }
     public ZonePointer<XAsset[]> AssetsPtr { get; set; }
-    public XAsset[] Assets { get; set; } = [];
+    public XAsset[] Assets => AssetsPtr is { IsResolved: true, Result: not null }
+        ? AssetsPtr.Result
+        : Array.Empty<XAsset>();
 }

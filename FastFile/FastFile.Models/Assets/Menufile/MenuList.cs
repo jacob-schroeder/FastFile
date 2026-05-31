@@ -10,5 +10,5 @@ public class MenuList() : BaseAsset(XAssetType.MenuFile)
     public int MenuCount { get; set; }
     public ZonePointer<ZonePointer<MenuDef>[]> Menus { get; set; }
 
-    public override string? GetDisplayName => NamePtr.IsResolved ? NamePtr.Result : string.Empty;
+    public override string? GetDisplayName => NamePtr is { IsResolved: true } ? NamePtr.Result : string.Empty;
 }

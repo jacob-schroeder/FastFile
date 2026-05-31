@@ -27,9 +27,9 @@ public class Pointer
             return;
         }
 
+        Kind = PointerKind.Offset;
         StreamBlockIndex = (Raw >> 28) & 0xF;
         Offset = raw & 0x0FFFFFFF;
-        return;
     }
 
     public void SetOffset(int address)

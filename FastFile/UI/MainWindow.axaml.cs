@@ -99,6 +99,7 @@ public partial class MainWindow : Window
 
         AddLog("INFO", "Parsing asset list");
         _assetList = zoneReader.ParseXAssetList();
+
         AddLog("INFO", $"Asset list parsed: assets={_assetList.AssetCount:N0}, scriptStrings={_assetList.ScriptStringCount:N0}");
         AddWarnings("ZoneReader", zoneReader.Warnings);
     }

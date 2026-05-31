@@ -1,6 +1,6 @@
 namespace FastFile.Models.Assets.TechniqueSet;
 
-public enum MaterialWorldVertexFormat : int
+public enum MaterialWorldVertexFormat : byte
 {
     MTL_WORLDVERT_TEX_1_NRM_1 = 0x0,
     MTL_WORLDVERT_TEX_2_NRM_1 = 0x1,

@@ -1,55 +1,55 @@
-using FastFile.Logic.Extensions;
+using FastFile.Logic.Assets.Generic;
+using FastFile.Models.Assets;
+using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
-using FastFile.Models.Assets.Menu;
 
 namespace FastFile.Logic.Assets;
 
-public static class MenufileReader
+internal static class MenufileReader
 {
-    public static MenuList Read(ReadOnlySpan<byte> span, ref int position)
+    public static BaseAsset Read(ref ZoneReadContext context)
     {
-        var asset = new MenuList()
+        var asset = new MenuList
         {
-            Offset = position,
-            NamePtr = Memory.ReadPointer<string>(span, ref position),
-            MenuCount = span.ReadInt32(ref position),
-            Menus = Memory.ReadPointer<ZonePointer<MenuDef>[]>(span, ref position),
+            Offset = context.Position,
         };
-        
-        ResolveName(ref asset, span, ref position);
-        
-        ResolveMenus(ref asset, span, ref position);
+
+        asset.NamePtr = context.ReadPointer<string>();
+        asset.MenuCount = context.ReadInt32();
+        var menusPointer = context.ReadPointer<ZonePointer<MenuDef>[]>();
+
+        if (asset.MenuCount is < 0 or > 10_000
+            || asset.MenuCount == 0 && (asset.NamePtr.Kind != PointerKind.Null || menusPointer.Kind != PointerKind.Null))
+        {
+            context.Position = asset.Offset;
+            return MenuReader.Read(ref context, windowDynamicFlagCount: 2);
+        }
+
+        context.ResolveInlinePointer(asset.NamePtr, GenericReader.ReadStringPointerValue);
+        context.ResolveInlinePointer(
+            menusPointer,
+            (ref ZoneReadContext pointerContext, ZonePointer<ZonePointer<MenuDef>[]> pointer) =>
+            {
+                var pointers = new ZonePointer<MenuDef>[asset.MenuCount];
+                for (var i = 0; i < asset.MenuCount; i++)
+                    pointers[i] = pointerContext.ReadPointer<MenuDef>();
+
+                pointer.SetResult(pointers);
+
+                foreach (var menuPointer in pointers)
+                {
+                    pointerContext.ResolveInlinePointer(
+                        menuPointer,
+                        (ref ZoneReadContext menuContext, ZonePointer<MenuDef> resolvedMenuPointer) =>
+                        {
+                            var value = menuContext.ReadPointerValue(resolvedMenuPointer, MenuReader.Read);
+                            resolvedMenuPointer.SetResult(value);
+                        });
+                }
+            });
+        asset.Menus = menusPointer;
 
         return asset;
-    }
-
-    private static void ResolveName(ref MenuList asset, ReadOnlySpan<byte> span, ref int position)
-    {
-        Memory.ResolvePointer(asset.NamePtr, position);
-        position = asset.NamePtr.Offset;
-        
-        asset.NamePtr.SetResult(span.ReadCStringAt(ref position));
-    }
-
-    private static void ResolveMenus(ref MenuList asset, ReadOnlySpan<byte> span, ref int position)
-    {
-        Memory.ResolvePointer(asset.Menus, position);
-        position = asset.Menus.Offset;
-
-        ZonePointer<MenuDef>[] pointers = new ZonePointer<MenuDef>[asset.MenuCount];
-        for (int i = 0; i < asset.MenuCount; i++)
-            pointers[i] = Memory.ReadPointer<MenuDef>(span, ref position);
-        asset.Menus.SetResult(pointers);
-
-        for (int i = 0; i < asset.MenuCount; i++)
-        {
-            var menu = MenuReader.Read(span, ref position);
-
-            //throwing a break b/c menu is not complete yet.
-            return;
-            
-            throw new NotImplementedException();
-        }
     }
 }

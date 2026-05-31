@@ -17,10 +17,14 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result : string.Empty;
     
     public MaterialWorldVertexFormat WorldVertexFormat { get; set; }
+    public bool HasBeenUploaded { get; set; }
+    public byte[] Unused { get; set; } = new byte[2];
 
     //This is not int, just placeholder for the first asset in my test.ff
     //TODO: FINISH TECHSET
     public ZonePointer<int>[] Techniques { get; set; } = new ZonePointer<int>[MAX_TECHNIQUES];
 
-    public override string? GetDisplayName => Name;
+    public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
+        ? $"Techset 0x{Offset:X8}"
+        : Name;
 }

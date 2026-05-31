@@ -7,6 +7,7 @@ using FastFile.Models;
 using System.Collections.Generic;
 using System.Linq;
 using FastFile.Logic;
+using FastFile.Models.Data;
 using FastFile.Models.Zone;
 using UI.Models;
 
@@ -152,12 +153,8 @@ public partial class ZoneTab : UserControl
             return;
         }
 
-        if (_xassetList?.ScriptStrings is not null && index >= 0 && index < _xassetList.ScriptStrings.Length)
-        {
-            _xassetList.ScriptStrings[index] = item.Display;
-        }
-
         item.IsEditing = false;
+        CommitScriptStrings();
         RefreshScriptStringItems();
     }
 
@@ -168,9 +165,16 @@ public partial class ZoneTab : UserControl
             return;
         }
 
-        _xassetList.ScriptStrings = _scriptStringItems
-            .Select(item => string.IsNullOrEmpty(item.Display) ? null : item.Display)
+        var pointers = _scriptStringItems
+            .Select(item =>
+            {
+                var pointer = new ZonePointer<string?>(0);
+                pointer.SetResult(string.IsNullOrEmpty(item.Display) ? null : item.Display);
+                return pointer;
+            })
             .ToArray();
+
+        _xassetList.ScriptStringsPtr.SetResult(pointers);
         _xassetList.ScriptStringCount = _xassetList.ScriptStrings.Length;
     }
 
