@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using FastFile.Models.Assets.Localize;
+using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
 using FastFile.Models.Assets.RawFiles;
 using FastFile.Models.Assets.StringTables;
@@ -200,6 +201,7 @@ public partial class AssetsTab : UserControl
         return asset.AssetType switch
         {
             XAssetType.Localize when asset.Asset is LocalizeEntry localizeEntry => new LocalizeAssetView(localizeEntry),
+            XAssetType.MenuFile when asset.Asset is MenuList menuList => new MenuListAssetView(menuList),
             XAssetType.StringTable when asset.Asset is StringTable stringTable => new StringTableAssetView(stringTable),
             XAssetType.Techset => new TechsetAssetView(),
             XAssetType.RawFile when asset.Asset is RawFile rawFile => new RawfileAssetView(rawFile),
