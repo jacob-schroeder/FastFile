@@ -38,6 +38,33 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <Style Selector="Button.menuListRowButton">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.menuListRowButton:pointerover">
+            <Setter Property="Background" Value="#2B2D30" />
+        </Style>
+
+        <Style Selector="Button.menuListRowButton:disabled">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*"
@@ -84,29 +111,34 @@
                                 <Border BorderBrush="#3C3F44"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8">
-                                    <Grid ColumnDefinitions="52,320,90,90,160,120,160"
-                                          ColumnSpacing="12">
-                                        <TextBlock Classes="menuListMutedCell"
-                                                   Text="{Binding Index}" />
-                                        <TextBlock Grid.Column="1"
-                                                   Classes="menuListCell"
-                                                   Text="{Binding Name}" />
-                                        <TextBlock Grid.Column="2"
-                                                   Classes="menuListCell"
-                                                   Text="{Binding ItemCount}" />
-                                        <TextBlock Grid.Column="3"
-                                                   Classes="menuListCell"
-                                                   Text="{Binding Fullscreen}" />
-                                        <TextBlock Grid.Column="4"
-                                                   Classes="menuListMutedCell"
-                                                   Text="{Binding Font}" />
-                                        <TextBlock Grid.Column="5"
-                                                   Classes="menuListMutedCell"
-                                                   Text="{Binding Rect}" />
-                                        <TextBlock Grid.Column="6"
-                                                   Classes="menuListMutedCell"
-                                                   Text="{Binding Pointer}" />
-                                    </Grid>
+                                    <Button Classes="menuListRowButton"
+                                            Tag="{Binding}"
+                                            IsEnabled="{Binding CanOpen}"
+                                            Click="MenuRow_Click">
+                                        <Grid ColumnDefinitions="52,320,90,90,160,120,160"
+                                              ColumnSpacing="12">
+                                            <TextBlock Classes="menuListMutedCell"
+                                                       Text="{Binding Index}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Classes="menuListCell"
+                                                       Text="{Binding Name}" />
+                                            <TextBlock Grid.Column="2"
+                                                       Classes="menuListCell"
+                                                       Text="{Binding ItemCount}" />
+                                            <TextBlock Grid.Column="3"
+                                                       Classes="menuListCell"
+                                                       Text="{Binding Fullscreen}" />
+                                            <TextBlock Grid.Column="4"
+                                                       Classes="menuListMutedCell"
+                                                       Text="{Binding Font}" />
+                                            <TextBlock Grid.Column="5"
+                                                       Classes="menuListMutedCell"
+                                                       Text="{Binding Rect}" />
+                                            <TextBlock Grid.Column="6"
+                                                       Classes="menuListMutedCell"
+                                                       Text="{Binding Pointer}" />
+                                        </Grid>
+                                    </Button>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

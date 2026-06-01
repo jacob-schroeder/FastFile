@@ -30,6 +30,7 @@ public sealed class MenuListMenuDisplayItem
         }
 
         var menu = menuPointer.Result;
+        Menu = menu;
         Name = FormatStringPointer(menu.Window?.NamePtr, menu.Window?.Name, "(unnamed menu)");
         ItemCount = menu.ItemCount.ToString("N0", CultureInfo.CurrentCulture);
         Font = FormatStringPointer(menu.FontPtr, menu.Font, string.Empty);
@@ -38,6 +39,10 @@ public sealed class MenuListMenuDisplayItem
     }
 
     public int Index { get; }
+
+    public MenuDef? Menu { get; private set; }
+
+    public bool CanOpen => Menu is not null;
 
     public string Name { get; private set; } = string.Empty;
 
