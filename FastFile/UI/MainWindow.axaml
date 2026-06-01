@@ -6,7 +6,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UI.MainWindow"
         Title="FastFile"
-        Background="#F4F8FF">
+        Background="#1E1F22">
     <Window.Styles>
         <StyleInclude Source="/Styles/MainWindowStyles.axaml" />
     </Window.Styles>
@@ -21,39 +21,19 @@
             <MenuItem Header="_About" Classes="topMenuItem" Click="AboutMenuItem_Click" />
         </Menu>
 
-        <Grid Grid.Row="1" ClipToBounds="True">
-            <Grid.Background>
-                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                    <GradientStop Color="#EAF4FF" Offset="0" />
-                    <GradientStop Color="#F7FBFF" Offset="0.48" />
-                    <GradientStop Color="#DDEAFF" Offset="1" />
-                </LinearGradientBrush>
-            </Grid.Background>
-
-            <Ellipse Width="420"
-                     Height="260"
-                     Fill="#65AEEBFF"
-                     IsHitTestVisible="False"
-                     Opacity="0.7"
-                     HorizontalAlignment="Left"
-                     VerticalAlignment="Top"
-                     Margin="-120,-90,0,0" />
-            <Ellipse Width="360"
-                     Height="260"
-                     Fill="#55FFFFFF"
-                     IsHitTestVisible="False"
-                     Opacity="0.85"
-                     HorizontalAlignment="Right"
-                     VerticalAlignment="Bottom"
-                     Margin="0,0,-90,-80" />
-
+        <Grid Grid.Row="1"
+              Background="#1E1F22"
+              ClipToBounds="True">
             <TabControl Classes="mainTabs"
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch">
                 <TabItem>
                     <TabItem.Header>
                         <Border Classes="tabHeader">
-                            <TextBlock Classes="tabHeaderText" Text="FastFile" />
+                            <Grid RowDefinitions="*,7">
+                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="FastFile" />
+                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
+                            </Grid>
                         </Border>
                     </TabItem.Header>
                     <tabs:FastFileTab x:Name="FastFileTabView" />
@@ -62,7 +42,10 @@
                 <TabItem>
                     <TabItem.Header>
                         <Border Classes="tabHeader">
-                            <TextBlock Classes="tabHeaderText" Text="Zone" />
+                            <Grid RowDefinitions="*,7">
+                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="Zone" />
+                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
+                            </Grid>
                         </Border>
                     </TabItem.Header>
                     <tabs:ZoneTab x:Name="ZoneTabView" />
@@ -71,7 +54,10 @@
                 <TabItem>
                     <TabItem.Header>
                         <Border Classes="tabHeader">
-                            <TextBlock Classes="tabHeaderText" Text="Assets" />
+                            <Grid RowDefinitions="*,7">
+                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="Assets" />
+                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
+                            </Grid>
                         </Border>
                     </TabItem.Header>
                     <tabs:AssetsTab x:Name="AssetsTabView" />
@@ -80,7 +66,10 @@
                 <TabItem>
                     <TabItem.Header>
                         <Border Classes="tabHeader">
-                            <TextBlock Classes="tabHeaderText" Text="Log" />
+                            <Grid RowDefinitions="*,7">
+                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="Log" />
+                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
+                            </Grid>
                         </Border>
                     </TabItem.Header>
                     <tabs:LogTab x:Name="LogTabView" />

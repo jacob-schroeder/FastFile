@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="UI.Views.Assets.LocalizeAssetView">
+    <Grid RowDefinitions="Auto,Auto,*"
+          Background="#1E1F22"
+          Margin="18">
+        <TextBlock Text="Name"
+                   FontSize="13"
+                   FontWeight="SemiBold"
+                   Foreground="#C7C9D1" />
+
+        <TextBox x:Name="NameTextBox"
+                 Grid.Row="1"
+                 Margin="0,6,0,16"
+                 HorizontalAlignment="Stretch" />
+
+        <Grid Grid.Row="2"
+              RowDefinitions="Auto,*">
+            <TextBlock Text="Value"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="#C7C9D1" />
+
+            <TextBox x:Name="ValueTextBox"
+                     Grid.Row="1"
+                     Margin="0,6,0,0"
+                     AcceptsReturn="True"
+                     HorizontalAlignment="Stretch"
+                     TextWrapping="Wrap"
+                     VerticalAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        </Grid>
+    </Grid>
+</UserControl>

@@ -3,20 +3,20 @@
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:models="clr-namespace:UI.Models"
              x:Class="UI.Tabs.ZoneTab">
-    <Grid ColumnDefinitions="*,*" Margin="12" ColumnSpacing="12">
+    <Grid ColumnDefinitions="*,*" Margin="0" ColumnSpacing="0">
 
         <Border Grid.Column="0"
-                Margin="0,20,0,0"
+                Margin="0"
                 Padding="0"
-                CornerRadius="14"
-                Background="#B8FFFFFF"
-                BorderBrush="#70A8D7FF"
+                CornerRadius="0"
+                Background="#2B2D30"
+                BorderBrush="#4E5157"
                 BorderThickness="1">
             <Grid RowDefinitions="Auto,*" Margin="18">
                 <TextBlock x:Name="ZoneDetailsHeader"
                            Text="Details"
                            FontSize="22"
-                           Foreground="#000000"
+                           Foreground="#F4F4F5"
                            TextWrapping="Wrap" />
 
                 <ScrollViewer Grid.Row="1"
@@ -48,18 +48,18 @@
         </Border>
         
         <Border Grid.Column="1"
-                Margin="0,20,0,0"
+                Margin="0"
                 Padding="0"
-                CornerRadius="14"
-                Background="#B8FFFFFF"
-                BorderBrush="#70A8D7FF"
+                CornerRadius="0"
+                Background="#2B2D30"
+                BorderBrush="#4E5157"
                 BorderThickness="1">
             <Grid RowDefinitions="Auto,*" Margin="18">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock x:Name="ScriptStringsHeader"
                                Text="Script Strings"
                                FontSize="22"
-                               Foreground="#000000"
+                               Foreground="#F4F4F5"
                                TextWrapping="Wrap" />
                     <Button Grid.Column="1"
                             Classes="actionButton actionButtonSuccess"

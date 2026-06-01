@@ -2,12 +2,7 @@
     <Style Selector="Menu.mainMenu">
         <Setter Property="Height" Value="34" />
         <Setter Property="Padding" Value="8,0" />
-        <Setter Property="Background">
-            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#2F8CFF" Offset="0" />
-                <GradientStop Color="#06438F" Offset="1" />
-            </LinearGradientBrush>
-        </Setter>
+        <Setter Property="Background" Value="#2B2D30" />
     </Style>
 
     <Style Selector="MenuItem.topMenuItem">
@@ -16,74 +11,83 @@
     </Style>
 
     <Style Selector="TabControl.mainTabs">
-        <Setter Property="Margin" Value="16" />
-        <Setter Property="Background" Value="#7AFFFFFF" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="#1E1F22" />
+        <Setter Property="IndicatorTemplate">
+            <DataTemplate>
+                <Border Height="0"
+                        Background="Transparent" />
+            </DataTemplate>
+        </Setter>
     </Style>
 
     <Style Selector="TabItem">
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="Margin" Value="2,0,2,0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="IndicatorTemplate">
+            <DataTemplate>
+                <Border Height="0"
+                        Background="Transparent" />
+            </DataTemplate>
+        </Setter>
     </Style>
 
     <Style Selector="Border.tabHeader">
         <Setter Property="MinWidth" Value="96" />
-        <Setter Property="Padding" Value="16,9" />
-        <Setter Property="CornerRadius" Value="8,8,0,0" />
-        <Setter Property="BorderBrush" Value="#8BB9E9" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
         <Setter Property="BorderThickness" Value="1,1,1,0" />
-        <Setter Property="Background">
-            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#F8FBFF" Offset="0" />
-                <GradientStop Color="#DDEEFF" Offset="1" />
-            </LinearGradientBrush>
-        </Setter>
+        <Setter Property="Background" Value="#252629" />
     </Style>
 
     <Style Selector="TextBlock.tabHeaderText">
-        <Setter Property="Foreground" Value="#111827" />
+        <Setter Property="Foreground" Value="#C7C9D1" />
         <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="16,9,16,8" />
+    </Style>
+
+    <Style Selector="Border.tabHeaderSelectedBar">
+        <Setter Property="Height" Value="7" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
     </Style>
 
     <Style Selector="TabItem:pointerover Border.tabHeader">
-        <Setter Property="Background">
-            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#EAF4FF" Offset="0" />
-                <GradientStop Color="#C9E2FF" Offset="1" />
-            </LinearGradientBrush>
-        </Setter>
-        <Setter Property="BorderBrush" Value="#06438F" />
+        <Setter Property="Background" Value="#323438" />
+        <Setter Property="BorderBrush" Value="#DB5860" />
     </Style>
 
     <Style Selector="TabItem:pointerover TextBlock.tabHeaderText">
-        <Setter Property="Foreground" Value="#06438F" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
 
     <Style Selector="TabItem:selected Border.tabHeader">
-        <Setter Property="Background">
-            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Color="#FFFFFF" Offset="0" />
-                <GradientStop Color="#D8ECFF" Offset="1" />
-            </LinearGradientBrush>
-        </Setter>
-        <Setter Property="BorderBrush" Value="#2F8CFF" />
+        <Setter Property="Background" Value="#3A3D42" />
+        <Setter Property="BorderBrush" Value="#DB5860" />
     </Style>
 
     <Style Selector="TabItem:selected TextBlock.tabHeaderText">
-        <Setter Property="Foreground" Value="#06438F" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="TabItem:selected Border.tabHeaderSelectedBar">
+        <Setter Property="Background" Value="#DB5860" />
     </Style>
 
     <Style Selector="Border.listGroup">
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Background" Value="White" />
-        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
 
     <Style Selector="Border.listGroupItem">
         <Setter Property="Padding" Value="16,12" />
-        <Setter Property="Background" Value="White" />
-        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#3C3F44" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
     </Style>
 
@@ -92,16 +96,25 @@
     </Style>
 
     <Style Selector="TextBlock.listGroupLabel">
-        <Setter Property="Foreground" Value="#212529" />
+        <Setter Property="Foreground" Value="#F4F4F5" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="#1E1F22" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Foreground" Value="#F4F4F5" />
+        <Setter Property="SelectionBrush" Value="#7B3137" />
     </Style>
 
     <Style Selector="Border.badge">
         <Setter Property="MinWidth" Value="48" />
         <Setter Property="Padding" Value="10,4" />
         <Setter Property="CornerRadius" Value="999" />
-        <Setter Property="Background" Value="#0D6EFD" />
+        <Setter Property="Background" Value="#9E3A3F" />
     </Style>
 
     <Style Selector="TextBlock.badgeText">
@@ -115,14 +128,14 @@
         <Setter Property="MinWidth" Value="36" />
         <Setter Property="Padding" Value="10,4" />
         <Setter Property="CornerRadius" Value="999" />
-        <Setter Property="Background" Value="#DC3545" />
+        <Setter Property="Background" Value="#DB5860" />
     </Style>
 
     <Style Selector="Border.assetTreeCountBadge">
         <Setter Property="MinWidth" Value="28" />
         <Setter Property="Padding" Value="8,2" />
         <Setter Property="CornerRadius" Value="999" />
-        <Setter Property="Background" Value="#DC3545" />
+        <Setter Property="Background" Value="#DB5860" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
@@ -134,15 +147,15 @@
     </Style>
 
     <Style Selector="Border.accordion">
-        <Setter Property="Background" Value="White" />
-        <Setter Property="BorderBrush" Value="#DEE2E6" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
     </Style>
 
     <Style Selector="Border.accordionItem">
-        <Setter Property="Background" Value="White" />
-        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#3C3F44" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
     </Style>
 
@@ -152,7 +165,7 @@
 
     <Style Selector="Button.accordionHeaderButton">
         <Setter Property="Padding" Value="22,14" />
-        <Setter Property="Background" Value="#F8F9FA" />
+        <Setter Property="Background" Value="#2B2D30" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -170,21 +183,20 @@
     </Style>
 
     <Style Selector="Button.accordionHeaderButton:pointerover">
-        <Setter Property="Background" Value="#E7F1FF" />
+        <Setter Property="Background" Value="#3A3D42" />
     </Style>
 
     <Style Selector="Border.accordionBody">
         <Setter Property="Padding" Value="16" />
-        <Setter Property="Background" Value="White" />
-        <Setter Property="BorderBrush" Value="#DEE2E6" />
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#3C3F44" />
         <Setter Property="BorderThickness" Value="0,1,0,0" />
     </Style>
 
     <Style Selector="Border.assetTree">
-        <Setter Property="Background" Value="#1E1F22" />
-        <Setter Property="BorderBrush" Value="#393B40" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
     </Style>
 
     <Style Selector="TextBlock.assetTreeHeader">
@@ -212,7 +224,7 @@
     </Style>
 
     <Style Selector="Button.assetTreeFolderButton:pointerover">
-        <Setter Property="Background" Value="#2B2D31" />
+        <Setter Property="Background" Value="#3A3D42" />
     </Style>
 
     <Style Selector="TextBlock.assetTreeText">
@@ -251,14 +263,66 @@
     </Style>
 
     <Style Selector="Button.assetTreeAssetButton:pointerover">
-        <Setter Property="Background" Value="#2B2D31" />
+        <Setter Property="Background" Value="#3A3D42" />
     </Style>
 
     <Style Selector="Border.assetDetailHost">
-        <Setter Property="Background" Value="#F8FBFF" />
-        <Setter Property="BorderBrush" Value="#70A8D7FF" />
+        <Setter Property="Background" Value="#1E1F22" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style Selector="Border.assetDetailTabStrip">
+        <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="6,6,6,0" />
+    </Style>
+
+    <Style Selector="Border.assetDetailTabHeader">
+        <Setter Property="MinWidth" Value="128" />
+        <Setter Property="MaxWidth" Value="260" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="Button.assetDetailTabSelectButton">
+        <Setter Property="Padding" Value="10,6,4,6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.assetDetailTabTitle">
+        <Setter Property="Foreground" Value="#F4F4F5" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.assetDetailTabCloseButton">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="Margin" Value="0,5,6,5" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Foreground" Value="#C7C9D1" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.assetDetailTabCloseButton:pointerover">
+        <Setter Property="Background" Value="#4A2B2F" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
 
     <Style Selector="StackPanel.assetTreeGroup">
@@ -266,10 +330,10 @@
     </Style>
 
     <Style Selector="Border.logOutput">
-        <Setter Property="Background" Value="#111827" />
-        <Setter Property="BorderBrush" Value="#334155" />
+        <Setter Property="Background" Value="#1E1F22" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="CornerRadius" Value="0" />
         <Setter Property="Padding" Value="14" />
     </Style>
 
@@ -285,7 +349,7 @@
         <Setter Property="Width" Value="28" />
         <Setter Property="Height" Value="24" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="5" />
+        <Setter Property="CornerRadius" Value="0" />
         <Setter Property="Foreground" Value="White" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -304,32 +368,32 @@
     </Style>
 
     <Style Selector="Button.actionButtonDanger">
-        <Setter Property="Background" Value="#DC3545" />
-        <Setter Property="BorderBrush" Value="#DC3545" />
+        <Setter Property="Background" Value="#DB5860" />
+        <Setter Property="BorderBrush" Value="#DB5860" />
     </Style>
 
     <Style Selector="Button.actionButtonDanger:pointerover">
-        <Setter Property="Background" Value="#BB2D3B" />
-        <Setter Property="BorderBrush" Value="#B02A37" />
+        <Setter Property="Background" Value="#B43F46" />
+        <Setter Property="BorderBrush" Value="#B43F46" />
     </Style>
 
     <Style Selector="Button.actionButtonPrimary">
-        <Setter Property="Background" Value="#0D6EFD" />
-        <Setter Property="BorderBrush" Value="#0D6EFD" />
+        <Setter Property="Background" Value="#9E3A3F" />
+        <Setter Property="BorderBrush" Value="#9E3A3F" />
     </Style>
 
     <Style Selector="Button.actionButtonPrimary:pointerover">
-        <Setter Property="Background" Value="#0B5ED7" />
-        <Setter Property="BorderBrush" Value="#0A58CA" />
+        <Setter Property="Background" Value="#B43F46" />
+        <Setter Property="BorderBrush" Value="#B43F46" />
     </Style>
 
     <Style Selector="Button.actionButtonSuccess">
-        <Setter Property="Background" Value="#198754" />
-        <Setter Property="BorderBrush" Value="#198754" />
+        <Setter Property="Background" Value="#3A3D42" />
+        <Setter Property="BorderBrush" Value="#DB5860" />
     </Style>
 
     <Style Selector="Button.actionButtonSuccess:pointerover">
-        <Setter Property="Background" Value="#157347" />
-        <Setter Property="BorderBrush" Value="#146C43" />
+        <Setter Property="Background" Value="#4A2B2F" />
+        <Setter Property="BorderBrush" Value="#DB5860" />
     </Style>
 </Styles>

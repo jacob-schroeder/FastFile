@@ -3,16 +3,16 @@
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:models="clr-namespace:UI.Models"
              x:Class="UI.Tabs.AssetsTab">
-    <Grid ColumnDefinitions="3*,7*" ColumnSpacing="12" Margin="12">
+    <Grid ColumnDefinitions="3*,7*" ColumnSpacing="0" Margin="0">
         <Border Grid.Column="0"
                 Padding="0"
-                CornerRadius="14"
-                Background="#1E1F22"
-                BorderBrush="#393B40"
-                BorderThickness="1">
+                CornerRadius="0"
+                Background="#252629"
+                BorderBrush="#4E5157"
+                BorderThickness="1,1,0,1">
             <Grid RowDefinitions="Auto,*" Margin="0">
                 <Border Padding="14,12"
-                        BorderBrush="#393B40"
+                        BorderBrush="#4E5157"
                         BorderThickness="0,0,0,1">
                     <TextBlock Classes="assetTreeHeader"
                                Text="Zone" />
@@ -38,19 +38,19 @@
                                                 <materialIcons:MaterialIcon Grid.Column="0"
                                                                             Width="16"
                                                                             Height="16"
-                                                                            Foreground="#C4C8D4"
+                                                                            Foreground="#C7C9D1"
                                                                             IsVisible="{Binding IsCollapsed}"
                                                                             Kind="MenuRight" />
                                                 <materialIcons:MaterialIcon Grid.Column="0"
                                                                             Width="16"
                                                                             Height="16"
-                                                                            Foreground="#C4C8D4"
+                                                                            Foreground="#C7C9D1"
                                                                             IsVisible="{Binding IsExpanded}"
                                                                             Kind="CaretDown" />
                                                 <materialIcons:MaterialIcon Grid.Column="1"
                                                                             Width="16"
                                                                             Height="16"
-                                                                            Foreground="#C4C8D4"
+                                                                            Foreground="#C7C9D1"
                                                                             Kind="FolderOpenOutline" />
                                                 <TextBlock Grid.Column="2"
                                                            Classes="assetTreeText"
@@ -77,7 +77,7 @@
                                                                                             Width="15"
                                                                                             Height="15"
                                                                                             Margin="0,0,8,0"
-                                                                                            Foreground="#8EA8C3"
+                                                                                            Foreground="#DB5860"
                                                                                             Kind="FileDocumentOutline" />
                                                                 <TextBlock Grid.Column="1"
                                                                            Classes="assetTreeText"
@@ -99,7 +99,65 @@
 
         <Border Grid.Column="1"
                 Classes="assetDetailHost">
-            <ContentControl x:Name="AssetDetailContentControl" />
+            <Grid>
+                <ContentControl x:Name="AssetDetailEmptyContentControl" />
+
+                <Grid x:Name="AssetDetailTabsHost"
+                      IsVisible="False"
+                      RowDefinitions="Auto,*">
+                    <Border Classes="assetDetailTabStrip">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
+                            <ItemsControl x:Name="AssetDetailTabsItemsControl">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:AssetDetailTabItem">
+                                        <Border Classes="assetDetailTabHeader"
+                                                Background="{Binding HeaderBackground}"
+                                                BorderBrush="{Binding HeaderBorderBrush}"
+                                                BorderThickness="{Binding HeaderBorderThickness}">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Close All"
+                                                              Click="AssetDetailTabCloseAllMenuItem_Click" />
+                                                    <MenuItem Header="Close Tab"
+                                                              Tag="{Binding AssetId}"
+                                                              Click="AssetDetailTabCloseMenuItem_Click" />
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <Button Classes="assetDetailTabSelectButton"
+                                                        Tag="{Binding}"
+                                                        Click="AssetDetailTabButton_Click">
+                                                    <TextBlock Classes="assetDetailTabTitle"
+                                                               Text="{Binding Title}" />
+                                                </Button>
+
+                                                <Button Grid.Column="1"
+                                                        Classes="assetDetailTabCloseButton"
+                                                        Tag="{Binding AssetId}"
+                                                        Click="AssetDetailTabCloseButton_Click">
+                                                    <materialIcons:MaterialIcon Width="13"
+                                                                                Height="13"
+                                                                                Kind="Close" />
+                                                </Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <ContentControl x:Name="AssetDetailSelectedContentControl"
+                                    Grid.Row="1" />
+                </Grid>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

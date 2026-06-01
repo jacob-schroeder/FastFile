@@ -2,21 +2,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="clr-namespace:UI.Models"
              x:Class="UI.Tabs.FastFileTab">
-    <Grid RowDefinitions="Auto,*" Margin="12">
+    <Grid RowDefinitions="Auto,*" Margin="0">
         <StackPanel Spacing="6">
             <TextBlock x:Name="StatusTextBlock"
                        Text="Open a fastfile to inspect its zone assets."
                        FontSize="14"
-                       Foreground="#5B6F88"
+                       Foreground="#BFC0C9"
                        TextWrapping="Wrap" />
         </StackPanel>
 
         <Border Grid.Row="1"
-                Margin="0,20,0,0"
+                Margin="0"
                 Padding="0"
-                CornerRadius="14"
-                Background="#B8FFFFFF"
-                BorderBrush="#70A8D7FF"
+                CornerRadius="0"
+                Background="#2B2D30"
+                BorderBrush="#4E5157"
                 BorderThickness="1">
             <ScrollViewer Margin="18"
                           HorizontalScrollBarVisibility="Disabled"
