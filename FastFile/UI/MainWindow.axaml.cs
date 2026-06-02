@@ -4,6 +4,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using FastFile.Logic;
 using FastFile.Models;
+using FastFile.Models.Archive;
 using FastFile.Models.Zone;
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,7 @@ namespace UI;
 public partial class MainWindow : Window
 {
     private byte[]? _buffer;
+    private FastFileDocument? _document;
     private DB_Header? _fastFileHeader;
     private XFile? _zoneHeader;
     private XAssetList? _assetList;
@@ -25,6 +27,54 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SelectMainTab("FastFile");
+        UpdateDocumentState();
+    }
+
+    private void MainTabButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tabName })
+        {
+            SelectMainTab(tabName);
+        }
+    }
+
+    private void SelectMainTab(string tabName)
+    {
+        var isFastFile = string.Equals(tabName, "FastFile", StringComparison.Ordinal);
+        var isZone = string.Equals(tabName, "Zone", StringComparison.Ordinal);
+        var isAssets = string.Equals(tabName, "Assets", StringComparison.Ordinal);
+        var isLog = string.Equals(tabName, "Log", StringComparison.Ordinal);
+
+        FastFileTabView.IsVisible = isFastFile;
+        ZoneTabView.IsVisible = isZone;
+        AssetsTabView.IsVisible = isAssets;
+        LogTabView.IsVisible = isLog;
+
+        FastFileMainTabButton.Classes.Set("active", isFastFile);
+        ZoneMainTabButton.Classes.Set("active", isZone);
+        AssetsMainTabButton.Classes.Set("active", isAssets);
+        LogMainTabButton.Classes.Set("active", isLog);
+    }
+
+    private void NewMenuItem_Click(object? sender, RoutedEventArgs e)
+    {
+        _document = FastFileDocument.CreateNew();
+        _buffer = _document.Buffer;
+        _fastFileHeader = _document.Header;
+        _zoneHeader = _document.ZoneHeader;
+        _assetList = _document.AssetList;
+
+        ResetLog();
+        AddLog("INFO", "Initialized a new fastfile document");
+
+        UpdateFastFileHeaderView();
+        UpdateZoneTabView();
+        UpdateAssetsTabView();
+        UpdateDocumentState();
+
+        FastFileTabView.SetStatus("New fastfile\nAssets: 0");
+        UpdateLogView();
     }
 
     private async void OpenMenuItem_Click(object? sender, RoutedEventArgs e)
@@ -60,13 +110,14 @@ public partial class MainWindow : Window
             using var memoryStream = new MemoryStream();
             await fileStream.CopyToAsync(memoryStream);
 
-            _buffer = memoryStream.ToArray();
-            AddLog("INFO", $"Read {_buffer.Length:N0} bytes");
+            var buffer = memoryStream.ToArray();
+            AddLog("INFO", $"Read {buffer.Length:N0} bytes");
 
-            await Task.Run(() => ParseFastFile(_buffer));
+            await Task.Run(() => ParseFastFile(buffer));
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
             UpdateAssetsTabView();
+            UpdateDocumentState();
 
             FastFileTabView.SetStatus($"Opened: {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
             AddLog("INFO", "File load complete");
@@ -84,8 +135,8 @@ public partial class MainWindow : Window
     {
         var ffReader = new FastFileReader(buffer, buffer.Length);
         AddLog("INFO", "Parsing fastfile header");
-        _fastFileHeader = ffReader.ParseHeader();
-        AddLog("INFO", $"Fastfile header parsed: magic={_fastFileHeader.Magic}, version={_fastFileHeader.Version}, size={_fastFileHeader.FileSize:N0} bytes");
+        var fastFileHeader = ffReader.ParseHeader();
+        AddLog("INFO", $"Fastfile header parsed: magic={fastFileHeader.Magic}, version={fastFileHeader.Version}, size={fastFileHeader.FileSize:N0} bytes");
 
         AddLog("INFO", "Unpacking zone data");
         var zone = ffReader.UnpackZone();
@@ -94,14 +145,20 @@ public partial class MainWindow : Window
         
         var zoneReader = new ZoneReader(zone);
         AddLog("INFO", "Parsing zone header");
-        _zoneHeader = zoneReader.ParseHeader();
-        AddLog("INFO", $"Zone header parsed: size={_zoneHeader.Size:N0}, externalSize={_zoneHeader.ExternalSize:N0}");
+        var zoneHeader = zoneReader.ParseHeader();
+        AddLog("INFO", $"Zone header parsed: size={zoneHeader.Size:N0}, externalSize={zoneHeader.ExternalSize:N0}");
 
         AddLog("INFO", "Parsing asset list");
-        _assetList = zoneReader.ParseXAssetList();
+        var assetList = zoneReader.ParseXAssetList();
 
-        AddLog("INFO", $"Asset list parsed: assets={_assetList.AssetCount:N0}, scriptStrings={_assetList.ScriptStringCount:N0}");
+        AddLog("INFO", $"Asset list parsed: assets={assetList.AssetCount:N0}, scriptStrings={assetList.ScriptStringCount:N0}");
         AddWarnings("ZoneReader", zoneReader.Warnings);
+
+        _buffer = buffer;
+        _fastFileHeader = fastFileHeader;
+        _zoneHeader = zoneHeader;
+        _assetList = assetList;
+        _document = FastFileDocument.FromParsed(buffer, fastFileHeader, zoneHeader, assetList);
     }
 
     private void UpdateFastFileHeaderView()
@@ -145,6 +202,24 @@ public partial class MainWindow : Window
             : string.Join(Environment.NewLine, _logMessages);
 
         LogTabView.SetLogText(text);
+    }
+
+    private void SaveMenuItem_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        AddLog("INFO", _document.IsNew
+            ? "Save requested for new fastfile document"
+            : "Save requested for opened fastfile document");
+        UpdateLogView();
+    }
+
+    private void UpdateDocumentState()
+    {
+        SaveMenuItem.IsEnabled = _document is not null;
     }
 
     private void CloseMenuItem_Click(object? sender, RoutedEventArgs e)

@@ -33,7 +33,7 @@ public partial class RawfileAssetView : UserControl
             return Encoding.UTF8.GetString(asset.Buffer);
         }
 
-        var decompressed = ZLib.DecompressZlib(asset.Buffer);
+        var decompressed = ZLib.Decompress(asset.Buffer);
         return Encoding.UTF8.GetString(decompressed);
     }
 

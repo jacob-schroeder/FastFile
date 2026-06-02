@@ -17,7 +17,7 @@ internal static class TechsetReader
         };
 
         for (var i = 0; i < asset.Techniques.Length; i++)
-            asset.Techniques[i] = context.ReadPointer<int>();
+            asset.Techniques[i] = context.ReadPointer<MaterialTechnique>();
 
         return asset;
     }

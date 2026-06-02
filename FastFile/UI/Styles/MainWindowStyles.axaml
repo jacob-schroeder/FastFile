@@ -10,71 +10,81 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <Style Selector="TabControl.mainTabs">
-        <Setter Property="Margin" Value="0" />
-        <Setter Property="Background" Value="#1E1F22" />
-        <Setter Property="IndicatorTemplate">
-            <DataTemplate>
-                <Border Height="0"
-                        Background="Transparent" />
-            </DataTemplate>
-        </Setter>
-    </Style>
-
-    <Style Selector="TabItem">
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="Margin" Value="0" />
-        <Setter Property="IndicatorTemplate">
-            <DataTemplate>
-                <Border Height="0"
-                        Background="Transparent" />
-            </DataTemplate>
-        </Setter>
-    </Style>
-
-    <Style Selector="Border.tabHeader">
-        <Setter Property="MinWidth" Value="96" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="0" />
-        <Setter Property="BorderBrush" Value="#4E5157" />
-        <Setter Property="BorderThickness" Value="1,1,1,0" />
+    <Style Selector="Border.statusBar">
+        <Setter Property="Padding" Value="12,0" />
         <Setter Property="Background" Value="#252629" />
+        <Setter Property="BorderBrush" Value="#3C3F44" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
     </Style>
 
-    <Style Selector="TextBlock.tabHeaderText">
+    <Style Selector="TextBlock.statusLabel">
         <Setter Property="Foreground" Value="#C7C9D1" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.statusBadge">
+        <Setter Property="MinWidth" Value="34" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Background" Value="#9E3A3F" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.statusBadgeText">
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Margin" Value="16,9,16,8" />
     </Style>
 
-    <Style Selector="Border.tabHeaderSelectedBar">
-        <Setter Property="Height" Value="7" />
-        <Setter Property="Background" Value="Transparent" />
+    <Style Selector="Border.tabStripBackground">
+        <Setter Property="Padding" Value="10,10" />
+        <Setter Property="Background" Value="#3D3F41" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
     </Style>
 
-    <Style Selector="TabItem:pointerover Border.tabHeader">
-        <Setter Property="Background" Value="#323438" />
-        <Setter Property="BorderBrush" Value="#DB5860" />
+    <Style Selector="Button.mainTabButton">
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="#C7C9D1" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      Margin="{TemplateBinding Padding}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
     </Style>
 
-    <Style Selector="TabItem:pointerover TextBlock.tabHeaderText">
+    <Style Selector="Button.mainTabButton:pointerover">
+        <Setter Property="Background" Value="#4A4B4E" />
         <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
 
-    <Style Selector="TabItem:selected Border.tabHeader">
-        <Setter Property="Background" Value="#3A3D42" />
-        <Setter Property="BorderBrush" Value="#DB5860" />
-    </Style>
-
-    <Style Selector="TabItem:selected TextBlock.tabHeaderText">
-        <Setter Property="Foreground" Value="#FFFFFF" />
-    </Style>
-
-    <Style Selector="TabItem:selected Border.tabHeaderSelectedBar">
+    <Style Selector="Button.mainTabButton.active">
         <Setter Property="Background" Value="#DB5860" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.mainTabButton.active:pointerover">
+        <Setter Property="Background" Value="#DB5860" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
     </Style>
 
     <Style Selector="Border.listGroup">

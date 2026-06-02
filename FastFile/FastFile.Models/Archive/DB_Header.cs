@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using FastFile.Models.Archive;
 
-namespace FastFile.Models;
+namespace FastFile.Models.Archive;
 
 public class DB_Header
 {

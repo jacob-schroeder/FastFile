@@ -57,11 +57,11 @@ public sealed class FastFileReader(byte[] buffer, int length)
             if (blockSize is 0 or 1)
             {
                 _warnings.Add($"Encountered invalid block size: {blockSize}");
-                _position += DEF.ZLIB_HEAD_SIZE;
+                _position += ZLib.HEADER_SIZE;
                 continue;
             }
 
-            ushort dataSize = (ushort)(blockSize - DEF.ADLR32_SIZE);
+            ushort dataSize = (ushort)(blockSize - ZLib.ADLR32_SIZE);
 
             byte[] compressed = Span.Read(ref _position, dataSize);
             uint checksum = Span.ReadUInt32(ref _position);

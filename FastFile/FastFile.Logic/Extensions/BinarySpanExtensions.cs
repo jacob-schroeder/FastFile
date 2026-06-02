@@ -54,6 +54,16 @@ public static class BinarySpanExtensions
         return value;
     }
     
+    public static ushort PeekUInt16(
+        this ReadOnlySpan<byte> span,
+        ref int offset)
+    {
+        ushort value = BinaryPrimitives.ReadUInt16BigEndian(
+            span.Slice(offset, 2));
+
+        return value;
+    }
+    
     public static ushort ReadUInt16(
         this ReadOnlySpan<byte> span,
         ref int offset)

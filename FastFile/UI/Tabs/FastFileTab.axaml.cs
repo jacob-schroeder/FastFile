@@ -1,6 +1,6 @@
 using System;
 using Avalonia.Controls;
-using FastFile.Models;
+using FastFile.Models.Archive;
 using System.Collections.Generic;
 using System.Linq;
 using UI.Models;

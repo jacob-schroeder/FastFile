@@ -1,4 +1,4 @@
-namespace FastFile.Logic;
+namespace FastFile.Models.Zone;
 
 public enum XFILE_BLOCK : int
 {

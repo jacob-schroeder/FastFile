@@ -11,10 +11,17 @@
         <StyleInclude Source="/Styles/MainWindowStyles.axaml" />
     </Window.Styles>
 
-    <Grid RowDefinitions="34,*">
+    <Grid RowDefinitions="34,*,30">
         <Menu Grid.Row="0" Classes="mainMenu">
             <MenuItem Header="_File" Classes="topMenuItem">
+                <MenuItem Header="_New" Click="NewMenuItem_Click" />
+                <Separator />
                 <MenuItem Header="_Open" Click="OpenMenuItem_Click" />
+                <Separator />
+                <MenuItem x:Name="SaveMenuItem"
+                          Header="_Save"
+                          IsEnabled="False"
+                          Click="SaveMenuItem_Click" />
                 <Separator />
                 <MenuItem Header="_Close" Click="CloseMenuItem_Click" />
             </MenuItem>
@@ -23,58 +30,68 @@
 
         <Grid Grid.Row="1"
               Background="#1E1F22"
-              ClipToBounds="True">
-            <TabControl Classes="mainTabs"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch">
-                <TabItem>
-                    <TabItem.Header>
-                        <Border Classes="tabHeader">
-                            <Grid RowDefinitions="*,7">
-                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="FastFile" />
-                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
-                            </Grid>
-                        </Border>
-                    </TabItem.Header>
+              ClipToBounds="True"
+              RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Classes="tabStripBackground">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="FastFileMainTabButton"
+                            Classes="mainTabButton active"
+                            Content="FastFile"
+                            Margin="0,0,10,0"
+                            Tag="FastFile"
+                            Click="MainTabButton_Click" />
+                    <Button x:Name="ZoneMainTabButton"
+                            Classes="mainTabButton"
+                            Content="Zone"
+                            Margin="0,0,10,0"
+                            Tag="Zone"
+                            Click="MainTabButton_Click" />
+                    <Button x:Name="AssetsMainTabButton"
+                            Classes="mainTabButton"
+                            Content="Assets"
+                            Margin="0,0,10,0"
+                            Tag="Assets"
+                            Click="MainTabButton_Click" />
+                    <Button x:Name="LogMainTabButton"
+                            Classes="mainTabButton"
+                            Content="Log"
+                            Tag="Log"
+                            Click="MainTabButton_Click" />
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="1"
+                  Background="#1E1F22"
+                  ClipToBounds="True">
                     <tabs:FastFileTab x:Name="FastFileTabView" />
-                </TabItem>
-
-                <TabItem>
-                    <TabItem.Header>
-                        <Border Classes="tabHeader">
-                            <Grid RowDefinitions="*,7">
-                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="Zone" />
-                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
-                            </Grid>
-                        </Border>
-                    </TabItem.Header>
-                    <tabs:ZoneTab x:Name="ZoneTabView" />
-                </TabItem>
-
-                <TabItem>
-                    <TabItem.Header>
-                        <Border Classes="tabHeader">
-                            <Grid RowDefinitions="*,7">
-                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="Assets" />
-                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
-                            </Grid>
-                        </Border>
-                    </TabItem.Header>
-                    <tabs:AssetsTab x:Name="AssetsTabView" />
-                </TabItem>
-
-                <TabItem>
-                    <TabItem.Header>
-                        <Border Classes="tabHeader">
-                            <Grid RowDefinitions="*,7">
-                                <TextBlock Grid.Row="0" Classes="tabHeaderText" Text="Log" />
-                                <Border Grid.Row="1" Classes="tabHeaderSelectedBar" />
-                            </Grid>
-                        </Border>
-                    </TabItem.Header>
-                    <tabs:LogTab x:Name="LogTabView" />
-                </TabItem>
-            </TabControl>
+                <tabs:ZoneTab x:Name="ZoneTabView" IsVisible="False" />
+                <tabs:AssetsTab x:Name="AssetsTabView" IsVisible="False" />
+                <tabs:LogTab x:Name="LogTabView" IsVisible="False" />
+            </Grid>
         </Grid>
+
+        <Border Grid.Row="2" Classes="statusBar">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <TextBlock Classes="statusLabel" Text="Platform" />
+                    <Border Classes="statusBadge">
+                        <TextBlock Classes="statusBadgeText" Text="PS3" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <TextBlock Classes="statusLabel" Text="Game" />
+                    <Border Classes="statusBadge">
+                        <TextBlock Classes="statusBadgeText" Text="MW2" />
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

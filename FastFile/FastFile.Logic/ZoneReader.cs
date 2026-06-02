@@ -59,17 +59,17 @@ public sealed class ZoneReader(byte[] buffer)
 
                 foreach (var scriptStringPointer in pointers)
                 {
-                    if (scriptStringPointer.Kind == PointerKind.Null)
+                    if (scriptStringPointer.Kind == PointerKind.Inline)
                     {
-                        scriptStringPointer.SetResult(default);
+                        var scriptString = pointerContext.ReadPointerValue(
+                            scriptStringPointer,
+                            GenericReader.ReadCString);
+
+                        scriptStringPointer.SetResult(scriptString);
                         continue;
                     }
-
-                    var scriptString = pointerContext.ReadPointerValue(
-                        scriptStringPointer,
-                        GenericReader.ReadCString);
-
-                    scriptStringPointer.SetResult(scriptString);
+                    
+                    scriptStringPointer.SetResult(default);
                 }
             });
         var assetCount = context.ReadInt32();
