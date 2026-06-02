@@ -44,12 +44,18 @@ public partial class AssetsTab : UserControl
                 Name = group.Key,
                 Count = group.Count(),
                 Assets = group
-                    .Select(item => new DisplayItem
+                    .Select(item =>
                     {
-                        Id = item.Index,
-                        Display = GetAssetDisplayName(item.Asset, item.Index),
-                        Asset = item.Asset.XAssetPtr.Result,
-                        AssetType = item.Asset.Type
+                        var isExternal = IsExternalAsset(item.Asset);
+
+                        return new DisplayItem
+                        {
+                            Id = item.Index,
+                            Display = GetAssetDisplayName(item.Asset, item.Index),
+                            Asset = item.Asset.XAssetPtr.Result,
+                            AssetType = item.Asset.Type,
+                            IsExternal = isExternal
+                        };
                     })
                     .ToArray()
             })
@@ -60,8 +66,18 @@ public partial class AssetsTab : UserControl
         RefreshAssetDetailTabs();
     }
 
+    private void AssetSearchTextBox_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        RefreshAssetGroups();
+    }
+
     private void AssetGroupHeader_Click(object? sender, RoutedEventArgs e)
     {
+        if (HasAssetSearchQuery())
+        {
+            return;
+        }
+
         if (sender is not Button { Tag: int id })
         {
             return;
@@ -90,7 +106,48 @@ public partial class AssetsTab : UserControl
     private void RefreshAssetGroups()
     {
         AssetGroupsItemsControl.ItemsSource = null;
-        AssetGroupsItemsControl.ItemsSource = _assetGroups.ToArray();
+        AssetGroupsItemsControl.ItemsSource = GetVisibleAssetGroups().ToArray();
+    }
+
+    private IEnumerable<AssetGroupDisplayItem> GetVisibleAssetGroups()
+    {
+        var query = GetAssetSearchQuery();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return _assetGroups;
+        }
+
+        return _assetGroups
+            .Select(group =>
+            {
+                var matchingAssets = group.Assets
+                    .Where(asset => !asset.IsExternal
+                                    && asset.Display.Contains(query, System.StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+
+                return matchingAssets.Length == 0
+                    ? null
+                    : new AssetGroupDisplayItem
+                    {
+                        Id = group.Id,
+                        Name = group.Name,
+                        Count = matchingAssets.Length,
+                        Assets = matchingAssets,
+                        IsExpanded = true
+                    };
+            })
+            .Where(group => group is not null)
+            .Select(group => group!);
+    }
+
+    private bool HasAssetSearchQuery()
+    {
+        return !string.IsNullOrWhiteSpace(GetAssetSearchQuery());
+    }
+
+    private string GetAssetSearchQuery()
+    {
+        return AssetSearchTextBox.Text?.Trim() ?? string.Empty;
     }
 
     private static string GetAssetDisplayName(XAsset asset, int index)
@@ -102,13 +159,18 @@ public partial class AssetsTab : UserControl
             return displayName;
         }
 
-        if (resolvedAsset is LocalizeEntry { NamePtr.Kind: PointerKind.Offset }
-            || asset.XAssetPtr.Kind == PointerKind.Offset)
+        if (IsExternalAsset(asset))
         {
             return "[EXTERNAL]";
         }
 
         return $"Asset {index:N0}";
+    }
+
+    private static bool IsExternalAsset(XAsset asset)
+    {
+        return asset.XAssetPtr.Kind == PointerKind.Offset
+            || asset.XAssetPtr.Result is LocalizeEntry { NamePtr.Kind: PointerKind.Offset };
     }
 
     private void AssetDetailTabCloseButton_Click(object? sender, RoutedEventArgs e)

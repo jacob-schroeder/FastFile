@@ -2,7 +2,17 @@
     <Style Selector="Menu.mainMenu">
         <Setter Property="Height" Value="34" />
         <Setter Property="Padding" Value="8,0" />
-        <Setter Property="Background" Value="#2B2D30" />
+        <Setter Property="Background">
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Color="#000000" Offset="0" />
+                <GradientStop Color="#000000" Offset="0.05" />
+                <GradientStop Color="#111215" Offset="0.24" />
+                <GradientStop Color="#151619" Offset="0.52" />
+                <GradientStop Color="#111215" Offset="0.78" />
+                <GradientStop Color="#000000" Offset="0.96" />
+                <GradientStop Color="#000000" Offset="1" />
+            </LinearGradientBrush>
+        </Setter>
     </Style>
 
     <Style Selector="MenuItem.topMenuItem">
@@ -27,7 +37,7 @@
     <Style Selector="Border.statusBadge">
         <Setter Property="MinWidth" Value="34" />
         <Setter Property="Padding" Value="8,2" />
-        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Background" Value="#9E3A3F" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -215,6 +225,18 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
+    <Style Selector="TextBox.assetTreeSearchBox">
+        <Setter Property="MinHeight" Value="31" />
+        <Setter Property="Padding" Value="32,5,10,5" />
+        <Setter Property="Background" Value="#1E1F22" />
+        <Setter Property="BorderBrush" Value="#4E5157" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Foreground" Value="#F4F4F5" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
     <Style Selector="Button.assetTreeFolderButton">
         <Setter Property="MinHeight" Value="34" />
         <Setter Property="Padding" Value="10,7" />
@@ -250,13 +272,13 @@
     </Style>
 
     <Style Selector="Border.assetTreeAssetRow">
-        <Setter Property="Padding" Value="32,0,0,0" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
     </Style>
 
     <Style Selector="Button.assetTreeAssetButton">
         <Setter Property="MinHeight" Value="34" />
-        <Setter Property="Padding" Value="14,7,10,7" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -288,16 +310,17 @@
         <Setter Property="Background" Value="#252629" />
         <Setter Property="BorderBrush" Value="#4E5157" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
-        <Setter Property="Padding" Value="6,6,6,0" />
+        <Setter Property="Padding" Value="4,13,4,0" />
     </Style>
 
     <Style Selector="Border.assetDetailTabHeader">
         <Setter Property="MinWidth" Value="128" />
         <Setter Property="MaxWidth" Value="260" />
         <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="4" />
         <Setter Property="Margin" Value="0,0,4,0" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="CornerRadius" Value="6, 6, 0, 0" />
     </Style>
 
     <Style Selector="Button.assetDetailTabSelectButton">
@@ -320,11 +343,11 @@
     <Style Selector="Button.assetDetailTabCloseButton">
         <Setter Property="Width" Value="22" />
         <Setter Property="Height" Value="22" />
-        <Setter Property="Margin" Value="0,5,6,5" />
+        <Setter Property="Margin" Value="0,5,0,5" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="CornerRadius" Value="4" />
         <Setter Property="Foreground" Value="#C7C9D1" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />

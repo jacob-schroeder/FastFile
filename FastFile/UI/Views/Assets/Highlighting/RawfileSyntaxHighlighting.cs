@@ -39,7 +39,7 @@ internal static class RawfileSyntaxHighlighting
                   extensions=".gsc;.csc"
                   xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
     <Color name="Comment" foreground="#6A9955" />
-    <Color name="Preprocessor" foreground="#C586C0" fontWeight="bold" />
+    <Color name="Preprocessor" foreground="#D4D4D4" fontWeight="bold" />
     <Color name="Path" foreground="#4EC9B0" />
     <Color name="String" foreground="#CE9178" />
     <Color name="Escape" foreground="#D7BA7D" fontWeight="bold" />
@@ -53,7 +53,7 @@ internal static class RawfileSyntaxHighlighting
     <RuleSet>
         <Span color="Comment" begin="//" />
         <Span color="Comment" multiline="true" begin="/\*" end="\*/" />
-        <Span color="Comment" multiline="true" begin="/#" end="#/" />
+        <Span color="Comment" multiline="true" begin="/\#" end="\#/" />
 
         <Span color="String" begin="&quot;" end="&quot;">
             <RuleSet>
@@ -67,8 +67,8 @@ internal static class RawfileSyntaxHighlighting
             </RuleSet>
         </Span>
 
-        <Span color="Preprocessor" begin="#[A-Za-z_][A-Za-z0-9_]*" />
-        <Rule color="Path">\b[A-Za-z_][A-Za-z0-9_]*(\\[A-Za-z_][A-Za-z0-9_]*)+(::[A-Za-z_][A-Za-z0-9_]*)?</Rule>
+        <Rule color="Preprocessor">\#[A-Za-z_][A-Za-z0-9_]*</Rule>
+        <Rule color="Path">\b[A-Za-z_][A-Za-z0-9_]*(\\[A-Za-z_][A-Za-z0-9_]*)+</Rule>
         <Rule color="Function">\b[A-Za-z_][A-Za-z0-9_]*(?=\s*\()</Rule>
         <Rule color="Property">(?&lt;=\.|::)[A-Za-z_][A-Za-z0-9_]*</Rule>
         <Rule color="Number">\b0x[0-9A-Fa-f]+\b|\b\d+(\.\d+)?\b</Rule>

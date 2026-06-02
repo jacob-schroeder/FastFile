@@ -13,6 +13,8 @@ public class DisplayItem
 
     public XAssetType? AssetType { get; set; }
 
+    public bool IsExternal { get; set; }
+
     public bool IsEditing { get; set; }
 
     public bool IsReadOnly => !IsEditing;
