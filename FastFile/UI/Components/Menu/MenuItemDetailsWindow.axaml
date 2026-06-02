@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:menu="clr-namespace:UI.Components.Menu"
+        x:Class="UI.Components.Menu.MenuItemDetailsWindow"
+        Title="Menu Item Details"
+        Width="980"
+        Height="680"
+        MinWidth="780"
+        MinHeight="520"
+        Background="#1E1F22"
+        WindowStartupLocation="CenterOwner">
+    <menu:MenuItemDetailsController x:Name="MenuItemDetailsControllerView" />
+</Window>

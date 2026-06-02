@@ -35,13 +35,40 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
+
+        <Style Selector="TextBlock.menuItemAction">
+            <Setter Property="Foreground" Value="#DB5860" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.menuItemRowButton">
+            <Setter Property="Background" Value="#252629" />
+            <Setter Property="BorderBrush" Value="#3C3F44" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+
+        <Style Selector="Button.menuItemRowButton:pointerover">
+            <Setter Property="Background" Value="#2B2D30" />
+            <Setter Property="BorderBrush" Value="#DB5860" />
+        </Style>
+
+        <Style Selector="Button.menuItemRowButton:disabled">
+            <Setter Property="Opacity" Value="0.65" />
+        </Style>
     </UserControl.Styles>
 
-    <Border Background="#252629"
-            BorderBrush="#3C3F44"
-            BorderThickness="0,0,0,1"
-            Padding="12">
-        <Grid ColumnDefinitions="44,2*,*,*,*"
+    <Button Classes="menuItemRowButton"
+            Tag="{Binding}"
+            Click="MenuItemRow_Click"
+            IsEnabled="{Binding CanOpen}">
+        <Grid ColumnDefinitions="44,2*,*,*,*,Auto"
               ColumnSpacing="14">
             <TextBlock Classes="menuItemIndex"
                        Text="{Binding Index}" />
@@ -83,6 +110,10 @@
                            Classes="menuItemValue"
                            Text="{Binding Dvar}" />
             </Grid>
+
+            <TextBlock Grid.Column="5"
+                       Classes="menuItemAction"
+                       Text="Details" />
         </Grid>
-    </Border>
+    </Button>
 </UserControl>

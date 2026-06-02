@@ -1,0 +1,334 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:menu="clr-namespace:UI.Components.Menu"
+             xmlns:models="clr-namespace:UI.Models"
+             x:Class="UI.Components.Menu.MenuItemDetailsController">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.itemDetailsTitle">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.itemDetailsSubtitle">
+            <Setter Property="Foreground" Value="#AEB2BB" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.itemDetailsSectionTitle">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Border.itemDetailsPanel">
+            <Setter Property="Background" Value="#252629" />
+            <Setter Property="BorderBrush" Value="#3C3F44" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+
+        <Style Selector="Border.itemDetailsHeader">
+            <Setter Property="Background" Value="#2B2D30" />
+            <Setter Property="BorderBrush" Value="#3C3F44" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+
+        <Style Selector="Border.itemDetailsBadge">
+            <Setter Property="Background" Value="#9E3A3F" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="CornerRadius" Value="999" />
+        </Style>
+
+        <Style Selector="TextBlock.itemDetailsBadgeText">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.itemDetailsKey">
+            <Setter Property="Foreground" Value="#9DA1AA" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.itemDetailsValue">
+            <Setter Property="Foreground" Value="#E5E7EB" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Border.itemDetailsValueRow">
+            <Setter Property="BorderBrush" Value="#34373D" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
+
+        <Style Selector="TextBlock.itemInsightName">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.itemInsightSummary">
+            <Setter Property="Foreground" Value="#DADCE3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style Selector="TextBlock.itemInsightDetail">
+            <Setter Property="Foreground" Value="#AEB2BB" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style Selector="Border.itemInsightRow">
+            <Setter Property="BorderBrush" Value="#34373D" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+
+        <Style Selector="TabControl.itemDetailsTabs">
+            <Setter Property="Background" Value="#1E1F22" />
+        </Style>
+
+        <Style Selector="ComboBox.itemExpressionComboBox">
+            <Setter Property="Background" Value="#1E1F22" />
+            <Setter Property="BorderBrush" Value="#555960" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="MinWidth" Value="240" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*"
+          Background="#1E1F22">
+        <Border Padding="14,12"
+                Background="#252629"
+                BorderBrush="#3C3F44"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <StackPanel Spacing="3">
+                    <TextBlock x:Name="ItemNameTextBlock"
+                               Classes="itemDetailsTitle" />
+                    <TextBlock x:Name="ItemSubtitleTextBlock"
+                               Classes="itemDetailsSubtitle" />
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Classes="itemDetailsBadge"
+                        VerticalAlignment="Center">
+                    <TextBlock x:Name="ItemTypeBadgeTextBlock"
+                               Classes="itemDetailsBadgeText" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <TabControl Classes="itemDetailsTabs"
+                        Margin="14">
+                <TabItem Header="Overview">
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="12"
+                          RowSpacing="12"
+                          Margin="0,12,0,0">
+                        <Border Classes="itemDetailsPanel">
+                            <Grid RowDefinitions="Auto,*">
+                                <Border Classes="itemDetailsHeader">
+                                    <TextBlock Classes="itemDetailsSectionTitle"
+                                               Text="Item" />
+                                </Border>
+
+                                <ItemsControl x:Name="ItemDetailsItemsControl"
+                                              Grid.Row="1">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:KeyValueListItem">
+                                            <Border Classes="itemDetailsValueRow">
+                                                <Grid ColumnDefinitions="Auto,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="itemDetailsKey"
+                                                               Text="{Binding Key}" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="itemDetailsValue"
+                                                               Text="{Binding Value}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1"
+                                Classes="itemDetailsPanel">
+                            <Grid RowDefinitions="Auto,*">
+                                <Border Classes="itemDetailsHeader">
+                                    <TextBlock Classes="itemDetailsSectionTitle"
+                                               Text="Window" />
+                                </Border>
+
+                                <ItemsControl x:Name="ItemWindowItemsControl"
+                                              Grid.Row="1">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:KeyValueListItem">
+                                            <Border Classes="itemDetailsValueRow">
+                                                <Grid ColumnDefinitions="Auto,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="itemDetailsKey"
+                                                               Text="{Binding Key}" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="itemDetailsValue"
+                                                               Text="{Binding Value}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                Classes="itemDetailsPanel">
+                            <Grid RowDefinitions="Auto,*">
+                                <Border Classes="itemDetailsHeader">
+                                    <TextBlock Classes="itemDetailsSectionTitle"
+                                               Text="Presentation" />
+                                </Border>
+
+                                <ItemsControl x:Name="ItemPresentationItemsControl"
+                                              Grid.Row="1">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:KeyValueListItem">
+                                            <Border Classes="itemDetailsValueRow">
+                                                <Grid ColumnDefinitions="Auto,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="itemDetailsKey"
+                                                               Text="{Binding Key}" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Classes="itemDetailsValue"
+                                                               Text="{Binding Value}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="Events">
+                    <Border Margin="0,12,0,0"
+                            Classes="itemDetailsPanel">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Classes="itemDetailsHeader">
+                                <TextBlock Classes="itemDetailsSectionTitle"
+                                           Text="Event Handlers" />
+                            </Border>
+
+                            <ItemsControl x:Name="ItemEventsItemsControl"
+                                          Grid.Row="1">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="menu:MenuInsightDisplayItem">
+                                        <Border Classes="itemInsightRow">
+                                            <StackPanel Spacing="5">
+                                                <TextBlock Classes="itemInsightName"
+                                                           Text="{Binding Name}" />
+                                                <TextBlock Classes="itemInsightSummary"
+                                                           Text="{Binding Summary}" />
+                                                <TextBlock Classes="itemInsightDetail"
+                                                           IsVisible="{Binding HasDetail}"
+                                                           Text="{Binding Detail}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Border>
+                </TabItem>
+
+                <TabItem Header="Expressions">
+                    <Border Margin="0,12,0,0"
+                            Classes="itemDetailsPanel">
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Classes="itemDetailsHeader">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      ColumnSpacing="12">
+                                    <TextBlock Classes="itemDetailsSectionTitle"
+                                               Text="Expression" />
+                                    <ComboBox x:Name="ExpressionTypeComboBox"
+                                              Grid.Column="1"
+                                              Classes="itemExpressionComboBox"
+                                              SelectionChanged="ExpressionTypeComboBox_SelectionChanged">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="menu:MenuInsightDisplayItem">
+                                                <TextBlock Text="{Binding Name}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="1"
+                                  RowDefinitions="Auto,Auto,Auto,Auto"
+                                  Margin="12"
+                                  RowSpacing="8">
+                                <TextBlock x:Name="ExpressionSummaryHeaderTextBlock"
+                                           Classes="itemInsightName"
+                                           Text="Readable Statement" />
+                                <Border x:Name="ExpressionSummaryBorder"
+                                        Grid.Row="1"
+                                        Background="#1E1F22"
+                                        BorderBrush="#34373D"
+                                        BorderThickness="1"
+                                        Padding="12">
+                                    <TextBlock x:Name="ExpressionSummaryTextBlock"
+                                               Classes="itemInsightSummary" />
+                                </Border>
+
+                                <TextBlock x:Name="ExpressionDetailHeaderTextBlock"
+                                           Grid.Row="2"
+                                           Classes="itemInsightName"
+                                           Text="Pointer" />
+                                <Border x:Name="ExpressionDetailBorder"
+                                        Grid.Row="3"
+                                        Background="#1E1F22"
+                                        BorderBrush="#34373D"
+                                        BorderThickness="1"
+                                        Padding="12">
+                                    <TextBlock x:Name="ExpressionDetailTextBlock"
+                                               Classes="itemInsightDetail" />
+                                </Border>
+
+                                <TextBlock x:Name="ExpressionEmptyTextBlock"
+                                           Grid.Row="1"
+                                           Foreground="#9DA1AA"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,24"
+                                           IsVisible="False"
+                                           Text="No item expressions available." />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </TabItem>
+            </TabControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

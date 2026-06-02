@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.Menu.Elements;
@@ -14,9 +15,9 @@ namespace UI.Components.Menu;
 
 public partial class MenuController : UserControl
 {
-    private const double PreviewWidth = 720;
-    private const double PreviewHeight = 405;
-    private const double PreviewPadding = 20;
+    private const double PreviewWidth = 640;
+    private const double PreviewHeight = 480;
+    private const double PreviewPadding = 0;
     private const double VirtualScreenWidth = 640;
     private const double VirtualScreenHeight = 480;
     private const byte AlignSub = 0;
@@ -25,6 +26,8 @@ public partial class MenuController : UserControl
     private const byte AlignRightOrBottom = 3;
     private const byte AlignFullscreen = 4;
     private const byte AlignCenterSafeArea = 7;
+    private MenuDef? _currentMenu;
+    private MenuItemDefDisplayItem[] _currentMenuItems = [];
 
     public MenuController()
     {
@@ -39,6 +42,8 @@ public partial class MenuController : UserControl
     public void SetMenu(MenuDef menu)
     {
         var items = GetMenuItems(menu);
+        _currentMenu = menu;
+        _currentMenuItems = items;
         var menuName = MenuDisplayFormatter.FormatStringPointer(
             menu.Window?.NamePtr,
             menu.Window?.Name,
@@ -50,13 +55,20 @@ public partial class MenuController : UserControl
 
         MenuDetailsItemsControl.ItemsSource = BuildMenuDetails(menu);
         WindowDetailsItemsControl.ItemsSource = BuildWindowDetails(menu.Window);
+        MenuEventsItemsControl.ItemsSource = MenuBehaviorFormatter.BuildMenuEvents(menu);
+        MenuExpressionsItemsControl.ItemsSource = MenuBehaviorFormatter.BuildMenuExpressions(menu);
         MenuItemsItemsControl.ItemsSource = items;
         MenuItemsEmptyTextBlock.Text = menu.Items is { Kind: PointerKind.Offset }
             ? MenuDisplayFormatter.ExternalPointerText
             : "No items available.";
         MenuItemsEmptyTextBlock.IsVisible = items.Length == 0;
 
-        RenderPreview(menu, items);
+        RenderPreview();
+    }
+
+    private void ShowConditionalItemsCheckBox_Changed(object? sender, RoutedEventArgs e)
+    {
+        RenderPreview();
     }
 
     private static MenuItemDefDisplayItem[] GetMenuItems(MenuDef menu)
@@ -102,9 +114,9 @@ public partial class MenuController : UserControl
             new("Group", MenuDisplayFormatter.FormatStringPointer(window.GroupPtr, window.Group, string.Empty)),
             new("Rect", MenuDisplayFormatter.FormatRectangle(window.Rect)),
             new("Client Rect", MenuDisplayFormatter.FormatRectangle(window.RectClient)),
-            new("Style", window.Style.ToString(CultureInfo.CurrentCulture)),
-            new("Border", window.Border.ToString(CultureInfo.CurrentCulture)),
-            new("Owner Draw", window.OwnerDraw.ToString(CultureInfo.CurrentCulture)),
+            new("Style", MenuEnumFormatter.FormatWindowStyle(window.Style)),
+            new("Border", MenuEnumFormatter.FormatWindowBorder(window.Border)),
+            new("Owner Draw", MenuEnumFormatter.FormatOwnerDraw(window.OwnerDraw)),
             new("Owner Flags", $"0x{window.OwnerDrawFlags:X8}"),
             new("Border Size", window.BorderSize.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Static Flags", $"0x{window.StaticFlags:X8}"),
@@ -116,7 +128,7 @@ public partial class MenuController : UserControl
         ];
     }
 
-    private void RenderPreview(MenuDef menu, MenuItemDefDisplayItem[] items)
+    private void RenderPreview()
     {
         MenuPreviewCanvas.Children.Clear();
 
@@ -130,12 +142,14 @@ public partial class MenuController : UserControl
         };
         MenuPreviewCanvas.Children.Add(previewBackground);
 
-        if (menu.Window?.Rect is null)
+        if (_currentMenu?.Window?.Rect is null)
         {
             AddPreviewLabel("No window rectangle available.", 24, 24);
             return;
         }
 
+        var menu = _currentMenu;
+        var showConditionalItems = ShowConditionalItemsCheckBox.IsChecked == true;
         var menuBounds = ResolveRootRect(menu.Window.Rect);
         var transform = CreatePreviewTransform(menuBounds);
         AddPreviewRect(
@@ -148,9 +162,12 @@ public partial class MenuController : UserControl
             1.0,
             2);
 
-        foreach (var item in items.Where(item => item.Item?.Window?.Rect is not null))
+        foreach (var item in _currentMenuItems.Where(item =>
+                     item.Item?.Window?.Rect is not null
+                     && (showConditionalItems || !HasVisibilityCondition(item.Item))))
         {
             var itemBounds = ResolveChildRect(item.Item!.Window.Rect, menuBounds);
+            var itemIsConditional = HasVisibilityCondition(item.Item);
             AddPreviewRect(
                 itemBounds,
                 menuBounds,
@@ -158,9 +175,14 @@ public partial class MenuController : UserControl
                 MenuDisplayFormatter.ToBrush(item.Item.Window.BackColor, "#34373D"),
                 MenuDisplayFormatter.ToBrush(item.Item.Window.BorderColor, "#4E5157"),
                 item.Name,
-                0.62,
+                itemIsConditional ? 0.28 : 0.62,
                 1);
         }
+    }
+
+    private static bool HasVisibilityCondition(ItemDef item)
+    {
+        return item.VisibleExp is { Kind: not PointerKind.Null };
     }
 
     private static PreviewTransform CreatePreviewTransform(PreviewRect rect)
@@ -189,10 +211,16 @@ public partial class MenuController : UserControl
         double opacity,
         double borderThickness)
     {
-        var left = transform.Left + (rect.Left - origin.Left) * transform.Scale;
-        var top = transform.Top + (rect.Top - origin.Top) * transform.Scale;
-        var width = Math.Max(4, rect.Width * transform.Scale);
-        var height = Math.Max(4, rect.Height * transform.Scale);
+        var clippedRect = ClipRect(rect, origin);
+        if (clippedRect.Width <= 0 || clippedRect.Height <= 0)
+        {
+            return;
+        }
+
+        var left = transform.Left + (clippedRect.Left - origin.Left) * transform.Scale;
+        var top = transform.Top + (clippedRect.Top - origin.Top) * transform.Scale;
+        var width = Math.Max(4, clippedRect.Width * transform.Scale);
+        var height = Math.Max(4, clippedRect.Height * transform.Scale);
 
         var previewRect = new Border
         {
@@ -201,16 +229,23 @@ public partial class MenuController : UserControl
             Background = background,
             BorderBrush = borderBrush,
             BorderThickness = new Avalonia.Thickness(borderThickness),
-            Opacity = opacity,
-            Child = new TextBlock
+            ClipToBounds = true,
+            Opacity = opacity
+        };
+
+        if (width >= 42 && height >= 16)
+        {
+            previewRect.Child = new TextBlock
             {
                 Text = label,
                 Foreground = SolidColorBrush.Parse("#F4F4F5"),
                 FontSize = 10,
                 Margin = new Avalonia.Thickness(4, 2),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            }
-        };
+                MaxWidth = Math.Max(0, width - 8),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap
+            };
+        }
 
         Canvas.SetLeft(previewRect, left);
         Canvas.SetTop(previewRect, top);
@@ -307,4 +342,14 @@ public partial class MenuController : UserControl
     }
 
     private readonly record struct PreviewAxis(double Start, double Size);
+
+    private static PreviewRect ClipRect(PreviewRect rect, PreviewRect bounds)
+    {
+        var left = Math.Max(rect.Left, bounds.Left);
+        var top = Math.Max(rect.Top, bounds.Top);
+        var right = Math.Min(rect.Right, bounds.Right);
+        var bottom = Math.Min(rect.Bottom, bounds.Bottom);
+
+        return new PreviewRect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
+    }
 }

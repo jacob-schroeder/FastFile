@@ -30,8 +30,8 @@ public sealed class MenuItemDefDisplayItem
             Item.Window?.Name,
             "(unnamed item)");
         Text = MenuDisplayFormatter.FormatStringPointer(Item.Text, Item.Text?.Result, string.Empty);
-        Type = string.Create(CultureInfo.CurrentCulture, $"{Item.Type} / {Item.DataType}");
-        DataType = Item.DataType.ToString(CultureInfo.CurrentCulture);
+        Type = $"{MenuEnumFormatter.FormatItemTypeCompact(Item.Type)} / {MenuEnumFormatter.FormatItemTypeCompact(Item.DataType)}";
+        DataType = MenuEnumFormatter.FormatItemTypeCompact(Item.DataType);
         Rect = MenuDisplayFormatter.FormatRectangle(Item.Window?.Rect);
         ClientRect = MenuDisplayFormatter.FormatRectangle(Item.Window?.RectClient);
         Dvar = MenuDisplayFormatter.FormatStringPointer(Item.Dvar, Item.Dvar?.Result, string.Empty);
@@ -43,6 +43,8 @@ public sealed class MenuItemDefDisplayItem
     public int Index { get; }
 
     public ItemDef? Item { get; private set; }
+
+    public bool CanOpen => Item is not null;
 
     public string Name { get; private set; } = string.Empty;
 

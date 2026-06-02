@@ -69,6 +69,37 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+
+        <Style Selector="TextBlock.menuInsightName">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.menuInsightSummary">
+            <Setter Property="Foreground" Value="#DADCE3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style Selector="TextBlock.menuInsightDetail">
+            <Setter Property="Foreground" Value="#AEB2BB" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style Selector="Border.menuInsightRow">
+            <Setter Property="BorderBrush" Value="#34373D" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+
+        <Style Selector="TabControl.menuDetailsTabs">
+            <Setter Property="Background" Value="#1E1F22" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*"
@@ -107,8 +138,19 @@
                         Classes="menuDetailsPanel">
                     <Grid RowDefinitions="Auto,*">
                         <Border Classes="menuDetailsHeader">
-                            <TextBlock Classes="menuDetailsSectionTitle"
-                                       Text="Window Preview" />
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="12">
+                                <TextBlock Classes="menuDetailsSectionTitle"
+                                           Text="Window Preview" />
+                                <CheckBox x:Name="ShowConditionalItemsCheckBox"
+                                          Grid.Column="1"
+                                          Content="Show conditional"
+                                          Foreground="#C7C9D1"
+                                          FontSize="12"
+                                          VerticalAlignment="Center"
+                                          IsChecked="False"
+                                          IsCheckedChanged="ShowConditionalItemsCheckBox_Changed" />
+                            </Grid>
                         </Border>
 
                         <Border Grid.Row="1"
@@ -117,98 +159,171 @@
                                 ClipToBounds="True">
                             <Viewbox Stretch="Uniform">
                                 <Canvas x:Name="MenuPreviewCanvas"
-                                        Width="720"
-                                        Height="405" />
+                                        Width="640"
+                                        Height="480"
+                                        ClipToBounds="True" />
                             </Viewbox>
                         </Border>
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="1"
-                        Classes="menuDetailsPanel">
-                    <Grid RowDefinitions="Auto,*">
-                        <Border Classes="menuDetailsHeader">
-                            <TextBlock Classes="menuDetailsSectionTitle"
-                                       Text="Menu" />
-                        </Border>
-
-                        <ItemsControl x:Name="MenuDetailsItemsControl"
-                                      Grid.Row="1">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:KeyValueListItem">
-                                    <Border Classes="menuDetailsValueRow">
-                                        <Grid ColumnDefinitions="Auto,*"
-                                              ColumnSpacing="12">
-                                            <TextBlock Classes="menuDetailsKey"
-                                                       Text="{Binding Key}" />
-                                            <TextBlock Grid.Column="1"
-                                                       Classes="menuDetailsValue"
-                                                       Text="{Binding Value}" />
-                                        </Grid>
+                <TabControl Grid.Row="1"
+                            Grid.ColumnSpan="2"
+                            Classes="menuDetailsTabs">
+                    <TabItem Header="Overview">
+                        <Grid ColumnDefinitions="3*,2*"
+                              ColumnSpacing="12"
+                              Margin="0,12,0,0">
+                            <Border Classes="menuDetailsPanel">
+                                <Grid RowDefinitions="Auto,*">
+                                    <Border Classes="menuDetailsHeader">
+                                        <TextBlock Classes="menuDetailsSectionTitle"
+                                                   Text="Menu" />
                                     </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Grid>
-                </Border>
 
-                <Border Grid.Row="1"
-                        Grid.Column="1"
-                        Classes="menuDetailsPanel">
-                    <Grid RowDefinitions="Auto,*">
-                        <Border Classes="menuDetailsHeader">
-                            <TextBlock Classes="menuDetailsSectionTitle"
-                                       Text="Window" />
-                        </Border>
+                                    <ItemsControl x:Name="MenuDetailsItemsControl"
+                                                  Grid.Row="1">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:KeyValueListItem">
+                                                <Border Classes="menuDetailsValueRow">
+                                                    <Grid ColumnDefinitions="Auto,*"
+                                                          ColumnSpacing="12">
+                                                        <TextBlock Classes="menuDetailsKey"
+                                                                   Text="{Binding Key}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Classes="menuDetailsValue"
+                                                                   Text="{Binding Value}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
 
-                        <ItemsControl x:Name="WindowDetailsItemsControl"
-                                      Grid.Row="1">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:KeyValueListItem">
-                                    <Border Classes="menuDetailsValueRow">
-                                        <Grid ColumnDefinitions="Auto,*"
-                                              ColumnSpacing="12">
-                                            <TextBlock Classes="menuDetailsKey"
-                                                       Text="{Binding Key}" />
-                                            <TextBlock Grid.Column="1"
-                                                       Classes="menuDetailsValue"
-                                                       Text="{Binding Value}" />
-                                        </Grid>
+                            <Border Grid.Column="1"
+                                    Classes="menuDetailsPanel">
+                                <Grid RowDefinitions="Auto,*">
+                                    <Border Classes="menuDetailsHeader">
+                                        <TextBlock Classes="menuDetailsSectionTitle"
+                                                   Text="Window" />
                                     </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Grid>
-                </Border>
 
-                <Border Grid.Row="2"
-                        Grid.ColumnSpan="2"
-                        Classes="menuDetailsPanel">
-                    <Grid RowDefinitions="Auto,*">
-                        <Border Classes="menuDetailsHeader">
-                            <TextBlock Classes="menuDetailsSectionTitle"
-                                       Text="Items" />
+                                    <ItemsControl x:Name="WindowDetailsItemsControl"
+                                                  Grid.Row="1">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:KeyValueListItem">
+                                                <Border Classes="menuDetailsValueRow">
+                                                    <Grid ColumnDefinitions="Auto,*"
+                                                          ColumnSpacing="12">
+                                                        <TextBlock Classes="menuDetailsKey"
+                                                                   Text="{Binding Key}" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Classes="menuDetailsValue"
+                                                                   Text="{Binding Value}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Behavior">
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="12"
+                              Margin="0,12,0,0">
+                            <Border Classes="menuDetailsPanel">
+                                <Grid RowDefinitions="Auto,*">
+                                    <Border Classes="menuDetailsHeader">
+                                        <TextBlock Classes="menuDetailsSectionTitle"
+                                                   Text="Event Handlers" />
+                                    </Border>
+
+                                    <ItemsControl x:Name="MenuEventsItemsControl"
+                                                  Grid.Row="1">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="menu:MenuInsightDisplayItem">
+                                                <Border Classes="menuInsightRow">
+                                                    <StackPanel Spacing="5">
+                                                        <TextBlock Classes="menuInsightName"
+                                                                   Text="{Binding Name}" />
+                                                        <TextBlock Classes="menuInsightSummary"
+                                                                   Text="{Binding Summary}" />
+                                                        <TextBlock Classes="menuInsightDetail"
+                                                                   IsVisible="{Binding HasDetail}"
+                                                                   Text="{Binding Detail}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1"
+                                    Classes="menuDetailsPanel">
+                                <Grid RowDefinitions="Auto,*">
+                                    <Border Classes="menuDetailsHeader">
+                                        <TextBlock Classes="menuDetailsSectionTitle"
+                                                   Text="Menu Expressions" />
+                                    </Border>
+
+                                    <ItemsControl x:Name="MenuExpressionsItemsControl"
+                                                  Grid.Row="1">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="menu:MenuInsightDisplayItem">
+                                                <Border Classes="menuInsightRow">
+                                                    <StackPanel Spacing="5">
+                                                        <TextBlock Classes="menuInsightName"
+                                                                   Text="{Binding Name}" />
+                                                        <TextBlock Classes="menuInsightSummary"
+                                                                   Text="{Binding Summary}" />
+                                                        <TextBlock Classes="menuInsightDetail"
+                                                                   IsVisible="{Binding HasDetail}"
+                                                                   Text="{Binding Detail}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Items">
+                        <Border Margin="0,12,0,0"
+                                Classes="menuDetailsPanel">
+                            <Grid RowDefinitions="Auto,*">
+                                <Border Classes="menuDetailsHeader">
+                                    <TextBlock Classes="menuDetailsSectionTitle"
+                                               Text="Items" />
+                                </Border>
+
+                                <ItemsControl x:Name="MenuItemsItemsControl"
+                                              Grid.Row="1">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="menu:MenuItemDefDisplayItem">
+                                            <menu:MenuItemDefController />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock x:Name="MenuItemsEmptyTextBlock"
+                                           Grid.Row="1"
+                                           Margin="0,24"
+                                           Foreground="#9DA1AA"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           IsVisible="False"
+                                           Text="No items available." />
+                            </Grid>
                         </Border>
-
-                        <ItemsControl x:Name="MenuItemsItemsControl"
-                                      Grid.Row="1">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="menu:MenuItemDefDisplayItem">
-                                    <menu:MenuItemDefController />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <TextBlock x:Name="MenuItemsEmptyTextBlock"
-                                   Grid.Row="1"
-                                   Margin="0,24"
-                                   Foreground="#9DA1AA"
-                                   FontSize="13"
-                                   HorizontalAlignment="Center"
-                                   IsVisible="False"
-                                   Text="No items available." />
-                    </Grid>
-                </Border>
+                    </TabItem>
+                </TabControl>
             </Grid>
         </ScrollViewer>
     </Grid>
