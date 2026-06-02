@@ -1,4 +1,5 @@
 using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Localize;
 
 namespace FastFile.Logic.Assets;

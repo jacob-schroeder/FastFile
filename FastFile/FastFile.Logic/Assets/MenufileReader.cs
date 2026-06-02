@@ -1,4 +1,5 @@
 using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Zone;
 using FastFile.Models.Assets;
 using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.Menufile;

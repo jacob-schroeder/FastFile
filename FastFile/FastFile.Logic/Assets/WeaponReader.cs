@@ -1,4 +1,5 @@
 using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Weapons;
 using FastFile.Models.Data;
 using FastFile.Models.Utils;

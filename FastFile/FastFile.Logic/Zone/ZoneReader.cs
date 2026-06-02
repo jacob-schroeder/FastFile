@@ -1,10 +1,11 @@
+using FastFile.Logic.Zone;
 using FastFile.Logic.Assets;
 using FastFile.Logic.Assets.Generic;
 using FastFile.Models.Assets;
 using FastFile.Models.Zone;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic;
+namespace FastFile.Logic.Zone;
 
 public sealed class ZoneReader(byte[] buffer)
 {

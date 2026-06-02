@@ -2,7 +2,7 @@ using FastFile.Models.Data;
 using FastFile.Logic.Extensions;
 using FastFile.Models.Utils;
 
-namespace FastFile.Logic;
+namespace FastFile.Logic.Zone;
 
 internal delegate T ZoneValueReader<T>(ref ZoneReadContext context);
 

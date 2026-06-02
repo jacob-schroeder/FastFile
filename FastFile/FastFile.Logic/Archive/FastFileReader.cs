@@ -4,7 +4,7 @@ using FastFile.Logic.Compression;
 using FastFile.Logic.Extensions;
 using FastFile.Logic.Hashing;
 
-namespace FastFile.Logic;
+namespace FastFile.Logic.Archive;
 
 public sealed class FastFileReader(byte[] buffer, int length)
 {

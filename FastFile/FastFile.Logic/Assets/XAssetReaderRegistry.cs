@@ -1,3 +1,4 @@
+using FastFile.Logic.Zone;
 using FastFile.Models.Assets;
 using FastFile.Models.Zone;
 
