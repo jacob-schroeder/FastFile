@@ -9,6 +9,8 @@ using System;
 using System.Globalization;
 using System.Linq;
 using UI.Models;
+using UI.Views.Assets;
+using MaterialAsset = FastFile.Models.Assets.Material.Material;
 using MenuWindow = FastFile.Models.Assets.Menu.Elements.Window;
 
 namespace UI.Components.Menu;
@@ -102,7 +104,7 @@ public partial class MenuController : UserControl
         ];
     }
 
-    private static KeyValueListItem[] BuildWindowDetails(MenuWindow? window)
+    private static MenuMaterialReferenceDisplayItem[] BuildWindowDetails(MenuWindow? window)
     {
         if (window is null)
         {
@@ -124,8 +126,28 @@ public partial class MenuController : UserControl
             new("Foreground", MenuDisplayFormatter.FormatVec4(window.ForeColor)),
             new("Background", MenuDisplayFormatter.FormatVec4(window.BackColor)),
             new("Border Color", MenuDisplayFormatter.FormatVec4(window.BorderColor)),
-            new("Background Material", MenuDisplayFormatter.FormatAssetPointer(window.Background))
+            new(
+                "Background Material",
+                MenuDisplayFormatter.FormatAssetPointer(window.Background),
+                window.Background?.Result)
         ];
+    }
+
+    private void MaterialViewButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: MaterialAsset material })
+        {
+            return;
+        }
+
+        var window = new MaterialAssetWindow(material);
+        if (VisualRoot is Avalonia.Controls.Window owner)
+        {
+            window.Show(owner);
+            return;
+        }
+
+        window.Show();
     }
 
     private void RenderPreview()

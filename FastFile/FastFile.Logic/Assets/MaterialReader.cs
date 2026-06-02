@@ -124,7 +124,17 @@ internal static class MaterialReader
         };
 
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
+        {
             context.ResolvePointer(texture.Info.Water, ReadWaterPointerValue);
+        }
+        else
+        {
+            context.ResolvePointer(texture.Info.Image, (ref ZoneReadContext pointerContext, ZonePointer<GfxImage> pointer) =>
+            {
+                var value = pointerContext.ReadPointerValue(pointer, ImageReader.Read);
+                pointer.SetResult(value);
+            });
+        }
 
         return texture;
     }

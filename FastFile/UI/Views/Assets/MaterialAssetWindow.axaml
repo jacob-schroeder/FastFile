@@ -1,0 +1,13 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:assets="clr-namespace:UI.Views.Assets"
+        x:Class="UI.Views.Assets.MaterialAssetWindow"
+        Title="Material Details"
+        Width="1040"
+        Height="720"
+        MinWidth="780"
+        MinHeight="520"
+        Background="#1E1F22"
+        WindowStartupLocation="CenterOwner">
+    <assets:MaterialAssetView x:Name="MaterialAssetViewContent" />
+</Window>

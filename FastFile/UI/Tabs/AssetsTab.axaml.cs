@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using FastFile.Models.Assets.Localize;
+using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
 using FastFile.Models.Assets.RawFiles;
@@ -10,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UI.Models;
 using UI.Views.Assets;
+using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
 namespace UI.Tabs;
 
@@ -203,6 +205,8 @@ public partial class AssetsTab : UserControl
             XAssetType.Localize when asset.Asset is LocalizeEntry localizeEntry => new LocalizeAssetView(localizeEntry),
             XAssetType.MenuFile when asset.Asset is MenuList menuList => new MenuListAssetView(menuList),
             XAssetType.StringTable when asset.Asset is StringTable stringTable => new StringTableAssetView(stringTable),
+            XAssetType.Material when asset.Asset is MaterialAsset material => new MaterialAssetView(material),
+            XAssetType.Image when asset.Asset is GfxImage image => new ImageAssetView(image),
             XAssetType.Techset => new TechsetAssetView(),
             XAssetType.RawFile when asset.Asset is RawFile rawFile => new RawfileAssetView(rawFile),
             _ => new DefaultAssetView()

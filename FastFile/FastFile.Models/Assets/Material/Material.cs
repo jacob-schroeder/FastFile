@@ -137,11 +137,31 @@ public class MaterialInfo
 
 public class GfxImage() : BaseAsset(XAssetType.Image)
 {
-    public ZonePointer<string> NamePtr { get; set; }
+    public ZonePointer<GfxImageLoadDef> LoadDef { get; set; } = new(0);
+    public byte MapType { get; set; }
+    public byte Semantic { get; set; }
+    public byte Category { get; set; }
+    public byte UseSrgbReads { get; set; }
+    public byte[] Picmip { get; set; } = new byte[2];
+    public byte NoPicmip { get; set; }
+    public byte Track { get; set; }
+    public int[] CardMemory { get; set; } = new int[2];
+    public ZonePointer<string> NamePtr { get; set; } = new(0);
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public ushort Width { get; set; }
     public ushort Height { get; set; }
     public ushort Depth { get; set; }
+    public byte DelayLoadPixels { get; set; }
 
     public override string? GetDisplayName => Name;
+}
+
+public class GfxImageLoadDef
+{
+    public byte LevelCount { get; set; }
+    public byte[] Pad { get; set; } = new byte[3];
+    public int Flags { get; set; }
+    public int Format { get; set; }
+    public int ResourceSize { get; set; }
+    public byte[] Data { get; set; } = [];
 }

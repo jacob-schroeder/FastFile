@@ -1,9 +1,13 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FastFile.Models.Assets.Menu.Elements;
 using FastFile.Models.Data;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using UI.Models;
+using UI.Views.Assets;
+using MaterialAsset = FastFile.Models.Assets.Material.Material;
 using MenuWindow = FastFile.Models.Assets.Menu.Elements.Window;
 
 namespace UI.Components.Menu;
@@ -88,7 +92,7 @@ public partial class MenuItemDetailsController : UserControl
         ];
     }
 
-    private static KeyValueListItem[] BuildWindowDetails(MenuWindow? window)
+    private static MenuMaterialReferenceDisplayItem[] BuildWindowDetails(MenuWindow? window)
     {
         if (window is null)
         {
@@ -108,14 +112,34 @@ public partial class MenuItemDetailsController : UserControl
             new("Border Size", window.BorderSize.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Static Flags", $"0x{window.StaticFlags:X8}"),
             new("Dynamic Flags", string.Join(", ", window.DynamicFlags)),
-            new("Background Material", MenuDisplayFormatter.FormatAssetPointer(window.Background))
+            new(
+                "Background Material",
+                MenuDisplayFormatter.FormatAssetPointer(window.Background),
+                window.Background?.Result)
         ];
     }
 
-    private static KeyValueListItem[] BuildPresentationDetails(ItemDef item)
+    private void MaterialViewButton_Click(object? sender, RoutedEventArgs e)
     {
-        return
-        [
+        if (sender is not Button { Tag: MaterialAsset material })
+        {
+            return;
+        }
+
+        var window = new MaterialAssetWindow(material);
+        if (VisualRoot is Avalonia.Controls.Window owner)
+        {
+            window.Show(owner);
+            return;
+        }
+
+        window.Show();
+    }
+
+    private static MenuMaterialReferenceDisplayItem[] BuildPresentationDetails(ItemDef item)
+    {
+        var rows = new List<MenuMaterialReferenceDisplayItem>
+        {
             new("Text Rect", FormatRectangles(item.TextRect)),
             new("Align", item.Align.ToString(CultureInfo.CurrentCulture)),
             new("Font", item.FontEnum.ToString(CultureInfo.CurrentCulture)),
@@ -133,7 +157,18 @@ public partial class MenuItemDetailsController : UserControl
             new("Disable Color", MenuDisplayFormatter.FormatVec4(item.Window?.DisableColor)),
             new("Glow Color", MenuDisplayFormatter.FormatVec4(item.GlowColor)),
             new("Type Data", FormatTypeData(item.TypeData))
-        ];
+        };
+
+        var selectIcon = item.TypeData?.ListBox?.Result?.SelectIcon;
+        if (selectIcon is not null && selectIcon.Kind != PointerKind.Null)
+        {
+            rows.Add(new MenuMaterialReferenceDisplayItem(
+                "Select Icon Material",
+                MenuDisplayFormatter.FormatAssetPointer(selectIcon),
+                selectIcon.Result));
+        }
+
+        return rows.ToArray();
     }
 
     private static string FormatRectangles(RectangleDef[]? rectangles)

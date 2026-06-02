@@ -52,6 +52,22 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <Style Selector="Button.menuDetailsViewButton">
+            <Setter Property="Background" Value="#9E3A3F" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DB5860" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.menuDetailsViewButton:pointerover">
+            <Setter Property="Background" Value="#B84950" />
+        </Style>
+
         <Style Selector="Border.menuDetailsValueRow">
             <Setter Property="BorderBrush" Value="#34373D" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -212,15 +228,21 @@
                                     <ItemsControl x:Name="WindowDetailsItemsControl"
                                                   Grid.Row="1">
                                         <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="models:KeyValueListItem">
+                                            <DataTemplate x:DataType="menu:MenuMaterialReferenceDisplayItem">
                                                 <Border Classes="menuDetailsValueRow">
-                                                    <Grid ColumnDefinitions="Auto,*"
+                                                    <Grid ColumnDefinitions="Auto,*,Auto"
                                                           ColumnSpacing="12">
                                                         <TextBlock Classes="menuDetailsKey"
                                                                    Text="{Binding Key}" />
                                                         <TextBlock Grid.Column="1"
                                                                    Classes="menuDetailsValue"
                                                                    Text="{Binding Value}" />
+                                                        <Button Grid.Column="2"
+                                                                Classes="menuDetailsViewButton"
+                                                                Content="View"
+                                                                Tag="{Binding Material}"
+                                                                IsVisible="{Binding CanOpenMaterial}"
+                                                                Click="MaterialViewButton_Click" />
                                                     </Grid>
                                                 </Border>
                                             </DataTemplate>

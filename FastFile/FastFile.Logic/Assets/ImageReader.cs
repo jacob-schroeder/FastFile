@@ -13,16 +13,23 @@ internal static class ImageReader
             Offset = context.Position,
         };
 
-        context.ReadPointer<byte>(); // texture.loadDef
-        context.ReadBytes(4); // mapType, semantic, category, useSrgbReads
-        context.ReadBytes(2); // picmip
-        context.ReadByte(); // noPicmip
-        context.ReadByte(); // track
-        context.ReadBytes(8); // cardMemory
+        asset.LoadDef = context.ReadPointer<GfxImageLoadDef>(ReadImageLoadDef);
+        asset.MapType = context.ReadByte();
+        asset.Semantic = context.ReadByte();
+        asset.Category = context.ReadByte();
+        asset.UseSrgbReads = context.ReadByte();
+        asset.Picmip = context.ReadBytes(2);
+        asset.NoPicmip = context.ReadByte();
+        asset.Track = context.ReadByte();
+        asset.CardMemory =
+        [
+            context.ReadInt32(),
+            context.ReadInt32()
+        ];
         asset.Width = context.ReadUInt16();
         asset.Height = context.ReadUInt16();
         asset.Depth = context.ReadUInt16();
-        context.ReadByte(); // delayLoadPixels
+        asset.DelayLoadPixels = context.ReadByte();
         context.ReadBytes(3); // pad before pointer
         asset.NamePtr = GenericReader.ReadStringPointer(ref context);
 
@@ -37,5 +44,24 @@ internal static class ImageReader
                 var value = pointerContext.ReadPointerValue(pointer, Read);
                 pointer.SetResult(value);
             });
+    }
+
+    private static GfxImageLoadDef ReadImageLoadDef(ref ZoneReadContext context)
+    {
+        var loadDef = new GfxImageLoadDef
+        {
+            LevelCount = context.ReadByte(),
+            Pad = context.ReadBytes(3),
+            Flags = context.ReadInt32(),
+            Format = context.ReadInt32(),
+            ResourceSize = context.ReadInt32()
+        };
+
+        if (loadDef.ResourceSize > 0)
+        {
+            loadDef.Data = context.ReadBytes(loadDef.ResourceSize);
+        }
+
+        return loadDef;
     }
 }
