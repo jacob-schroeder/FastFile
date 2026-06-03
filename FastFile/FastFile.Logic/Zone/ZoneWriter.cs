@@ -17,7 +17,8 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
 
     public byte[] Write()
     {
-        var context = new ZoneWriterContext();
+        var largeBlockBase = GetLargeBlockBase();
+        var context = new ZoneWriterContext(new ZonePointerRebaser(header));
 
         WriteHeader(context, size: 0);
         WriteXAssetList(context, assetList);
@@ -25,19 +26,24 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
 
         var computedSize = context.Position;
         var meaningfulSize = GetMeaningfulSize(computedSize);
-        var largeBlockSize = GetLargeBlockSize(meaningfulSize);
+        var largeBlockSize = GetLargeBlockSize(meaningfulSize, largeBlockBase);
+        var blockSizes = GetBlockSizes(largeBlockSize);
+        context.RebaseOffsetPointers(meaningfulSize, blockSizes);
+
         if (paddedLength is { } length && length > context.Position)
             context.WriteBytes(new byte[length - context.Position]);
 
         var buffer = context.ToArray();
         BinaryPrimitives.WriteInt32BigEndian(buffer.AsSpan(0, 4), meaningfulSize);
-        BinaryPrimitives.WriteInt32BigEndian(
-            buffer.AsSpan(GetBlockSizeOffset(XFILE_BLOCK.LARGE), XFileBlockSizeFieldSize),
-            largeBlockSize);
+        for (var i = 0; i < blockSizes.Length; i++)
+        {
+            BinaryPrimitives.WriteInt32BigEndian(
+                buffer.AsSpan(XFileBlockSizesOffset + i * XFileBlockSizeFieldSize, XFileBlockSizeFieldSize),
+                blockSizes[i]);
+        }
 
         header.Size = meaningfulSize;
-        if ((int)XFILE_BLOCK.LARGE < header.BlockSize.Length)
-            header.BlockSize[(int)XFILE_BLOCK.LARGE] = largeBlockSize;
+        header.BlockSize = blockSizes;
 
         return buffer;
     }
@@ -105,14 +111,17 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
         writer(context, asset);
     }
 
-    private int GetLargeBlockSize(int xfileSize)
+    private int GetLargeBlockSize(int xfileSize, int largeBlockBase)
     {
         // LARGE is a stream-block allocation size, not the linear zone length.
-        var nonLargeSize = Ps3ZoneStreamOverheadSize
+        return Math.Max(0, xfileSize - largeBlockBase);
+    }
+
+    private int GetLargeBlockBase()
+    {
+        return Ps3ZoneStreamOverheadSize
             + assetList.AssetCount * XAssetTypeFieldSize
             + GetNonLargeBlockSize();
-
-        return Math.Max(0, xfileSize - nonLargeSize);
     }
 
     private int GetNonLargeBlockSize()
@@ -129,6 +138,15 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
         return size;
     }
 
+    private int[] GetBlockSizes(int largeBlockSize)
+    {
+        var blockSizes = header.BlockSize.ToArray();
+        if ((int)XFILE_BLOCK.LARGE < blockSizes.Length)
+            blockSizes[(int)XFILE_BLOCK.LARGE] = largeBlockSize;
+
+        return blockSizes;
+    }
+
     private static int GetMeaningfulSize(int computedSize)
     {
         if (computedSize < XFileHeaderSize)
@@ -137,8 +155,4 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
         return computedSize - XFileHeaderSize + XFileCountedTrailingByteSize;
     }
 
-    private static int GetBlockSizeOffset(XFILE_BLOCK block)
-    {
-        return XFileBlockSizesOffset + (int)block * XFileBlockSizeFieldSize;
-    }
 }

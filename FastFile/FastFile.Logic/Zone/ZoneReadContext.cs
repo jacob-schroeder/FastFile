@@ -30,6 +30,7 @@ internal sealed class QueuedZonePointerResolver<T>(
         try
         {
             resolver(ref context, pointer);
+            pointer.SetSourceSpan(start, context.Position - start);
             context.Trace?.Invoke(Name, start, context.Position);
         }
         catch (Exception ex) when (ex is not InvalidDataException { InnerException: not null })
@@ -327,6 +328,7 @@ internal ref struct ZoneReadContext
         try
         {
             resolver(ref this, pointer);
+            pointer.SetSourceSpan(start, Position - start);
             Trace?.Invoke(typeof(T).Name, start, Position);
         }
         catch (Exception ex) when (ex is not InvalidDataException { InnerException: not null })
@@ -339,13 +341,16 @@ internal ref struct ZoneReadContext
         ZonePointer<T> pointer,
         ZoneValueReader<T> reader)
     {
+        var start = Position;
         Memory.ResolvePointer(pointer, Position);
 
         if (pointer.Kind != PointerKind.Offset)
         {
             try
             {
-                return reader(ref this);
+                var value = reader(ref this);
+                pointer.SetSourceSpan(start, Position - start);
+                return value;
             }
             catch (Exception ex) when (ex is not InvalidDataException { InnerException: not null })
             {

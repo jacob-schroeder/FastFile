@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using FastFile.Logic.Compression;
 using FastFile.Models.Assets.RawFiles;
 using FastFile.Models.Data;
+using System;
 using System.Text;
 using UI.Views.Assets.Highlighting;
 
@@ -34,14 +35,29 @@ public partial class RawfileAssetView : UserControl
 
         var decompressed = Encoding.UTF8.GetBytes(RawFileTextEditor.Text ?? string.Empty);
         var compressed = ZLib.Compress(decompressed);
+        var buffer = CreateCompressedBuffer(_asset, compressed);
 
         _asset.Len = decompressed.Length;
-        _asset.CompressedLen = compressed.Length;
+        _asset.CompressedLen = buffer.Length;
 
         if (_asset.BufferPtr is null)
             _asset.BufferPtr = new ZonePointer<byte[]>(-1);
 
-        _asset.BufferPtr.SetResult(compressed);
+        _asset.BufferPtr.SetResult(buffer);
+    }
+
+    private static byte[] CreateCompressedBuffer(RawFile asset, byte[] compressed)
+    {
+        if (asset.CompressedLen <= 0
+            || asset.Buffer.Length != asset.CompressedLen
+            || compressed.Length > asset.CompressedLen)
+        {
+            return compressed;
+        }
+
+        var buffer = new byte[asset.CompressedLen];
+        Array.Copy(compressed, buffer, compressed.Length);
+        return buffer;
     }
 
     private static string ReadFileText(RawFile asset)

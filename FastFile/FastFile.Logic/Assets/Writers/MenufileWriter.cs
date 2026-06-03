@@ -251,8 +251,12 @@ internal static class MenufileWriter
             case 0:
                 context.WritePointer(data.Data, (pointerContext, pointer) =>
                 {
-                    foreach (var value in pointer.Result?.Words ?? [])
-                        pointerContext.WriteInt32(value);
+                    var words = pointer.Result?.Words ?? [];
+                    for (var i = 0; i < words.Length; i++)
+                    {
+                        var index = i;
+                        pointerContext.WriteRebasableInt32(words[index], raw => words[index] = raw);
+                    }
                 });
                 break;
             case 4:
@@ -281,7 +285,7 @@ internal static class MenufileWriter
                 context.WritePointer(data.TextScroll, WriteTextScrollDefPointerValue);
                 break;
             default:
-                context.WriteInt32(data.Raw);
+                context.WriteRebasableInt32(data.Raw, raw => data.Raw = raw);
                 break;
         }
     }
@@ -413,7 +417,7 @@ internal static class MenufileWriter
                 context.QueuePointer(handler.EventData.SetLocalVarData, WriteSetLocalVarDataPointerValue);
                 break;
             default:
-                context.WriteInt32(handler.EventData.Raw);
+                context.WriteRebasableInt32(handler.EventData.Raw, raw => handler.EventData.Raw = raw);
                 break;
         }
     }

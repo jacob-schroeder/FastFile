@@ -25,8 +25,16 @@ internal sealed class QueuedZonePointerWriter<T>(
 
     public void Write(ZoneWriterContext context)
     {
+        var oldStart = pointer.SourceOffset;
+        var oldLength = pointer.SourceLength;
+        var newStart = context.Position;
+
         pointer.SetOffset(context.Position);
         writer(context, pointer);
+
+        var newLength = context.Position - newStart;
+        context.AddRebaseRange(pointer, oldStart, oldLength, newStart, newLength);
+        pointer.SetSourceSpan(newStart, newLength);
     }
 }
 
@@ -35,10 +43,14 @@ internal sealed class ZoneWriterContext
     private readonly MemoryStream _stream;
     private readonly List<IQueuedZonePointerWriter> _inlineWriters = new();
     private readonly List<IQueuedZonePointerWriter> _deferredWriters = new();
+    private readonly List<PendingOffsetPointer> _pendingOffsetPointers = new();
+    private readonly HashSet<Pointer> _mappedSourcePointers = new(ReferenceEqualityComparer.Instance);
+    private readonly ZonePointerRebaser? _rebaser;
     private bool _deferInlinePointers;
 
-    public ZoneWriterContext()
+    public ZoneWriterContext(ZonePointerRebaser? rebaser = null)
     {
+        _rebaser = rebaser;
         _stream = new MemoryStream();
     }
 
@@ -71,6 +83,18 @@ internal sealed class ZoneWriterContext
         Span<byte> buffer = stackalloc byte[4];
         BinaryPrimitives.WriteInt32BigEndian(buffer, value);
         _stream.Write(buffer);
+    }
+
+    public void WriteRebasableInt32(int value, Action<int>? updateValue = null)
+    {
+        var pointer = new Pointer(value);
+        if (pointer.Kind != PointerKind.Offset)
+        {
+            WriteInt32(value);
+            return;
+        }
+
+        WriteOffsetPointer(pointer, updateValue);
     }
 
     public void WriteUInt16(ushort value)
@@ -183,7 +207,7 @@ internal sealed class ZoneWriterContext
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            WriteInt32(pointer.Raw);
+            WriteOffsetPointer(pointer);
             return;
         }
 
@@ -223,7 +247,7 @@ internal sealed class ZoneWriterContext
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            WriteInt32(pointer.Raw);
+            WriteOffsetPointer(pointer);
             return;
         }
 
@@ -294,6 +318,22 @@ internal sealed class ZoneWriterContext
         }
     }
 
+    public void RebaseOffsetPointers(int newXFileSize, int[] newBlockSizes)
+    {
+        if (_rebaser is null || _pendingOffsetPointers.Count == 0)
+            return;
+
+        foreach (var pending in _pendingOffsetPointers)
+        {
+            if (!_rebaser.TryRebase(pending.Pointer, newXFileSize, newBlockSizes, out var raw))
+                continue;
+
+            WriteInt32At(pending.Position, raw);
+            pending.Pointer.SetRaw(raw);
+            pending.UpdateValue?.Invoke(raw);
+        }
+    }
+
     public void AlignPosition(int alignment)
     {
         if (alignment <= 0)
@@ -311,6 +351,38 @@ internal sealed class ZoneWriterContext
         return _stream.ToArray();
     }
 
+    internal void AddRebaseRange(Pointer pointer, int oldStart, int oldLength, int newStart, int newLength)
+    {
+        if (!_mappedSourcePointers.Add(pointer))
+            return;
+
+        _rebaser?.AddRange(oldStart, oldLength, newStart, newLength);
+    }
+
+    private void WriteOffsetPointer(Pointer pointer)
+    {
+        WriteOffsetPointer(pointer, updateValue: null);
+    }
+
+    private void WriteOffsetPointer(Pointer pointer, Action<int>? updateValue)
+    {
+        var position = Position;
+        WriteInt32(pointer.Raw);
+        if (_rebaser is not null)
+            _pendingOffsetPointers.Add(new PendingOffsetPointer(position, pointer, updateValue));
+    }
+
+    private void WriteInt32At(int position, int value)
+    {
+        Span<byte> buffer = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(buffer, value);
+
+        var previousPosition = _stream.Position;
+        _stream.Position = position;
+        _stream.Write(buffer);
+        _stream.Position = previousPosition;
+    }
+
     private void AddInlineWriter<T>(
         ZonePointer<T> pointer,
         ZonePointerWriter<T> writer,
@@ -322,4 +394,9 @@ internal sealed class ZoneWriterContext
         else
             _inlineWriters.Add(queuedWriter);
     }
+
+    private readonly record struct PendingOffsetPointer(
+        int Position,
+        Pointer Pointer,
+        Action<int>? UpdateValue);
 }
