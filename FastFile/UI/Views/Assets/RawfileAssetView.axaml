@@ -2,8 +2,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:avaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
              x:Class="UI.Views.Assets.RawfileAssetView">
-    <Grid Background="#1E1F22">
+    <Grid Background="#1E1F22"
+          RowDefinitions="Auto,*">
+        <Border Grid.Row="0"
+                Background="#25262A"
+                BorderBrush="#34363B"
+                BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <Button x:Name="SaveRawFileButton"
+                    Content="Save"
+                    Click="SaveRawFileButton_Click" />
+        </Border>
+
         <avaloniaEdit:TextEditor x:Name="RawFileTextEditor"
+                                 Grid.Row="1"
                                  Background="#1E1F22"
                                  FontFamily="Menlo, Consolas, Courier New"
                                  FontSize="13"
