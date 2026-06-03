@@ -1,9 +1,9 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.XModels;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class XModelSurfsReader
 {
@@ -13,12 +13,13 @@ internal static class XModelSurfsReader
         {
             Offset = context.Position,
             NamePtr = GenericReader.ReadStringPointer(ref context),
+            Surfs = context.ReadPointer<XSurface[]>(),
         };
 
-        context.ReadPointer<byte>(); // XSurface* surfs
         asset.NumSurfs = context.ReadUInt16();
-        context.ReadBytes(2); // align partBits
-        context.ReadBytes(6 * 4);
+        asset.PartBitsAlignment = context.ReadUInt16();
+        for (var i = 0; i < asset.PartBits.Length; i++)
+            asset.PartBits[i] = context.ReadInt32();
 
         return asset;
     }

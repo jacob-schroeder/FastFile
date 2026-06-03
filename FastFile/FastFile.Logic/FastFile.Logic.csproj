@@ -22,4 +22,8 @@
       <PackageReference Include="Ionic.Zlib.Core" Version="1.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Assets\Writers\" />
+    </ItemGroup>
+
 </Project>

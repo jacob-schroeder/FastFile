@@ -18,7 +18,7 @@ public class DB_Header
 
     public int EntryCount { get; set; }
     
-    //public Entry_t[] Assets { get; set; }
+    public byte[] EntryBytes { get; set; } = [];
     
     public int FileSize { get; set; }
     

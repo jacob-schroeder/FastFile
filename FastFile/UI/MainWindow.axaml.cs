@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private DB_Header? _fastFileHeader;
     private XFile? _zoneHeader;
     private XAssetList? _assetList;
+    private string? _currentFileName;
     private readonly List<string> _logMessages = new();
 
     public MainWindow()
@@ -65,6 +66,7 @@ public partial class MainWindow : Window
         _fastFileHeader = _document.Header;
         _zoneHeader = _document.ZoneHeader;
         _assetList = _document.AssetList;
+        _currentFileName = null;
 
         ResetLog();
         AddLog("INFO", "Initialized a new fastfile document");
@@ -115,6 +117,7 @@ public partial class MainWindow : Window
             AddLog("INFO", $"Read {buffer.Length:N0} bytes");
 
             await Task.Run(() => ParseFastFile(buffer));
+            _currentFileName = file.Name;
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
             UpdateAssetsTabView();
@@ -159,7 +162,7 @@ public partial class MainWindow : Window
         _fastFileHeader = fastFileHeader;
         _zoneHeader = zoneHeader;
         _assetList = assetList;
-        _document = FastFileDocument.FromParsed(buffer, fastFileHeader, zoneHeader, assetList);
+        _document = FastFileDocument.FromParsed(buffer, fastFileHeader, zoneHeader, assetList, zone);
     }
 
     private void UpdateFastFileHeaderView()
@@ -205,17 +208,100 @@ public partial class MainWindow : Window
         LogTabView.SetLogText(text);
     }
 
-    private void SaveMenuItem_Click(object? sender, RoutedEventArgs e)
+    private async void SaveMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        if (_document is null)
+        await SaveFastFileAsync();
+    }
+
+    private async Task SaveFastFileAsync()
+    {
+        if (_document is null) return;
+        if (_assetList is null) return;
+        if (_zoneHeader is null) return;
+
+        if (StorageProvider is null)
         {
+            AddLog("ERROR", "Save failed: storage provider is unavailable");
+            UpdateLogView();
             return;
         }
 
-        AddLog("INFO", _document.IsNew
-            ? "Save requested for new fastfile document"
-            : "Save requested for opened fastfile document");
-        UpdateLogView();
+        try
+        {
+            SaveMenuItem.IsEnabled = false;
+
+            var saveFile = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Save FastFile",
+                SuggestedFileName = GetSuggestedFastFileName(),
+                DefaultExtension = "ff",
+                ShowOverwritePrompt = true,
+                FileTypeChoices =
+                [
+                    new FilePickerFileType("FastFile")
+                    {
+                        Patterns = ["*.ff"]
+                    }
+                ]
+            });
+
+            if (saveFile is null)
+            {
+                AddLog("INFO", "Save cancelled");
+                return;
+            }
+
+            AddLog("INFO", "Writing zone data");
+            var zoneWriter = new ZoneWriter(_zoneHeader, _assetList, _document.ZoneBuffer?.Length);
+            var writtenZone = zoneWriter.Write();
+            AddLog("INFO", $"Zone written: {writtenZone.Length:N0} bytes");
+
+            AddLog("INFO", "Packing fastfile");
+            var fastFileWriter = new FastFileWriter(_fastFileHeader ?? _document.Header, writtenZone);
+            var writtenFastFile = fastFileWriter.Write();
+            var writtenFastFileHeader = fastFileWriter.Header;
+
+            AddLog("INFO", $"Fastfile packed: {writtenFastFile.Length:N0} bytes");
+
+            await using (var fileStream = await saveFile.OpenWriteAsync())
+            {
+                if (fileStream.CanSeek)
+                    fileStream.SetLength(0);
+
+                await fileStream.WriteAsync(writtenFastFile);
+                await fileStream.FlushAsync();
+            }
+
+            _fastFileHeader = writtenFastFileHeader;
+            _buffer = writtenFastFile;
+            _document = FastFileDocument.FromParsed(writtenFastFile, writtenFastFileHeader, _zoneHeader, _assetList, writtenZone);
+            _currentFileName = saveFile.Name;
+
+            UpdateFastFileHeaderView();
+            UpdateZoneTabView();
+            UpdateAssetsTabView();
+            UpdateDocumentState();
+
+            AddLog("INFO", $"Saved {saveFile.Name}: {writtenFastFile.Length:N0} bytes");
+            FastFileTabView.SetStatus($"Saved: {saveFile.Name}\nAssets: {_assetList.AssetCount:N0}");
+        }
+        catch (Exception ex)
+        {
+            AddLog("ERROR", $"Save failed: {ex.Message}");
+        }
+        finally
+        {
+            UpdateDocumentState();
+            UpdateLogView();
+        }
+    }
+
+    private string GetSuggestedFastFileName()
+    {
+        if (!string.IsNullOrWhiteSpace(_currentFileName))
+            return _currentFileName;
+
+        return "untitled.ff";
     }
 
     private void UpdateDocumentState()

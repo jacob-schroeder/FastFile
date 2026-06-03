@@ -43,6 +43,7 @@ public sealed class WeaponVariantDef() : BaseAsset(XAssetType.Weapon)
     public bool motionTracker { get; set; }
     public bool enhanced { get; set; }
     public bool dpadIconShowsAmmo { get; set; }
+    public byte DpadIconShowsAmmoPadding { get; set; }
 
 
 

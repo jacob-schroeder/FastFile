@@ -13,6 +13,7 @@ public sealed class FastFileDocument
     public DB_Header Header { get; init; } = null!;
     public XFile ZoneHeader { get; init; } = null!;
     public XAssetList AssetList { get; init; } = null!;
+    public byte[]? ZoneBuffer { get; init; }
 
     public static FastFileDocument CreateNew()
     {
@@ -36,7 +37,8 @@ public sealed class FastFileDocument
                 ExternalSize = 0,
                 BlockSize = new int[(int)XFILE_BLOCK.MAX_XFILE_COUNT]
             },
-            AssetList = CreateEmptyAssetList()
+            AssetList = CreateEmptyAssetList(),
+            ZoneBuffer = []
         };
     }
 
@@ -44,7 +46,8 @@ public sealed class FastFileDocument
         byte[] buffer,
         DB_Header header,
         XFile zoneHeader,
-        XAssetList assetList)
+        XAssetList assetList,
+        byte[] zoneBuffer)
     {
         return new FastFileDocument
         {
@@ -52,7 +55,8 @@ public sealed class FastFileDocument
             IsNew = false,
             Header = header,
             ZoneHeader = zoneHeader,
-            AssetList = assetList
+            AssetList = assetList,
+            ZoneBuffer = zoneBuffer
         };
     }
 

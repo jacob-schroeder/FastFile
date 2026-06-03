@@ -110,7 +110,7 @@ public static class BinarySpanExtensions
         var data = slice.Slice(0, end);
         offset += end + 1;
 
-        return Encoding.UTF8.GetString(data);
+        return Encoding.Latin1.GetString(data);
     }
 
     public static string ReadString(
@@ -118,7 +118,7 @@ public static class BinarySpanExtensions
         ref int offset,
         int length)
     {
-        string result = Encoding.UTF8.GetString(span.Slice(offset, length));
+        string result = Encoding.Latin1.GetString(span.Slice(offset, length));
         offset += length;
         return result;
     }

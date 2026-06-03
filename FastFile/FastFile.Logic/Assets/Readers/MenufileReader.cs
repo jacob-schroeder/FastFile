@@ -1,11 +1,11 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets;
 using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class MenufileReader
 {

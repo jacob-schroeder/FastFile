@@ -8,6 +8,8 @@ namespace FastFile.Logic.Archive;
 
 public sealed class FastFileReader(byte[] buffer, int length)
 {
+    private const ushort ZoneBlockTerminator = 1;
+
     private readonly ReadOnlyMemory<byte> _memory = buffer.AsMemory(0, length);
     private int _position;
     private int _length;
@@ -32,10 +34,9 @@ public sealed class FastFileReader(byte[] buffer, int length)
             EntryCount = span.ReadInt32(ref _position),
         };
 
-        //bypass Entry_t
-        #if PS3
-        _position += header.EntryCount * 0x14;
-        #endif
+#if PS3
+        header.EntryBytes = span.Read(ref _position, header.EntryCount * 0x14);
+#endif
         
         header.FileSize = span.ReadInt32(ref _position);
         header.MaxFileSize = span.ReadInt32(ref _position);
@@ -53,8 +54,14 @@ public sealed class FastFileReader(byte[] buffer, int length)
         {
             ushort blockSize = Span.ReadUInt16(ref _position);
 
+            if (blockSize == ZoneBlockTerminator)
+            {
+                TryConsumeTrailingTerminatorWord();
+                break;
+            }
+
             //Bypass fastfiles compiled out of spec
-            if (blockSize is 0 or 1)
+            if (blockSize == 0)
             {
                 _warnings.Add($"Encountered invalid block size: {blockSize}");
                 _position += ZLib.HEADER_SIZE;
@@ -80,5 +87,15 @@ public sealed class FastFileReader(byte[] buffer, int length)
         }
 
         return ms.ToArray();
+    }
+
+    private void TryConsumeTrailingTerminatorWord()
+    {
+        if (_position + sizeof(ushort) > Span.Length)
+            return;
+
+        var peekPosition = _position;
+        if (Span.ReadUInt16(ref peekPosition) == ZoneBlockTerminator)
+            _position = peekPosition;
     }
 }

@@ -1,9 +1,9 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class ImageReader
 {
@@ -31,7 +31,7 @@ internal static class ImageReader
         asset.Height = context.ReadUInt16();
         asset.Depth = context.ReadUInt16();
         asset.DelayLoadPixels = context.ReadByte();
-        context.ReadBytes(3); // pad before pointer
+        asset.Pad = context.ReadBytes(3);
         asset.NamePtr = GenericReader.ReadStringPointer(ref context);
 
         return asset;

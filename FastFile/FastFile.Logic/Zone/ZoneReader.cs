@@ -1,6 +1,6 @@
 using FastFile.Logic.Zone;
-using FastFile.Logic.Assets;
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Models.Assets;
 using FastFile.Models.Zone;
 using FastFile.Models.Data;
@@ -34,6 +34,7 @@ public sealed class ZoneReader(byte[] buffer)
             header.BlockSize[i] = context.ReadInt32();
 
         _position = context.Position;
+        _length = Math.Min(header.Size, buffer.Length);
         return header;
     }
 
@@ -147,4 +148,5 @@ public sealed class ZoneReader(byte[] buffer)
                 }),
         };
     }
+
 }

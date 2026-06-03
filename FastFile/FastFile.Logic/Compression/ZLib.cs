@@ -19,4 +19,15 @@ public class ZLib
 
         return output.ToArray();
     }
+
+    public static byte[] Compress(byte[] data)
+    {
+        using var output = new MemoryStream();
+        using (var stream = new Ionic.Zlib.ZlibStream(output, CompressionMode.Compress, CompressionLevel.Default))
+        {
+            stream.Write(data, 0, data.Length);
+        }
+
+        return output.ToArray();
+    }
 }

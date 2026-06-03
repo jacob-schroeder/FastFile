@@ -1,10 +1,10 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class MaterialReader
 {

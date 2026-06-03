@@ -2,7 +2,7 @@ using FastFile.Logic.Zone;
 using FastFile.Models.Assets;
 using FastFile.Models.Zone;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal delegate BaseAsset XAssetReader(ref ZoneReadContext context);
 

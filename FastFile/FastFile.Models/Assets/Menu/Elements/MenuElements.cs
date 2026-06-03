@@ -14,6 +14,7 @@ public class RectangleDef
     public float H { get; set; }
     public byte HorzAlign { get; set; }
     public byte VertAlign { get; set; }
+    public ushort AlignmentPadding { get; set; }
 }
 
 public class Window
@@ -94,7 +95,8 @@ public class Statement
     public int NumEntries { get; set; }
     public ZonePointer<ExpressionEntry[]> Entries { get; set; }
     public ZonePointer<ExpressionSupportingData> SupportingData { get; set; }
-    public byte[] Unknown { get; set; } = new byte[0xC];
+    public int LastExecuteTime { get; set; }
+    public Operand LastResult { get; set; }
 }
 
 public class ItemFloatExpression
@@ -116,6 +118,9 @@ public class MenuEventHandler
 {
     public EventData EventData { get; set; }
     public byte EventType { get; set; }
+    public byte EventTypePadding0 { get; set; }
+    public byte EventTypePadding1 { get; set; }
+    public byte EventTypePadding2 { get; set; }
 }
 
 public class MenuEventHandlerSet
@@ -136,7 +141,10 @@ public class NewsTickerDef
     public int FeedId { get; set; }
     public int Speed { get; set; }
     public int Spacing { get; set; }
-    public byte[] Unknown { get; set; } = new byte[0x10];
+    public int LastTime { get; set; }
+    public int Start { get; set; }
+    public int End { get; set; }
+    public float X { get; set; }
 }
 
 public class ColumnInfo
@@ -204,7 +212,12 @@ public class ItemDefData
     public ZonePointer<string> EnumDvarName { get; set; }
     public ZonePointer<NewsTickerDef> NewsTicker { get; set; }
     public ZonePointer<TextScrollDef> TextScroll { get; set; }
-    public ZonePointer<byte[]> Data { get; set; }
+    public ZonePointer<ItemDefRawData> Data { get; set; }
+}
+
+public class ItemDefRawData
+{
+    public int[] Words { get; set; } = new int[8];
 }
 
 public class ItemDef
@@ -259,6 +272,9 @@ public class ItemDef
     public ZonePointer<Statement> MaterialExp { get; set; }
     public Vec4 GlowColor { get; set; }
     public bool DecayActive { get; set; }
+    public byte DecayActivePadding0 { get; set; }
+    public byte DecayActivePadding1 { get; set; }
+    public byte DecayActivePadding2 { get; set; }
     public int FxBirthTime { get; set; }
     public int FxLetterTime { get; set; }
     public int FxDecayStartTime { get; set; }

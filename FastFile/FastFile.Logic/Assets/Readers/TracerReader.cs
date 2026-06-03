@@ -1,9 +1,9 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Tracers;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class TracerReader
 {
@@ -15,10 +15,15 @@ internal static class TracerReader
             NamePtr = GenericReader.ReadStringPointer(ref context),
             Material = MaterialReader.ReadMaterialPointer(ref context),
             DrawInterval = context.ReadUInt32(),
+            Speed = context.ReadFloat(),
+            BeamLength = context.ReadFloat(),
+            BeamWidth = context.ReadFloat(),
+            ScrewRadius = context.ReadFloat(),
+            ScrewDist = context.ReadFloat(),
         };
 
-        context.ReadBytes(5 * 4); // speed, beamLength, beamWidth, screwRadius, screwDist
-        context.ReadBytes(5 * 4 * 4); // colors
+        for (var i = 0; i < asset.Colors.Length; i++)
+            asset.Colors[i] = context.ReadVec4();
 
         return asset;
     }

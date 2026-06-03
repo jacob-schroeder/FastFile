@@ -152,6 +152,7 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
     public ushort Height { get; set; }
     public ushort Depth { get; set; }
     public byte DelayLoadPixels { get; set; }
+    public byte[] Pad { get; set; } = new byte[3];
 
     public override string? GetDisplayName => Name;
 }

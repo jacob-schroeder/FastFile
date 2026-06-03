@@ -1,9 +1,9 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Physics;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class PhysicsReader
 {
@@ -17,16 +17,15 @@ internal static class PhysicsReader
             Mass = context.ReadFloat(),
             Bounce = context.ReadFloat(),
             Friction = context.ReadFloat(),
+            BulletForceScale = context.ReadFloat(),
+            ExplosiveForceScale = context.ReadFloat(),
+            SndAliasPrefix = GenericReader.ReadStringPointer(ref context),
+            PiecesSpreadFraction = context.ReadFloat(),
+            PiecesUpwardVelocity = context.ReadFloat(),
+            TempDefaultToCylinder = context.ReadByte() != 0,
+            PerSurfaceSndAlias = context.ReadByte() != 0,
+            BoolAlignmentPadding = context.ReadUInt16(),
         };
-
-        context.ReadFloat(); // bulletForceScale
-        context.ReadFloat(); // explosiveForceScale
-        GenericReader.ReadStringPointer(ref context); // sndAliasPrefix
-        context.ReadFloat(); // piecesSpreadFraction
-        context.ReadFloat(); // piecesUpwardVelocity
-        context.ReadByte(); // tempDefaultToCylinder
-        context.ReadByte(); // perSurfaceSndAlias
-        context.ReadBytes(2);
 
         return asset;
     }
@@ -38,11 +37,10 @@ internal static class PhysicsReader
             Offset = context.Position,
             NamePtr = GenericReader.ReadStringPointer(ref context),
             Count = context.ReadUInt32(),
+            Geoms = context.ReadPointer<PhysGeomInfo[]>(),
+            Mass = ReadPhysMass(ref context),
+            Bounds = ReadBounds(ref context),
         };
-
-        context.ReadPointer<byte>(); // geoms
-        context.ReadBytes(36); // PhysMass
-        context.ReadBytes(24); // Bounds
 
         return asset;
     }
@@ -63,5 +61,34 @@ internal static class PhysicsReader
             {
                 pointer.SetResult(pointerContext.ReadPointerValue(pointer, ReadPhysCollmap));
             });
+    }
+
+    private static PhysMass ReadPhysMass(ref ZoneReadContext context)
+    {
+        return new PhysMass
+        {
+            CenterOfMass = ReadVec3(ref context),
+            MomentsOfInertia = ReadVec3(ref context),
+            ProductsOfInertia = ReadVec3(ref context),
+        };
+    }
+
+    private static FastFile.Models.Utils.Bounds ReadBounds(ref ZoneReadContext context)
+    {
+        return new FastFile.Models.Utils.Bounds
+        {
+            MidPoint = ReadVec3(ref context),
+            HalfSize = ReadVec3(ref context),
+        };
+    }
+
+    private static FastFile.Models.Utils.Vec3 ReadVec3(ref ZoneReadContext context)
+    {
+        return new FastFile.Models.Utils.Vec3
+        {
+            X = context.ReadFloat(),
+            Y = context.ReadFloat(),
+            Z = context.ReadFloat(),
+        };
     }
 }

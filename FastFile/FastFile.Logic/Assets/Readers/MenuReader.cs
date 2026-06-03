@@ -1,4 +1,4 @@
-using FastFile.Logic.Assets.Generic;
+using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Dvar;
 using FastFile.Models.Assets.Menu;
@@ -6,7 +6,7 @@ using FastFile.Models.Assets.Menu.Elements;
 using FastFile.Models.Assets.Menu.Enums;
 using FastFile.Models.Data;
 
-namespace FastFile.Logic.Assets;
+namespace FastFile.Logic.Assets.Readers;
 
 internal static class MenuReader
 {
@@ -207,7 +207,7 @@ internal static class MenuReader
             VertAlign = context.ReadByte(),
         };
 
-        context.Position += 2;
+        rectangle.AlignmentPadding = context.ReadUInt16();
         return rectangle;
     }
 
@@ -297,7 +297,9 @@ internal static class MenuReader
         var decayActiveOffset = context.Position;
         item.DecayActive = context.ReadBool();
         context.Trace?.Invoke("ItemDef.DecayActive", decayActiveOffset, context.Position);
-        context.Position += 3;
+        item.DecayActivePadding0 = context.ReadByte();
+        item.DecayActivePadding1 = context.ReadByte();
+        item.DecayActivePadding2 = context.ReadByte();
         item.FxBirthTime = context.ReadInt32();
         item.FxLetterTime = context.ReadInt32();
         item.FxDecayStartTime = context.ReadInt32();
@@ -320,13 +322,13 @@ internal static class MenuReader
             EnumDvarName = new ZonePointer<string>(raw),
             NewsTicker = new ZonePointer<NewsTickerDef>(raw),
             TextScroll = new ZonePointer<TextScrollDef>(raw),
-            Data = new ZonePointer<byte[]>(raw),
+            Data = new ZonePointer<ItemDefRawData>(raw),
         };
 
         switch (itemType)
         {
             case 0:
-                context.ResolveInlinePointer(data.Data, ReadUnknownItemDataPointerValue);
+                context.ResolveInlinePointer(data.Data, ReadRawItemDataPointerValue);
                 break;
             case 4:
             case 9:
@@ -358,9 +360,14 @@ internal static class MenuReader
         return data;
     }
 
-    private static void ReadUnknownItemDataPointerValue(ref ZoneReadContext context, ZonePointer<byte[]> pointer)
+    private static void ReadRawItemDataPointerValue(ref ZoneReadContext context, ZonePointer<ItemDefRawData> pointer)
     {
-        pointer.SetResult(context.ReadPointerValue(pointer, (ref ZoneReadContext valueContext) => valueContext.ReadBytes(0x20)));
+        pointer.SetResult(context.ReadPointerValue(pointer, (ref ZoneReadContext valueContext) =>
+        {
+            var data = new ItemDefRawData();
+            ReadInt32Array(ref valueContext, data.Words);
+            return data;
+        }));
     }
 
     private static Statement ReadStatement(ref ZoneReadContext context)
@@ -377,7 +384,8 @@ internal static class MenuReader
                 pointer.SetResult(entries);
             });
         statement.SupportingData = ReadExpressionSupportingDataPointer(ref context, resolve: false);
-        statement.Unknown = context.ReadBytes(0xC);
+        statement.LastExecuteTime = context.ReadInt32();
+        statement.LastResult = ReadOperand(ref context);
 
         return statement;
     }
@@ -391,37 +399,64 @@ internal static class MenuReader
         };
 
         var first = context.ReadInt32();
-        var second = context.ReadInt32();
-
         entry.Data.Op = (OperationEnum)first;
-        entry.Data.Operand = new Operand
+
+        if (entry.Type != 1)
         {
-            DataType = (ExpDataType)first,
+            var second = context.ReadInt32();
+            entry.Data.Operand = new Operand
+            {
+                DataType = (ExpDataType)first,
+                Internals = new OperandInternalData
+                {
+                    IntVal = second,
+                    FloatVal = BitConverter.Int32BitsToSingle(second),
+                    StringVal = new ZonePointer<ExpressionString>(second),
+                    Function = new ZonePointer<Statement>(second),
+                }
+            };
+            return entry;
+        }
+
+        entry.Data.Operand = ReadOperandData(ref context, (ExpDataType)first);
+
+        return entry;
+    }
+
+    private static Operand ReadOperand(ref ZoneReadContext context)
+    {
+        var dataType = (ExpDataType)context.ReadInt32();
+        return ReadOperandData(ref context, dataType);
+    }
+
+    private static Operand ReadOperandData(ref ZoneReadContext context, ExpDataType dataType)
+    {
+        var raw = context.ReadInt32();
+        var operand = new Operand
+        {
+            DataType = dataType,
             Internals = new OperandInternalData
             {
-                IntVal = second,
-                FloatVal = BitConverter.Int32BitsToSingle(second),
-                StringVal = new ZonePointer<ExpressionString>(second),
-                Function = new ZonePointer<Statement>(second),
+                IntVal = raw,
+                FloatVal = BitConverter.Int32BitsToSingle(raw),
+                StringVal = new ZonePointer<ExpressionString>(raw),
+                Function = new ZonePointer<Statement>(raw),
             }
         };
 
-        if (entry.Type != 1)
-            return entry;
-
-        switch (entry.Data.Operand.DataType)
+        switch (operand.DataType)
         {
             case ExpDataType.VAL_STRING:
-                if (entry.Data.Operand.Internals.StringVal.Kind == PointerKind.Inline)
-                    context.ResolveInlinePointer(entry.Data.Operand.Internals.StringVal, ReadExpressionStringPointerValue);
+                if (operand.Internals.StringVal.Kind == PointerKind.Inline)
+                    context.ResolveInlinePointer(operand.Internals.StringVal, ReadExpressionStringPointerValue);
                 break;
             case ExpDataType.VAL_FUNCTION:
-                if (entry.Data.Operand.Internals.Function.Kind == PointerKind.Inline)
-                    context.ResolveInlinePointer(entry.Data.Operand.Internals.Function, ReadStatementPointerValue);
+                if (operand.Internals.Function.Kind == PointerKind.Inline)
+                    context.ResolveInlinePointer(operand.Internals.Function, ReadStatementPointerValue);
                 break;
         }
 
-        return entry;
+        return operand;
     }
 
     private static ExpressionString ReadExpressionString(ref ZoneReadContext context)
@@ -472,7 +507,9 @@ internal static class MenuReader
             },
             EventType = context.ReadByte(),
         };
-        context.Position += 3;
+        handler.EventTypePadding0 = context.ReadByte();
+        handler.EventTypePadding1 = context.ReadByte();
+        handler.EventTypePadding2 = context.ReadByte();
 
         switch (handler.EventType)
         {
@@ -614,7 +651,10 @@ internal static class MenuReader
             FeedId = context.ReadInt32(),
             Speed = context.ReadInt32(),
             Spacing = context.ReadInt32(),
-            Unknown = context.ReadBytes(0x10),
+            LastTime = context.ReadInt32(),
+            Start = context.ReadInt32(),
+            End = context.ReadInt32(),
+            X = context.ReadFloat(),
         };
     }
 

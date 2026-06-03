@@ -1,7 +1,7 @@
 using FastFile.Models.Data;
 using FastFile.Logic.Zone;
 
-namespace FastFile.Logic.Assets.Generic;
+namespace FastFile.Logic.Assets.Readers.Generic;
 
 internal static class GenericReader
 {
