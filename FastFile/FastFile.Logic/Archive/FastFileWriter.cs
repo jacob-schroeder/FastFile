@@ -34,8 +34,8 @@ public sealed class FastFileWriter
         var packedZone = PackZone();
         var fileSize = GetHeaderSize(_header) + packedZone.Length;
 
-        _header.FileSize = fileSize;
-        _header.MaxFileSize = fileSize;
+        _header.FileSize = fileSize - 2;
+        _header.MaxFileSize = fileSize - 2;
 
         using var stream = new MemoryStream(fileSize);
         WriteHeader(stream);

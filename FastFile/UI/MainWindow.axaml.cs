@@ -144,6 +144,7 @@ public partial class MainWindow : Window
 
         AddLog("INFO", "Unpacking zone data");
         var zone = ffReader.UnpackZone();
+        
         AddLog("INFO", $"Zone unpacked: {zone.Length:N0} bytes");
         AddWarnings("FastFileReader", ffReader.Warnings);
         
@@ -254,6 +255,7 @@ public partial class MainWindow : Window
             AddLog("INFO", "Writing zone data");
             var zoneWriter = new ZoneWriter(_zoneHeader, _assetList, _document.ZoneBuffer?.Length);
             var writtenZone = zoneWriter.Write();
+
             AddLog("INFO", $"Zone written: {writtenZone.Length:N0} bytes");
 
             AddLog("INFO", "Packing fastfile");

@@ -23,6 +23,7 @@ internal static class XAssetReaderRegistry
             [XAssetType.SndCurve] = SndCurveReader.Read,
             [XAssetType.Sound] = SoundReader.Read,
             [XAssetType.StringTable] = StringTableReader.Read,
+            [XAssetType.StructuredDataDef] = StructuredDataReader.Read,
             [XAssetType.Techset] = TechsetReader.Read,
             [XAssetType.Tracer] = TracerReader.Read,
             [XAssetType.Weapon] = WeaponReader.Read,

@@ -20,6 +20,7 @@ internal static class XAssetWriterRegistry
             [XAssetType.PhysPreset] = PhysicsWriter.WritePhysPreset,
             [XAssetType.RawFile] = RawFileWriter.Write,
             [XAssetType.StringTable] = StringTableWriter.Write,
+            [XAssetType.StructuredDataDef] = StructuredDataWriter.Write,
             [XAssetType.Techset] = TechsetWriter.Write,
             [XAssetType.Tracer] = TracerWriter.Write,
             [XAssetType.Weapon] = WeaponWriter.Write,

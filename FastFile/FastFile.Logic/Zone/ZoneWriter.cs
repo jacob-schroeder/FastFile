@@ -8,6 +8,13 @@ namespace FastFile.Logic.Zone;
 
 public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLength = null)
 {
+    private const int XFileHeaderSize = 0x24;
+    private const int XFileBlockSizesOffset = 0x08;
+    private const int XFileBlockSizeFieldSize = 4;
+    private const int XFileCountedTrailingByteSize = 1;
+    private const int XAssetTypeFieldSize = 4;
+    private const int Ps3ZoneStreamOverheadSize = 0xFF3B;
+
     public byte[] Write()
     {
         var context = new ZoneWriterContext();
@@ -17,15 +24,20 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
         context.ResolveQueued();
 
         var computedSize = context.Position;
-        var meaningfulSize = paddedLength is not null && header.Size > 0 && header.Size <= computedSize
-            ? header.Size
-            : computedSize;
+        var meaningfulSize = GetMeaningfulSize(computedSize);
+        var largeBlockSize = GetLargeBlockSize(meaningfulSize);
         if (paddedLength is { } length && length > context.Position)
             context.WriteBytes(new byte[length - context.Position]);
 
         var buffer = context.ToArray();
         BinaryPrimitives.WriteInt32BigEndian(buffer.AsSpan(0, 4), meaningfulSize);
+        BinaryPrimitives.WriteInt32BigEndian(
+            buffer.AsSpan(GetBlockSizeOffset(XFILE_BLOCK.LARGE), XFileBlockSizeFieldSize),
+            largeBlockSize);
+
         header.Size = meaningfulSize;
+        if ((int)XFILE_BLOCK.LARGE < header.BlockSize.Length)
+            header.BlockSize[(int)XFILE_BLOCK.LARGE] = largeBlockSize;
 
         return buffer;
     }
@@ -91,5 +103,42 @@ public sealed class ZoneWriter(XFile header, XAssetList assetList, int? paddedLe
             throw new InvalidDataException($"No zone writer registered for asset type {asset.Type}.");
 
         writer(context, asset);
+    }
+
+    private int GetLargeBlockSize(int xfileSize)
+    {
+        // LARGE is a stream-block allocation size, not the linear zone length.
+        var nonLargeSize = Ps3ZoneStreamOverheadSize
+            + assetList.AssetCount * XAssetTypeFieldSize
+            + GetNonLargeBlockSize();
+
+        return Math.Max(0, xfileSize - nonLargeSize);
+    }
+
+    private int GetNonLargeBlockSize()
+    {
+        var size = 0;
+        for (var i = 0; i < header.BlockSize.Length; i++)
+        {
+            if (i == (int)XFILE_BLOCK.LARGE)
+                continue;
+
+            size += header.BlockSize[i];
+        }
+
+        return size;
+    }
+
+    private static int GetMeaningfulSize(int computedSize)
+    {
+        if (computedSize < XFileHeaderSize)
+            throw new InvalidDataException($"Written zone length 0x{computedSize:X8} is smaller than the 0x{XFileHeaderSize:X} byte XFile header.");
+
+        return computedSize - XFileHeaderSize + XFileCountedTrailingByteSize;
+    }
+
+    private static int GetBlockSizeOffset(XFILE_BLOCK block)
+    {
+        return XFileBlockSizesOffset + (int)block * XFileBlockSizeFieldSize;
     }
 }

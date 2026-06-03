@@ -1,4 +1,3 @@
-//using System.IO.Compression;
 using Ionic.Zlib;
 
 namespace FastFile.Logic.Compression;
@@ -23,7 +22,7 @@ public class ZLib
     public static byte[] Compress(byte[] data)
     {
         using var output = new MemoryStream();
-        using (var stream = new Ionic.Zlib.ZlibStream(output, CompressionMode.Compress, CompressionLevel.Default))
+        using (var stream = new Ionic.Zlib.ZlibStream(output, CompressionMode.Compress, CompressionLevel.BestCompression))
         {
             stream.Write(data, 0, data.Length);
         }
