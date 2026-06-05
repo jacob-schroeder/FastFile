@@ -97,7 +97,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -177,7 +177,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            rows.Add(new MenuInsightDisplayItem($"{itemLabel} - Float Expressions", MenuDisplayFormatter.ExternalPointerText));
+            rows.Add(new MenuInsightDisplayItem($"{itemLabel} - Float Expressions", MenuDisplayFormatter.OffsetPointerText));
             return;
         }
 
@@ -207,7 +207,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            rows.Add(new MenuInsightDisplayItem("Float Expressions", MenuDisplayFormatter.ExternalPointerText));
+            rows.Add(new MenuInsightDisplayItem("Float Expressions", MenuDisplayFormatter.OffsetPointerText));
             return;
         }
 
@@ -235,7 +235,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -257,7 +257,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -280,7 +280,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -316,7 +316,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return $"{prefix}{MenuDisplayFormatter.ExternalPointerText}";
+            return $"{prefix}{MenuDisplayFormatter.OffsetPointerText}";
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -354,7 +354,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -376,7 +376,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -400,7 +400,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)
@@ -443,7 +443,7 @@ internal static class MenuBehaviorFormatter
 
         if (statement.Entries.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!statement.Entries.IsResolved || statement.Entries.Result is null)
@@ -493,7 +493,7 @@ internal static class MenuBehaviorFormatter
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return MenuDisplayFormatter.ExternalPointerText;
+            return MenuDisplayFormatter.OffsetPointerText;
         }
 
         if (!pointer.IsResolved || pointer.Result is null)

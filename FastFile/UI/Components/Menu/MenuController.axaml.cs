@@ -61,7 +61,7 @@ public partial class MenuController : UserControl
         MenuExpressionsItemsControl.ItemsSource = MenuBehaviorFormatter.BuildMenuExpressions(menu);
         MenuItemsItemsControl.ItemsSource = items;
         MenuItemsEmptyTextBlock.Text = menu.Items is { Kind: PointerKind.Offset }
-            ? MenuDisplayFormatter.ExternalPointerText
+            ? MenuDisplayFormatter.OffsetPointerText
             : "No items available.";
         MenuItemsEmptyTextBlock.IsVisible = items.Length == 0;
 

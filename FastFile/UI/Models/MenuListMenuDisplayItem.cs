@@ -7,7 +7,7 @@ namespace UI.Models;
 
 public sealed class MenuListMenuDisplayItem
 {
-    private const string ExternalPointerText = "[EXTERNAL]";
+    private const string OffsetPointerText = "[OFFSET]";
     private const string NullPointerText = "[NULL]";
     private const string UnresolvedPointerText = "[UNRESOLVED]";
 
@@ -70,7 +70,7 @@ public sealed class MenuListMenuDisplayItem
     {
         return pointer.Kind switch
         {
-            PointerKind.Offset => ExternalPointerText,
+            PointerKind.Offset => OffsetPointerText,
             PointerKind.Null => NullPointerText,
             PointerKind.Inline => "Inline",
             PointerKind.Insert => "Insert",
@@ -80,14 +80,12 @@ public sealed class MenuListMenuDisplayItem
 
     private static string FormatStringPointer(ZonePointer<string>? pointer, string? value, string emptyValue)
     {
-        if (pointer is { Kind: PointerKind.Offset })
-        {
-            return ExternalPointerText;
-        }
+        if (!string.IsNullOrWhiteSpace(value))
+            return value;
 
-        return string.IsNullOrWhiteSpace(value)
-            ? emptyValue
-            : value;
+        return pointer is { Kind: PointerKind.Offset }
+            ? OffsetPointerText
+            : emptyValue;
     }
 
     private static string FormatRectangle(RectangleDef? rect)

@@ -21,7 +21,7 @@ internal static class GfxImageDecoder
 
         if (loadDef.Kind == PointerKind.Offset)
         {
-            return new ImageDecodeResult(null, "External/streamed", "Pixel data is external or streamed and is not embedded in this fastfile.");
+            return new ImageDecodeResult(null, "Offset/streamed", "Pixel data is referenced by an offset pointer or streamed data slot.");
         }
 
         if (!loadDef.IsResolved || loadDef.Result is null)

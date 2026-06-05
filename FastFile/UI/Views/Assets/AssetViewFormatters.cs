@@ -5,7 +5,7 @@ namespace UI.Views.Assets;
 
 internal static class AssetViewFormatters
 {
-    public const string ExternalPointerText = "[EXTERNAL]";
+    public const string OffsetPointerText = "[OFFSET]";
     public const string NullPointerText = "[NULL]";
     public const string UnresolvedPointerText = "[UNRESOLVED]";
 
@@ -13,7 +13,7 @@ internal static class AssetViewFormatters
     {
         return pointer?.Kind switch
         {
-            PointerKind.Offset => ExternalPointerText,
+            PointerKind.Offset => OffsetPointerText,
             PointerKind.Null => NullPointerText,
             PointerKind.Inline => "Inline",
             PointerKind.Insert => "Insert",

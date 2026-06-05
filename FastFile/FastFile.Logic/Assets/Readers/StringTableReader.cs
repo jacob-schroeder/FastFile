@@ -17,15 +17,17 @@ internal static class StringTableReader
             RowCount = context.ReadInt32(),
         };
 
-        asset.StringsPtr = context.ReadPointer<StringTableCell[]>(
+        asset.StringsPtr = context.ReadDirectPointer<StringTableCell[]>("StringTable.Cells");
+        context.ResolvePointerAligned(
+            asset.StringsPtr,
+            XFileWriteRules.StructAlignment,
             (ref XFileReadContext pointerContext, ZonePointer<StringTableCell[]> pointer) =>
             {
                 var valueCount = asset.ColumnCount * asset.RowCount;
                 var cells = ReadCells(ref pointerContext, valueCount);
                 pointer.SetResult(cells);
-            },
-            PointerResolutionKind.Direct,
-            "StringTable.Cells");
+                pointerContext.RegisterStringTableCells(cells);
+            });
 
         return asset;
     }

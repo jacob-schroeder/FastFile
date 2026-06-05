@@ -1,5 +1,4 @@
 using FastFile.Models.Assets.StringTables;
-using FastFile.Models.Data;
 
 namespace UI.Models;
 
@@ -23,26 +22,19 @@ public sealed class StringTableRowDisplayItem
 
         for (var column = 0; column < _table.ColumnCount; column++)
         {
-            cells[column] = new StringTableCellDisplayItem
-            {
-                Value = GetCellText(column)
-            };
+            cells[column] = GetCellDisplayItem(column);
         }
 
         return cells;
     }
 
-    private string GetCellText(int column)
+    private StringTableCellDisplayItem GetCellDisplayItem(int column)
     {
         var index = (_rowIndex * _table.ColumnCount) + column;
         if (index < 0 || index >= _table.Strings.Length)
-        {
-            return string.Empty;
-        }
+            return new StringTableCellDisplayItem(string.Empty);
 
         var cell = _table.Strings[index];
-        return cell.StringPtr.Kind == PointerKind.Offset
-            ? "[EXTERNAL]"
-            : cell.String;
+        return new StringTableCellDisplayItem(cell);
     }
 }

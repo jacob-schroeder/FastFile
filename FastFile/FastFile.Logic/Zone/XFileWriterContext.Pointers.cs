@@ -6,6 +6,11 @@ public sealed partial class XFileWriterContext
 {
     public void RegisterMaterializedPointerValue(Pointer? pointer, int? writtenLength = null)
     {
+        RegisterMaterializedPointerValueCore(pointer, writtenLength);
+    }
+
+    private void RegisterMaterializedPointerValueCore(Pointer? pointer, int? writtenLength)
+    {
         if (pointer is null)
             return;
 

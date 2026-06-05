@@ -10,7 +10,7 @@ namespace UI.Components.Menu;
 
 internal static class MenuDisplayFormatter
 {
-    public const string ExternalPointerText = "[EXTERNAL]";
+    public const string OffsetPointerText = "[OFFSET]";
     public const string NullPointerText = "[NULL]";
     public const string UnresolvedPointerText = "[UNRESOLVED]";
 
@@ -18,7 +18,7 @@ internal static class MenuDisplayFormatter
     {
         return pointer?.Kind switch
         {
-            PointerKind.Offset => ExternalPointerText,
+            PointerKind.Offset => OffsetPointerText,
             PointerKind.Null => NullPointerText,
             PointerKind.Inline => "Inline",
             PointerKind.Insert => "Insert",
@@ -29,17 +29,17 @@ internal static class MenuDisplayFormatter
 
     public static string FormatStringPointer(ZonePointer<string>? pointer, string? value, string emptyValue = "")
     {
-        if (pointer is { Kind: PointerKind.Offset })
-        {
-            return ExternalPointerText;
-        }
-
         if (pointer is { Kind: PointerKind.Null })
         {
             return emptyValue;
         }
 
-        return string.IsNullOrWhiteSpace(value)
+        if (!string.IsNullOrWhiteSpace(value))
+            return value;
+
+        return pointer is { Kind: PointerKind.Offset }
+            ? OffsetPointerText
+            : string.IsNullOrWhiteSpace(value)
             ? emptyValue
             : value;
     }
@@ -49,11 +49,6 @@ internal static class MenuDisplayFormatter
         if (pointer is null)
         {
             return NullPointerText;
-        }
-
-        if (pointer.Kind == PointerKind.Offset)
-        {
-            return ExternalPointerText;
         }
 
         if (pointer.Kind == PointerKind.Null)

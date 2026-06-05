@@ -20,7 +20,7 @@ public partial class MenuListAssetView : UserControl
         MenuListNameTextBlock.Text = GetMenuListName(asset);
         MenuListCountTextBlock.Text = $"{asset.MenuCount:N0} menus";
         MenuListEmptyTextBlock.Text = asset.Menus is { Kind: PointerKind.Offset }
-            ? "[EXTERNAL]"
+            ? "[OFFSET]"
             : "No menus available.";
 
         var menus = asset.Menus is { IsResolved: true, Result: not null }
@@ -53,13 +53,8 @@ public partial class MenuListAssetView : UserControl
 
     private static string GetMenuListName(MenuList asset)
     {
-        if (asset.NamePtr is { Kind: PointerKind.Offset })
-        {
-            return "[EXTERNAL]";
-        }
-
         return string.IsNullOrWhiteSpace(asset.GetDisplayName)
-            ? "(unnamed menu list)"
+            ? asset.NamePtr is { Kind: PointerKind.Offset } ? "[OFFSET]" : "(unnamed menu list)"
             : asset.GetDisplayName;
     }
 }

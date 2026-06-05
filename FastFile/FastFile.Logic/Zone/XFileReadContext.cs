@@ -1,5 +1,6 @@
 using FastFile.Models.Data;
 using FastFile.Logic.Extensions;
+using FastFile.Models.Assets.StringTables;
 using FastFile.Models.Utils;
 using FastFile.Models.Zone;
 
@@ -20,7 +21,8 @@ internal interface IQueuedXFilePointerResolver
 internal sealed class QueuedXFilePointerResolver<T>(
     ZonePointer<T> pointer,
     XFilePointerResolver<T> resolver,
-    XFILE_BLOCK? materializationBlock = null) : IQueuedXFilePointerResolver
+    XFILE_BLOCK? materializationBlock = null,
+    XFileStreamAlignment? streamAlignment = null) : IQueuedXFilePointerResolver
 {
     public string Name => typeof(T).Name;
 
@@ -46,6 +48,9 @@ internal sealed class QueuedXFilePointerResolver<T>(
     private void ResolveCore(ref XFileReadContext context)
     {
         var start = context.Position;
+        if (streamAlignment is { } alignment)
+            context.AlignStreamOnly(alignment);
+
         context.PrepareInlinePointerMaterialization(pointer);
         var streamStart = context.GetActiveStreamAddress();
         Memory.ResolvePointer(pointer, context.Position);
@@ -77,6 +82,7 @@ internal ref struct XFileReadContext
     private readonly List<IQueuedXFilePointerResolver> _deferredResolvers = new();
     private readonly List<MaterializedPointerSpan> _materializedSpans = new();
     private readonly List<OffsetPointerTarget> _offsetPointers = new();
+    private readonly List<StringTableCell[]> _stringTableCellSets = new();
     private bool _deferInlinePointers;
 
     public XFileReadContext(
@@ -358,6 +364,36 @@ internal ref struct XFileReadContext
         }
     }
 
+    public void ResolvePointerAligned<T>(
+        ZonePointer<T> pointer,
+        XFileStreamAlignment alignment,
+        XFilePointerResolver<T> resolver)
+    {
+        if (pointer.IsResolved)
+            return;
+
+        try
+        {
+            switch (pointer.Kind)
+            {
+                case PointerKind.Null:
+                    pointer.SetResult(default);
+                    break;
+                case PointerKind.Inline:
+                case PointerKind.Insert:
+                    AddInlineResolver(pointer, resolver, streamAlignment: alignment);
+                    break;
+                case PointerKind.Offset:
+                    pointer.SetResult(default);
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is not InvalidDataException { InnerException: not null })
+        {
+            throw PointerFailure(pointer, typeof(T).Name, ex);
+        }
+    }
+
     public void ResolveInlinePointer<T>(
         ZonePointer<T> pointer,
         XFilePointerResolver<T> resolver)
@@ -604,47 +640,56 @@ internal ref struct XFileReadContext
 
     public void ResolveOffsetPointers()
     {
-        if (_offsetPointers.Count == 0 || _materializedSpans.Count == 0)
-            return;
-
-        _materializedSpans.Sort((left, right) =>
+        if (_offsetPointers.Count > 0 && _materializedSpans.Count > 0)
         {
-            var blockComparison = left.StreamBlockIndex.CompareTo(right.StreamBlockIndex);
-            if (blockComparison != 0)
-                return blockComparison;
-
-            var startComparison = left.StreamOffset.CompareTo(right.StreamOffset);
-            return startComparison != 0
-                ? startComparison
-                : left.Length.CompareTo(right.Length);
-        });
-
-        var unresolvedCount = 0;
-        foreach (var offsetPointer in _offsetPointers)
-        {
-            var bestSpan = FindBestMaterializedSpan(
-                offsetPointer.StreamBlockIndex,
-                offsetPointer.TargetOffset,
-                offsetPointer.ValueType,
-                offsetPointer.PointerFieldOffset);
-            if (bestSpan is null)
+            _materializedSpans.Sort((left, right) =>
             {
-                unresolvedCount++;
-                continue;
+                var blockComparison = left.StreamBlockIndex.CompareTo(right.StreamBlockIndex);
+                if (blockComparison != 0)
+                    return blockComparison;
+
+                var startComparison = left.StreamOffset.CompareTo(right.StreamOffset);
+                return startComparison != 0
+                    ? startComparison
+                    : left.Length.CompareTo(right.Length);
+            });
+
+            var unresolvedCount = 0;
+            foreach (var offsetPointer in _offsetPointers)
+            {
+                var bestSpan = FindBestMaterializedSpan(
+                    offsetPointer.StreamBlockIndex,
+                    offsetPointer.TargetOffset,
+                    offsetPointer.ValueType,
+                    offsetPointer.PointerFieldOffset);
+                if (bestSpan is null)
+                {
+                    unresolvedCount++;
+                    continue;
+                }
+
+                offsetPointer.Pointer.SetTargetSpan(
+                    bestSpan.Value.Start,
+                    bestSpan.Value.Length,
+                    bestSpan.Value.StreamBlockIndex,
+                    bestSpan.Value.StreamOffset);
+                ResolveOffsetStringPointer(offsetPointer.Pointer, bestSpan.Value, offsetPointer.TargetOffset);
             }
 
-            offsetPointer.Pointer.SetTargetSpan(
-                bestSpan.Value.Start,
-                bestSpan.Value.Length,
-                bestSpan.Value.StreamBlockIndex,
-                bestSpan.Value.StreamOffset);
+            if (unresolvedCount > 0 && _streamBlocks is null)
+            {
+                _warnings?.Add(
+                    $"Unable to match {unresolvedCount:N0} offset pointer target(s) to materialized zone data spans.");
+            }
         }
 
-        if (unresolvedCount > 0 && _streamBlocks is null)
-        {
-            _warnings?.Add(
-                $"Unable to match {unresolvedCount:N0} offset pointer target(s) to materialized zone data spans.");
-        }
+        ApplyStringTableLogicalValues();
+    }
+
+    internal void RegisterStringTableCells(StringTableCell[] cells)
+    {
+        if (cells.Length > 0)
+            _stringTableCellSets.Add(cells);
     }
 
     public void PromoteDeferredPointers()
@@ -659,9 +704,14 @@ internal ref struct XFileReadContext
     private void AddInlineResolver<T>(
         ZonePointer<T> pointer,
         XFilePointerResolver<T> resolver,
-        XFILE_BLOCK? materializationBlock = null)
+        XFILE_BLOCK? materializationBlock = null,
+        XFileStreamAlignment? streamAlignment = null)
     {
-        var queuedResolver = new QueuedXFilePointerResolver<T>(pointer, resolver, materializationBlock);
+        var queuedResolver = new QueuedXFilePointerResolver<T>(
+            pointer,
+            resolver,
+            materializationBlock,
+            streamAlignment);
         if (_deferInlinePointers)
             _deferredResolvers.Add(queuedResolver);
         else
@@ -799,6 +849,47 @@ internal ref struct XFileReadContext
         return true;
     }
 
+    private void ResolveOffsetStringPointer(
+        Pointer pointer,
+        MaterializedPointerSpan span,
+        int targetOffset)
+    {
+        if (pointer is not ZonePointer<string> stringPointer || stringPointer.Result is not null)
+            return;
+
+        if (span.ValueType != typeof(string))
+            return;
+
+        var delta = targetOffset - span.StreamOffset;
+        if (delta < 0 || delta >= span.Length)
+            return;
+
+        stringPointer.SetResult(ReadCStringAt(span.Start + delta, span.Start, span.Length));
+    }
+
+    private void ApplyStringTableLogicalValues()
+    {
+        foreach (var cells in _stringTableCellSets)
+            StringTableCell.ApplyLogicalStringValues(cells);
+    }
+
+    private string ReadCStringAt(int offset, int spanStart, int spanLength)
+    {
+        var spanEnd = Math.Min(_span.Length, spanStart + spanLength);
+        if (offset < spanStart || offset >= spanEnd)
+            return string.Empty;
+
+        var end = offset;
+        while (end < spanEnd && _span[end] != 0)
+            end++;
+
+        if (end <= offset)
+            return string.Empty;
+
+        var readOffset = offset;
+        return _span.ReadString(ref readOffset, end - offset);
+    }
+
     public void AlignPosition(int alignment)
     {
         if (alignment <= 0)
@@ -811,6 +902,11 @@ internal ref struct XFileReadContext
         var padding = alignment - remainder;
         Position += padding;
         AdvanceStream(padding);
+    }
+
+    public void AlignStreamOnly(XFileStreamAlignment alignment)
+    {
+        _streamBlocks?.Align((int)alignment);
     }
 
     public void PushStreamBlock(XFILE_BLOCK block)

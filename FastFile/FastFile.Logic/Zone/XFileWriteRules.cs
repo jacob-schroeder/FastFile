@@ -18,7 +18,9 @@ public static class XFileWriteRules
 {
     public const int PointerSize = 4;
     public const int XAssetEntrySize = 8;
-    public const int Ps3AssetStreamLeadInSize = 0x58;
+    // EBOOT offset pointers are relative to g_streamBlocks[block], not the serialized zone offset.
+    // Official PS3 patches place block 4 string targets at this initial stream cursor.
+    public const int Ps3LargeBlockInitialOffset = 0x16A;
 
     public static XFILE_BLOCK RootBlock => XFILE_BLOCK.LARGE;
     public static XFILE_BLOCK AssetDataBlock => XFILE_BLOCK.LARGE;

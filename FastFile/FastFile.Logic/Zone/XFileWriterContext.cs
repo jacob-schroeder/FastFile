@@ -25,8 +25,7 @@ public sealed partial class XFileWriterContext
         var blockCount = Math.Max((int)XFILE_BLOCK.MAX_XFILE_COUNT, header.BlockSize.Length);
         _blockPositions = new int[blockCount];
         _blockPositions[(int)XFILE_BLOCK.TEMP] = GetBlockSize(header, XFILE_BLOCK.TEMP);
-        _blockPositions[(int)XFILE_BLOCK.LARGE] =
-            GetBlockSize(header, XFILE_BLOCK.TEMP) + XFileWriteRules.Ps3AssetStreamLeadInSize;
+        _blockPositions[(int)XFILE_BLOCK.LARGE] = XFileWriteRules.Ps3LargeBlockInitialOffset;
         _activeBlockIndex = (int)XFILE_BLOCK.TEMP;
     }
 
@@ -201,7 +200,7 @@ public sealed partial class XFileWriterContext
     {
         return WithStreamBlock(XFileWriteRules.AssetDataBlock, () =>
         {
-            AlignActiveBlockOnly(XFileWriteRules.InsertSlotAlignment);
+            AlignStreamOnly(XFileWriteRules.InsertSlotAlignment);
             var address = ActiveAddress;
             AdvanceActiveBlock(XFileWriteRules.PointerSize);
             return address;
@@ -487,7 +486,7 @@ public sealed partial class XFileWriterContext
         _blockPositions[_activeBlockIndex] += byteCount;
     }
 
-    private void AlignActiveBlockOnly(XFileStreamAlignment alignment)
+    public void AlignStreamOnly(XFileStreamAlignment alignment)
     {
         var byteAlignment = (int)alignment;
         if (byteAlignment <= 0)

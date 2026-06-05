@@ -46,15 +46,12 @@ public partial class AssetsTab : UserControl
                 Assets = group
                     .Select(item =>
                     {
-                        var isExternal = IsExternalAsset(item.Asset);
-
                         return new DisplayItem
                         {
                             Id = item.Index,
                             Display = GetAssetDisplayName(item.Asset, item.Index),
                             Asset = item.Asset.XAssetPtr.Result,
-                            AssetType = item.Asset.Type,
-                            IsExternal = isExternal
+                            AssetType = item.Asset.Type
                         };
                     })
                     .ToArray()
@@ -121,8 +118,7 @@ public partial class AssetsTab : UserControl
             .Select(group =>
             {
                 var matchingAssets = group.Assets
-                    .Where(asset => !asset.IsExternal
-                                    && asset.Display.Contains(query, System.StringComparison.OrdinalIgnoreCase))
+                    .Where(asset => asset.Display.Contains(query, System.StringComparison.OrdinalIgnoreCase))
                     .ToArray();
 
                 return matchingAssets.Length == 0
@@ -159,18 +155,7 @@ public partial class AssetsTab : UserControl
             return displayName;
         }
 
-        if (IsExternalAsset(asset))
-        {
-            return "[EXTERNAL]";
-        }
-
         return $"Asset {index:N0}";
-    }
-
-    private static bool IsExternalAsset(XAsset asset)
-    {
-        return asset.XAssetPtr.Kind == PointerKind.Offset
-            || asset.XAssetPtr.Result is LocalizeEntry { NamePtr.Kind: PointerKind.Offset };
     }
 
     private void AssetDetailTabCloseButton_Click(object? sender, RoutedEventArgs e)

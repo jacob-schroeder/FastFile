@@ -1021,6 +1021,7 @@ public sealed partial class XFileWriter
         if (pointer is not { IsInlineData: true, Result: not null })
             return;
 
+        context.AlignStreamOnly(XFileWriteRules.StructAlignment);
         context.RegisterMaterializedPointerValue(pointer);
 
         foreach (var cell in pointer.Result)

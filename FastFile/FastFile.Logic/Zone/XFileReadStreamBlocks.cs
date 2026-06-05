@@ -4,8 +4,6 @@ namespace FastFile.Logic.Zone;
 
 internal sealed class XFileReadStreamBlocks
 {
-    private const int Ps3AssetStreamLeadInSize = 0x58;
-
     private readonly int[] _positions;
     private readonly Stack<XFileStreamBlockStackEntry> _blockStack = new();
     private int _activeBlockIndex;
@@ -15,8 +13,7 @@ internal sealed class XFileReadStreamBlocks
         var blockCount = Math.Max((int)XFILE_BLOCK.MAX_XFILE_COUNT, header.BlockSize.Length);
         _positions = new int[blockCount];
         _positions[(int)XFILE_BLOCK.TEMP] = GetBlockSize(header, XFILE_BLOCK.TEMP);
-        _positions[(int)XFILE_BLOCK.LARGE] =
-            GetBlockSize(header, XFILE_BLOCK.TEMP) + Ps3AssetStreamLeadInSize;
+        _positions[(int)XFILE_BLOCK.LARGE] = XFileWriteRules.Ps3LargeBlockInitialOffset;
         _activeBlockIndex = (int)XFILE_BLOCK.TEMP;
     }
 

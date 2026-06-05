@@ -134,7 +134,7 @@ public partial class MaterialAssetView : UserControl
 
         if (pointer.Kind == PointerKind.Offset)
         {
-            return AssetViewFormatters.ExternalPointerText;
+            return AssetViewFormatters.OffsetPointerText;
         }
 
         if (pointer.Result is { } techniqueSet && !string.IsNullOrWhiteSpace(techniqueSet.GetDisplayName))
