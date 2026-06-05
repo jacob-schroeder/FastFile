@@ -7,7 +7,7 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class SoundReader
 {
-    public static SndAliasList Read(ref ZoneReadContext context)
+    public static SndAliasList Read(ref XFileReadContext context)
     {
         var asset = new SndAliasList
         {
@@ -20,27 +20,31 @@ internal static class SoundReader
         return asset;
     }
 
-    public static ZonePointer<SndAliasList> ReadSndAliasListPointer(ref ZoneReadContext context)
+    public static ZonePointer<SndAliasList> ReadSndAliasListPointer(ref XFileReadContext context)
     {
         return context.ReadPointer<SndAliasList>(
-            (ref ZoneReadContext pointerContext, ZonePointer<SndAliasList> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<SndAliasList> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, Read);
                 pointer.SetResult(value);
-            });
+            },
+            PointerResolutionKind.Alias,
+            "SndAliasListAssetRef");
     }
 
-    private static ZonePointer<SndAlias> ReadSndAliasPointer(ref ZoneReadContext context)
+    private static ZonePointer<SndAlias> ReadSndAliasPointer(ref XFileReadContext context)
     {
         return context.ReadPointer<SndAlias>(
-            (ref ZoneReadContext pointerContext, ZonePointer<SndAlias> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<SndAlias> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, ReadSndAlias);
                 pointer.SetResult(value);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "SndAliasList.Head");
     }
 
-    private static SndAlias ReadSndAlias(ref ZoneReadContext context)
+    private static SndAlias ReadSndAlias(ref XFileReadContext context)
     {
         return new SndAlias
         {
@@ -72,17 +76,19 @@ internal static class SoundReader
         };
     }
 
-    private static ZonePointer<SoundFile> ReadSoundFilePointer(ref ZoneReadContext context)
+    private static ZonePointer<SoundFile> ReadSoundFilePointer(ref XFileReadContext context)
     {
         return context.ReadPointer<SoundFile>(
-            (ref ZoneReadContext pointerContext, ZonePointer<SoundFile> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<SoundFile> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, ReadSoundFile);
                 pointer.SetResult(value);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "SndAlias.SoundFile");
     }
 
-    private static SoundFile ReadSoundFile(ref ZoneReadContext context)
+    private static SoundFile ReadSoundFile(ref XFileReadContext context)
     {
         var soundFile = new SoundFile
         {
@@ -99,17 +105,19 @@ internal static class SoundReader
         return soundFile;
     }
 
-    private static ZonePointer<SpeakerMap> ReadSpeakerMapPointer(ref ZoneReadContext context)
+    private static ZonePointer<SpeakerMap> ReadSpeakerMapPointer(ref XFileReadContext context)
     {
         return context.ReadPointer<SpeakerMap>(
-            (ref ZoneReadContext pointerContext, ZonePointer<SpeakerMap> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<SpeakerMap> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, ReadSpeakerMap);
                 pointer.SetResult(value);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "SndAlias.SpeakerMap");
     }
 
-    private static SpeakerMap ReadSpeakerMap(ref ZoneReadContext context)
+    private static SpeakerMap ReadSpeakerMap(ref XFileReadContext context)
     {
         var speakerMap = new SpeakerMap
         {
@@ -130,7 +138,7 @@ internal static class SoundReader
         return speakerMap;
     }
 
-    private static ChannelMap ReadChannelMap(ref ZoneReadContext context)
+    private static ChannelMap ReadChannelMap(ref XFileReadContext context)
     {
         var channelMap = new ChannelMap
         {
@@ -143,7 +151,7 @@ internal static class SoundReader
         return channelMap;
     }
 
-    private static SpeakerLevels ReadSpeakerLevels(ref ZoneReadContext context)
+    private static SpeakerLevels ReadSpeakerLevels(ref XFileReadContext context)
     {
         var levels = new SpeakerLevels
         {

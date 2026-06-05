@@ -7,7 +7,7 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class LoadedSoundReader
 {
-    public static LoadedSound Read(ref ZoneReadContext context)
+    public static LoadedSound Read(ref XFileReadContext context)
     {
         var asset = new LoadedSound
         {
@@ -16,17 +16,19 @@ internal static class LoadedSoundReader
         };
 
         context.ReadBytes(36); // AILSOUNDINFO
-        context.ReadPointer<byte>(); // MssSound.data
+        context.ReadDirectPointer<byte>("LoadedSound.SoundData"); // MssSound.data
 
         return asset;
     }
 
-    public static ZonePointer<LoadedSound> ReadLoadedSoundPointer(ref ZoneReadContext context)
+    public static ZonePointer<LoadedSound> ReadLoadedSoundPointer(ref XFileReadContext context)
     {
         return context.ReadPointer<LoadedSound>(
-            (ref ZoneReadContext pointerContext, ZonePointer<LoadedSound> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<LoadedSound> pointer) =>
             {
                 pointer.SetResult(pointerContext.ReadPointerValue(pointer, Read));
-            });
+            },
+            PointerResolutionKind.Alias,
+            "LoadedSoundAssetRef");
     }
 }

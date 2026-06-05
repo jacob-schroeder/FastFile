@@ -114,7 +114,6 @@ public partial class MainWindow : Window
             await fileStream.CopyToAsync(memoryStream);
 
             var buffer = memoryStream.ToArray();
-            AddLog("INFO", $"Read {buffer.Length:N0} bytes");
 
             await Task.Run(() => ParseFastFile(buffer));
             _currentFileName = file.Name;
@@ -140,24 +139,24 @@ public partial class MainWindow : Window
         var ffReader = new FastFileReader(buffer, buffer.Length);
         AddLog("INFO", "Parsing fastfile header");
         var fastFileHeader = ffReader.ParseHeader();
-        AddLog("INFO", $"Fastfile header parsed: magic={fastFileHeader.Magic}, version={fastFileHeader.Version}, size={fastFileHeader.FileSize:N0} bytes");
+        AddLog("INFO", "Fastfile header parsed");
 
         AddLog("INFO", "Unpacking zone data");
         var zone = ffReader.UnpackZone();
         
-        AddLog("INFO", $"Zone unpacked: {zone.Length:N0} bytes");
+        AddLog("INFO", "Zone unpacked");
         AddWarnings("FastFileReader", ffReader.Warnings);
         
-        var zoneReader = new ZoneReader(zone);
-        AddLog("INFO", "Parsing zone header");
+        var zoneReader = new XFileReader(zone);
+        AddLog("INFO", "Parsing XFile header");
         var zoneHeader = zoneReader.ParseHeader();
-        AddLog("INFO", $"Zone header parsed: size={zoneHeader.Size:N0}, externalSize={zoneHeader.ExternalSize:N0}");
+        AddLog("INFO", "XFile header parsed");
 
         AddLog("INFO", "Parsing asset list");
         var assetList = zoneReader.ParseXAssetList();
 
-        AddLog("INFO", $"Asset list parsed: assets={assetList.AssetCount:N0}, scriptStrings={assetList.ScriptStringCount:N0}");
-        AddWarnings("ZoneReader", zoneReader.Warnings);
+        AddLog("INFO", "Asset list parsed");
+        AddWarnings("XFileReader", zoneReader.Warnings);
 
         _buffer = buffer;
         _fastFileHeader = fastFileHeader;
@@ -252,18 +251,20 @@ public partial class MainWindow : Window
                 return;
             }
 
-            AddLog("INFO", "Writing zone data");
-            var zoneWriter = new ZoneWriter(_zoneHeader, _assetList, _document.ZoneBuffer?.Length);
-            var writtenZone = zoneWriter.Write();
+            AddLog("INFO", "Writing XFile data");
+            var xfileWriter = new XFileWriter(_zoneHeader, _assetList);
+            var writtenXFile = xfileWriter.Write();
+            var writtenZone = writtenXFile.LinearZoneBuffer;
+            var writtenZoneHeader = writtenXFile.Header;
 
-            AddLog("INFO", $"Zone written: {writtenZone.Length:N0} bytes");
+            AddLog("INFO", "Zone written");
 
             AddLog("INFO", "Packing fastfile");
             var fastFileWriter = new FastFileWriter(_fastFileHeader ?? _document.Header, writtenZone);
             var writtenFastFile = fastFileWriter.Write();
             var writtenFastFileHeader = fastFileWriter.Header;
 
-            AddLog("INFO", $"Fastfile packed: {writtenFastFile.Length:N0} bytes");
+            AddLog("INFO", "Fastfile packed");
 
             await using (var fileStream = await saveFile.OpenWriteAsync())
             {
@@ -275,8 +276,9 @@ public partial class MainWindow : Window
             }
 
             _fastFileHeader = writtenFastFileHeader;
+            _zoneHeader = writtenZoneHeader;
             _buffer = writtenFastFile;
-            _document = FastFileDocument.FromParsed(writtenFastFile, writtenFastFileHeader, _zoneHeader, _assetList, writtenZone);
+            _document = FastFileDocument.FromParsed(writtenFastFile, writtenFastFileHeader, writtenZoneHeader, _assetList, writtenZone);
             _currentFileName = saveFile.Name;
 
             UpdateFastFileHeaderView();
@@ -284,7 +286,7 @@ public partial class MainWindow : Window
             UpdateAssetsTabView();
             UpdateDocumentState();
 
-            AddLog("INFO", $"Saved {saveFile.Name}: {writtenFastFile.Length:N0} bytes");
+            AddLog("INFO", $"Saved {saveFile.Name}");
             FastFileTabView.SetStatus($"Saved: {saveFile.Name}\nAssets: {_assetList.AssetCount:N0}");
         }
         catch (Exception ex)

@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-#
+# 
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.Models", "FastFile.Models\FastFile.Models.csproj", "{F4B42010-F4B6-4953-815D-F79D58024056}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.Logic", "FastFile.Logic\FastFile.Logic.csproj", "{5B961DFB-5012-4B6D-8C7B-11C7D91135C7}"

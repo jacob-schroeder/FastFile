@@ -55,7 +55,7 @@ public class OperandInternalData
 {
     public int IntVal { get; set; }
     public float FloatVal { get; set; }
-    public ZonePointer<ExpressionString> StringVal { get; set; }
+    public ZonePointer<string> StringVal { get; set; }
     public ZonePointer<Statement> Function { get; set; }
 }
 

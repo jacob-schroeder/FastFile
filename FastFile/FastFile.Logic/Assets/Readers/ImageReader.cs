@@ -2,19 +2,23 @@ using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
 internal static class ImageReader
 {
-    public static GfxImage Read(ref ZoneReadContext context)
+    public static GfxImage Read(ref XFileReadContext context)
     {
         var asset = new GfxImage
         {
             Offset = context.Position,
         };
 
-        asset.LoadDef = context.ReadPointer<GfxImageLoadDef>(ReadImageLoadDef);
+        asset.LoadDef = context.ReadPointer<GfxImageLoadDef>(
+            ReadImageLoadDef,
+            PointerResolutionKind.Direct,
+            "GfxImage.LoadDef");
         asset.MapType = context.ReadByte();
         asset.Semantic = context.ReadByte();
         asset.Category = context.ReadByte();
@@ -37,17 +41,21 @@ internal static class ImageReader
         return asset;
     }
 
-    public static ZonePointer<GfxImage> ReadImagePointer(ref ZoneReadContext context)
+    public static ZonePointer<GfxImage> ReadImagePointer(ref XFileReadContext context)
     {
-        return context.ReadPointer<GfxImage>(
-            (ref ZoneReadContext pointerContext, ZonePointer<GfxImage> pointer) =>
+        var pointer = context.ReadAliasPointer<GfxImage>("GfxImageAssetRef");
+        context.ResolvePointerInBlock(
+            pointer,
+            XFILE_BLOCK.TEMP,
+            (ref XFileReadContext pointerContext, ZonePointer<GfxImage> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, Read);
                 pointer.SetResult(value);
             });
+        return pointer;
     }
 
-    private static GfxImageLoadDef ReadImageLoadDef(ref ZoneReadContext context)
+    private static GfxImageLoadDef ReadImageLoadDef(ref XFileReadContext context)
     {
         var loadDef = new GfxImageLoadDef
         {

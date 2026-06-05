@@ -7,7 +7,7 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class SndCurveReader
 {
-    public static SndCurve Read(ref ZoneReadContext context)
+    public static SndCurve Read(ref XFileReadContext context)
     {
         var asset = new SndCurve
         {
@@ -22,12 +22,14 @@ internal static class SndCurveReader
         return asset;
     }
 
-    public static ZonePointer<SndCurve> ReadSndCurvePointer(ref ZoneReadContext context)
+    public static ZonePointer<SndCurve> ReadSndCurvePointer(ref XFileReadContext context)
     {
         return context.ReadPointer<SndCurve>(
-            (ref ZoneReadContext pointerContext, ZonePointer<SndCurve> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<SndCurve> pointer) =>
             {
                 pointer.SetResult(pointerContext.ReadPointerValue(pointer, Read));
-            });
+            },
+            PointerResolutionKind.Alias,
+            "SndCurveAssetRef");
     }
 }

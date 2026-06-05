@@ -72,7 +72,8 @@ public sealed class MenuListMenuDisplayItem
         {
             PointerKind.Offset => ExternalPointerText,
             PointerKind.Null => NullPointerText,
-            PointerKind.Inline => pointer.Raw is -1 or -2 ? "Inline" : UnresolvedPointerText,
+            PointerKind.Inline => "Inline",
+            PointerKind.Insert => "Insert",
             _ => UnresolvedPointerText
         };
     }

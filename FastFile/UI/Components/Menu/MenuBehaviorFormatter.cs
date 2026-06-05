@@ -484,7 +484,7 @@ internal static class MenuBehaviorFormatter
         };
     }
 
-    private static string FormatExpressionString(ZonePointer<ExpressionString>? pointer)
+    private static string FormatExpressionString(ZonePointer<string>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -501,7 +501,7 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        return $"\"{pointer.Result.String}\"";
+        return $"\"{pointer.Result}\"";
     }
 
     private static string FormatFloat(float value)
@@ -544,7 +544,7 @@ internal static class MenuBehaviorFormatter
 
     private static string FormatPointerStatus(Pointer? pointer)
     {
-        return pointer?.Kind == PointerKind.Inline
+        return pointer?.IsInlineData == true
             ? string.Empty
             : MenuDisplayFormatter.FormatPointer(pointer);
     }

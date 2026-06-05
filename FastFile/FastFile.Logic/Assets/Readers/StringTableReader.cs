@@ -7,7 +7,7 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class StringTableReader
 {
-    public static StringTable Read(ref ZoneReadContext context)
+    public static StringTable Read(ref XFileReadContext context)
     {
         var asset = new StringTable
         {
@@ -18,17 +18,19 @@ internal static class StringTableReader
         };
 
         asset.StringsPtr = context.ReadPointer<StringTableCell[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StringTableCell[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StringTableCell[]> pointer) =>
             {
                 var valueCount = asset.ColumnCount * asset.RowCount;
                 var cells = ReadCells(ref pointerContext, valueCount);
                 pointer.SetResult(cells);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StringTable.Cells");
 
         return asset;
     }
 
-    private static StringTableCell[] ReadCells(ref ZoneReadContext context, int count)
+    private static StringTableCell[] ReadCells(ref XFileReadContext context, int count)
     {
         var cells = new StringTableCell[count];
 
@@ -38,7 +40,7 @@ internal static class StringTableReader
         return cells;
     }
 
-    private static StringTableCell ReadCell(ref ZoneReadContext context)
+    private static StringTableCell ReadCell(ref XFileReadContext context)
     {
         return new StringTableCell
         {

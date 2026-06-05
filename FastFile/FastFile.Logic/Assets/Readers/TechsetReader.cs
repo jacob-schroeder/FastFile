@@ -1,12 +1,13 @@
 using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.TechniqueSet;
+using FastFile.Models.Data;
 
 namespace FastFile.Logic.Assets.Readers;
 
 internal static class TechsetReader
 {
-    public static MaterialTechniqueSet Read(ref ZoneReadContext context)
+    public static MaterialTechniqueSet Read(ref XFileReadContext context)
     {
         var asset = new MaterialTechniqueSet
         {
@@ -18,7 +19,7 @@ internal static class TechsetReader
         };
 
         for (var i = 0; i < asset.Techniques.Length; i++)
-            asset.Techniques[i] = context.ReadPointer<MaterialTechnique>();
+            asset.Techniques[i] = context.ReadDirectPointer<MaterialTechnique>($"Techset.Techniques[{i}]");
 
         return asset;
     }

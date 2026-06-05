@@ -21,6 +21,7 @@ internal static class MenuDisplayFormatter
             PointerKind.Offset => ExternalPointerText,
             PointerKind.Null => NullPointerText,
             PointerKind.Inline => "Inline",
+            PointerKind.Insert => "Insert",
             null => NullPointerText,
             _ => UnresolvedPointerText
         };

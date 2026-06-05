@@ -18,7 +18,7 @@ internal static class WeaponReader
     private const int HitLocationCount = 20;
     private const int WeaponSoundAliasCount = 47;
 
-    public static WeaponVariantDef Read(ref ZoneReadContext context)
+    public static WeaponVariantDef Read(ref XFileReadContext context)
     {
         var start = context.Position;
         var weapon = new WeaponVariantDef
@@ -27,8 +27,8 @@ internal static class WeaponReader
             InternalNamePtr = GenericReader.ReadStringPointer(ref context),
             WeaponDefPtr = ReadWeaponDefPointer(ref context),
             DisplayNamePtr = GenericReader.ReadStringPointer(ref context),
-            HideTags = ReadUShortArrayPointer(ref context, HideTagCount),
-            XAnims = GenericReader.ReadStringPointerArrayPointer(ref context, WeaponAnimCount),
+            HideTags = ReadUShortArrayPointer(ref context, HideTagCount, "WeaponVariantDef.HideTags"),
+            XAnims = GenericReader.ReadStringPointerArrayPointer(ref context, WeaponAnimCount, "WeaponVariantDef.XAnims"),
             fAdsZoomFov = context.ReadFloat(),
             iAdsTransInTime = context.ReadInt32(),
             iAdsTransOutTime = context.ReadInt32(),
@@ -53,8 +53,8 @@ internal static class WeaponReader
             originalAccuracyGraphKnotCount = (short)context.ReadUInt16(),
         };
 
-        weapon.accuracyGraphKnots = ReadVec2ArrayPointer(ref context, weapon.accuracyGraphKnotCount);
-        weapon.originalAccuracyGraphKnots = ReadVec2ArrayPointer(ref context, weapon.originalAccuracyGraphKnotCount);
+        weapon.accuracyGraphKnots = ReadVec2ArrayPointer(ref context, weapon.accuracyGraphKnotCount, "WeaponVariantDef.AccuracyGraphKnots");
+        weapon.originalAccuracyGraphKnots = ReadVec2ArrayPointer(ref context, weapon.originalAccuracyGraphKnotCount, "WeaponVariantDef.OriginalAccuracyGraphKnots");
         weapon.motionTracker = context.ReadByte() != 0;
         weapon.enhanced = context.ReadByte() != 0;
         weapon.dpadIconShowsAmmo = context.ReadByte() != 0;
@@ -64,31 +64,33 @@ internal static class WeaponReader
         return weapon;
     }
 
-    private static ZonePointer<WeaponDef> ReadWeaponDefPointer(ref ZoneReadContext context)
+    private static ZonePointer<WeaponDef> ReadWeaponDefPointer(ref XFileReadContext context)
     {
         return context.ReadPointer<WeaponDef>(
-            (ref ZoneReadContext pointerContext, ZonePointer<WeaponDef> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<WeaponDef> pointer) =>
             {
                 pointer.SetResult(pointerContext.ReadPointerValue(pointer, ReadWeaponDef));
-            });
+            },
+            PointerResolutionKind.Direct,
+            "WeaponVariantDef.WeaponDef");
     }
 
-    private static WeaponDef ReadWeaponDef(ref ZoneReadContext context)
+    private static WeaponDef ReadWeaponDef(ref XFileReadContext context)
     {
         var start = context.Position;
         var weaponDef = new WeaponDef
         {
             Offset = start,
             InternalNamePtr = GenericReader.ReadStringPointer(ref context),
-            gunXModel = XModelReader.ReadXModelPointerArrayPointer(ref context, GunModelCount),
+            gunXModel = XModelReader.ReadXModelPointerArrayPointer(ref context, GunModelCount, "WeaponDef.GunXModel"),
             handXModel = XModelReader.ReadXModelPointer(ref context),
-            szXAnimsR = GenericReader.ReadStringPointerArrayPointer(ref context, WeaponAnimCount),
-            szXAnimsL = GenericReader.ReadStringPointerArrayPointer(ref context, WeaponAnimCount),
+            szXAnimsR = GenericReader.ReadStringPointerArrayPointer(ref context, WeaponAnimCount, "WeaponDef.szXAnimsR"),
+            szXAnimsL = GenericReader.ReadStringPointerArrayPointer(ref context, WeaponAnimCount, "WeaponDef.szXAnimsL"),
             ModeNamePtr = GenericReader.ReadStringPointer(ref context),
         };
 
         for (var i = 0; i < weaponDef.NoteTrackMaps.Length; i++)
-            weaponDef.NoteTrackMaps[i] = ReadUShortArrayPointer(ref context, NoteTrackMapCount);
+            weaponDef.NoteTrackMaps[i] = ReadUShortArrayPointer(ref context, NoteTrackMapCount, $"WeaponDef.NoteTrackMaps[{i}]");
 
         weaponDef.PlayerAnimTypeThroughStance = ReadInt32Array(ref context, weaponDef.PlayerAnimTypeThroughStance.Length);
         for (var i = 0; i < weaponDef.FlashEffects.Length; i++)
@@ -96,7 +98,7 @@ internal static class WeaponReader
 
         for (var i = 0; i < WeaponSoundAliasCount; i++)
             weaponDef.SoundAliases[i] = ReadSoundAliasPointer(ref context);
-        weaponDef.BounceSound = GenericReader.ReadStringPointerArrayPointer(ref context, SurfaceCount);
+        weaponDef.BounceSound = GenericReader.ReadStringPointerArrayPointer(ref context, SurfaceCount, "WeaponDef.BounceSound");
 
         for (var i = 0; i < weaponDef.EffectPointersA.Length; i++)
             weaponDef.EffectPointersA[i] = FxReader.ReadFxPointer(ref context);
@@ -106,7 +108,7 @@ internal static class WeaponReader
         weaponDef.ViewMovementRotationFields = ReadInt32Array(ref context, weaponDef.ViewMovementRotationFields.Length);
         weaponDef.PositionalMovementRotationFields = ReadInt32Array(ref context, weaponDef.PositionalMovementRotationFields.Length);
 
-        weaponDef.WorldGunXModel = XModelReader.ReadXModelPointerArrayPointer(ref context, GunModelCount);
+        weaponDef.WorldGunXModel = XModelReader.ReadXModelPointerArrayPointer(ref context, GunModelCount, "WeaponDef.WorldGunXModel");
         for (var i = 0; i < weaponDef.WorldModelPointers.Length; i++)
             weaponDef.WorldModelPointers[i] = XModelReader.ReadXModelPointer(ref context);
         weaponDef.AmmoCounterIcon = MaterialReader.ReadMaterialPointer(ref context);
@@ -141,8 +143,8 @@ internal static class WeaponReader
         for (var i = 0; i < weaponDef.ProjectileSoundAliases.Length; i++)
             weaponDef.ProjectileSoundAliases[i] = ReadSoundAliasPointer(ref context);
         weaponDef.ProjectileFieldsA = ReadInt32Array(ref context, weaponDef.ProjectileFieldsA.Length);
-        weaponDef.ParallelBounce = ReadFloatArrayPointer(ref context, SurfaceCount);
-        weaponDef.PerpendicularBounce = ReadFloatArrayPointer(ref context, SurfaceCount);
+        weaponDef.ParallelBounce = ReadFloatArrayPointer(ref context, SurfaceCount, "WeaponDef.ParallelBounce");
+        weaponDef.PerpendicularBounce = ReadFloatArrayPointer(ref context, SurfaceCount, "WeaponDef.PerpendicularBounce");
         for (var i = 0; i < weaponDef.ImpactEffects.Length; i++)
             weaponDef.ImpactEffects[i] = FxReader.ReadFxPointer(ref context);
         weaponDef.ImpactFieldsA = ReadInt32Array(ref context, weaponDef.ImpactFieldsA.Length);
@@ -155,8 +157,8 @@ internal static class WeaponReader
 
         weaponDef.AccuracyGraphName0 = GenericReader.ReadStringPointer(ref context);
         weaponDef.AccuracyGraphName1 = GenericReader.ReadStringPointer(ref context);
-        weaponDef.accuracyGraphKnots = context.ReadPointer<Vec2[]>();
-        weaponDef.originalAccuracyGraphKnots = context.ReadPointer<Vec2[]>();
+        weaponDef.accuracyGraphKnots = context.ReadDirectPointer<Vec2[]>("WeaponDef.AccuracyGraphKnots");
+        weaponDef.originalAccuracyGraphKnots = context.ReadDirectPointer<Vec2[]>("WeaponDef.OriginalAccuracyGraphKnots");
         weaponDef.accuracyGraphKnotCount = context.ReadUInt16();
         weaponDef.originalAccuracyGraphKnotCount = context.ReadUInt16();
         ResolveVec2ArrayPointer(ref context, weaponDef.accuracyGraphKnots, weaponDef.accuracyGraphKnotCount);
@@ -186,7 +188,7 @@ internal static class WeaponReader
         weaponDef.ScriptFieldsA = ReadInt32Array(ref context, weaponDef.ScriptFieldsA.Length);
         weaponDef.ScriptFieldsB = ReadInt32Array(ref context, weaponDef.ScriptFieldsB.Length);
         weaponDef.HitLocationField = context.ReadInt32();
-        weaponDef.LocationDamageMultipliers = ReadFloatArrayPointer(ref context, HitLocationCount);
+        weaponDef.LocationDamageMultipliers = ReadFloatArrayPointer(ref context, HitLocationCount, "WeaponDef.LocationDamageMultipliers");
         weaponDef.FireRumble = GenericReader.ReadStringPointer(ref context);
         weaponDef.MeleeImpactRumble = GenericReader.ReadStringPointer(ref context);
         weaponDef.Tracer = TracerReader.ReadTracerPointer(ref context);
@@ -225,7 +227,7 @@ internal static class WeaponReader
         return weaponDef;
     }
 
-    private static WeaponBooleanFlags ReadWeaponBooleanFlags(ref ZoneReadContext context)
+    private static WeaponBooleanFlags ReadWeaponBooleanFlags(ref XFileReadContext context)
     {
         return new WeaponBooleanFlags
         {
@@ -276,17 +278,18 @@ internal static class WeaponReader
         };
     }
 
-    private static ZonePointer<string> ReadSoundAliasPointer(ref ZoneReadContext context)
+    private static ZonePointer<string> ReadSoundAliasPointer(ref XFileReadContext context)
     {
         return GenericReader.ReadStringPointer(ref context);
     }
 
     private static ZonePointer<ushort[]> ReadUShortArrayPointer(
-        ref ZoneReadContext context,
-        int count)
+        ref XFileReadContext context,
+        int count,
+        string fieldPath)
     {
-        var pointer = context.ReadPointer<ushort[]>();
-        context.ResolveInlinePointer(pointer, (ref ZoneReadContext pointerContext, ZonePointer<ushort[]> p) =>
+        var pointer = context.ReadDirectPointer<ushort[]>(fieldPath);
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<ushort[]> p) =>
         {
             var values = new ushort[Math.Max(0, count)];
             for (var i = 0; i < values.Length; i++)
@@ -299,11 +302,12 @@ internal static class WeaponReader
     }
 
     private static ZonePointer<float[]> ReadFloatArrayPointer(
-        ref ZoneReadContext context,
-        int count)
+        ref XFileReadContext context,
+        int count,
+        string fieldPath)
     {
-        var pointer = context.ReadPointer<float[]>();
-        context.ResolveInlinePointer(pointer, (ref ZoneReadContext pointerContext, ZonePointer<float[]> p) =>
+        var pointer = context.ReadDirectPointer<float[]>(fieldPath);
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<float[]> p) =>
         {
             var values = new float[Math.Max(0, count)];
             for (var i = 0; i < values.Length; i++)
@@ -316,20 +320,21 @@ internal static class WeaponReader
     }
 
     private static ZonePointer<Vec2[]> ReadVec2ArrayPointer(
-        ref ZoneReadContext context,
-        int count)
+        ref XFileReadContext context,
+        int count,
+        string fieldPath)
     {
-        var pointer = context.ReadPointer<Vec2[]>();
+        var pointer = context.ReadDirectPointer<Vec2[]>(fieldPath);
         ResolveVec2ArrayPointer(ref context, pointer, count);
         return pointer;
     }
 
     private static void ResolveVec2ArrayPointer(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<Vec2[]> pointer,
         int count)
     {
-        context.ResolveInlinePointer(pointer, (ref ZoneReadContext pointerContext, ZonePointer<Vec2[]> p) =>
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<Vec2[]> p) =>
         {
             var values = new Vec2[Math.Max(0, count)];
             for (var i = 0; i < values.Length; i++)
@@ -345,7 +350,7 @@ internal static class WeaponReader
         });
     }
 
-    private static int[] ReadInt32Array(ref ZoneReadContext context, int count)
+    private static int[] ReadInt32Array(ref XFileReadContext context, int count)
     {
         var values = new int[Math.Max(0, count)];
         for (var i = 0; i < values.Length; i++)
@@ -354,7 +359,7 @@ internal static class WeaponReader
         return values;
     }
 
-    private static float[] ReadFloatArray(ref ZoneReadContext context, int count)
+    private static float[] ReadFloatArray(ref XFileReadContext context, int count)
     {
         var values = new float[Math.Max(0, count)];
         for (var i = 0; i < values.Length; i++)

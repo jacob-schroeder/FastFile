@@ -3,6 +3,7 @@ using FastFile.Logic.Zone;
 using FastFile.Models.Data;
 using FastFile.Models.Assets.XModels;
 using FastFile.Models.Utils;
+using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
@@ -13,30 +14,31 @@ internal static class XModelReader
     private const int LodInfoSize = 40;
     private const int BoundsSize = 24;
 
-    public static ZonePointer<XModel> ReadXModelPointer(ref ZoneReadContext context)
+    public static ZonePointer<XModel> ReadXModelPointer(ref XFileReadContext context)
     {
-        var pointer = context.ReadPointer<XModel>();
-        context.ResolveInlinePointer(pointer, ReadXModelPointerValue);
+        var pointer = context.ReadAliasPointer<XModel>("XModelAssetRef");
+        context.ResolvePointerInBlock(pointer, XFILE_BLOCK.TEMP, ReadXModelPointerValue);
         return pointer;
     }
 
     public static ZonePointer<ZonePointer<XModel>[]> ReadXModelPointerArrayPointer(
-        ref ZoneReadContext context,
-        int count)
+        ref XFileReadContext context,
+        int count,
+        string fieldPath = "XModelAssetRefArray")
     {
-        var pointer = context.ReadPointer<ZonePointer<XModel>[]>();
-        context.ResolveInlinePointer(pointer, (ref ZoneReadContext pointerContext, ZonePointer<ZonePointer<XModel>[]> p) =>
+        var pointer = context.ReadDirectPointer<ZonePointer<XModel>[]>(fieldPath);
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<ZonePointer<XModel>[]> p) =>
         {
             var values = new ZonePointer<XModel>[count];
             for (var i = 0; i < values.Length; i++)
-                values[i] = pointerContext.ReadPointer<XModel>();
+                values[i] = pointerContext.ReadAliasPointer<XModel>($"{fieldPath}[{i}]");
 
             p.SetResult(values);
 
             foreach (var value in values)
             {
-                if (value.Kind == PointerKind.Inline)
-                    pointerContext.ResolveInlinePointerDeferred(value, ReadXModelPointerValue);
+                if (value.IsInlineData)
+                    pointerContext.ResolveInlinePointerDeferredInBlock(value, XFILE_BLOCK.TEMP, ReadXModelPointerValue);
                 else
                     value.SetResult(default);
             }
@@ -45,12 +47,12 @@ internal static class XModelReader
         return pointer;
     }
 
-    private static void ReadXModelPointerValue(ref ZoneReadContext context, ZonePointer<XModel> pointer)
+    private static void ReadXModelPointerValue(ref XFileReadContext context, ZonePointer<XModel> pointer)
     {
         pointer.SetResult(context.ReadPointerValue(pointer, Read));
     }
 
-    public static XModel Read(ref ZoneReadContext context)
+    public static XModel Read(ref XFileReadContext context)
     {
         var offset = context.Position;
         var name = GenericReader.ReadStringPointer(ref context, resolve: false);
@@ -61,13 +63,13 @@ internal static class XModelReader
         var scale = context.ReadFloat();
         var noScalePartBits = ReadInt32Array(ref context, NoScalePartBitsCount);
 
-        var boneNames = context.ReadPointer<ushort[]>();
-        var parentList = context.ReadPointer<XModelParent[]>();
-        var quats = context.ReadPointer<XModelQuat[]>();
-        var trans = context.ReadPointer<Vec3[]>();
-        var partClassification = context.ReadPointer<XModelPartClassification[]>();
-        var baseMat = context.ReadPointer<DObjAnimMat[]>();
-        var materialHandles = context.ReadPointer<ZonePointer<FastFile.Models.Assets.Material.Material>[]>();
+        var boneNames = context.ReadDirectPointer<ushort[]>("XModel.BoneNames");
+        var parentList = context.ReadDirectPointer<XModelParent[]>("XModel.ParentList");
+        var quats = context.ReadDirectPointer<XModelQuat[]>("XModel.Quats");
+        var trans = context.ReadDirectPointer<Vec3[]>("XModel.Trans");
+        var partClassification = context.ReadDirectPointer<XModelPartClassification[]>("XModel.PartClassification");
+        var baseMat = context.ReadDirectPointer<DObjAnimMat[]>("XModel.BaseMat");
+        var materialHandles = context.ReadDirectPointer<ZonePointer<FastFile.Models.Assets.Material.Material>[]>("XModel.MaterialHandles");
 
         var lodInfo = new XModelLodInfo[LodInfoCount];
         for (var i = 0; i < lodInfo.Length; i++)
@@ -77,10 +79,10 @@ internal static class XModelReader
         var numLods = context.ReadByte();
         var collLod = context.ReadByte();
         var flags = context.ReadByte();
-        var collSurfs = context.ReadPointer<XModelCollSurf[]>();
+        var collSurfs = context.ReadDirectPointer<XModelCollSurf[]>("XModel.CollSurfs");
         var numCollSurfs = context.ReadInt32();
         var contents = context.ReadInt32();
-        var boneInfo = context.ReadPointer<XBoneInfo[]>();
+        var boneInfo = context.ReadDirectPointer<XBoneInfo[]>("XModel.BoneInfo");
         var radius = context.ReadFloat();
         var bounds = ReadBounds(ref context);
         var memUsage = context.ReadInt32();
@@ -91,16 +93,24 @@ internal static class XModelReader
         var physPreset = PhysicsReader.ReadPhysPresetPointer(ref context);
         var physCollmap = PhysicsReader.ReadPhysCollmapPointer(ref context);
 
-        GenericReader.ResolveStringPointerNow(ref context, name);
-        ResolveInlineUShortArray(ref context, boneNames, numBones);
-        ResolveParentArray(ref context, parentList, Math.Max(0, numBones - numRootBones));
-        ResolveQuatArray(ref context, quats, Math.Max(0, numBones - numRootBones));
-        ResolveVec3Array(ref context, trans, Math.Max(0, numBones - numRootBones));
-        ResolvePartClassificationArray(ref context, partClassification, numBones);
-        ResolveDObjAnimMatArray(ref context, baseMat, numBones);
-        ResolveMaterialHandleArray(ref context, materialHandles, numSurfs);
-        ResolveXModelCollSurfArray(ref context, collSurfs, numCollSurfs);
-        ResolveXBoneInfoArray(ref context, boneInfo, numBones);
+        context.PushStreamBlock(XFILE_BLOCK.LARGE);
+        try
+        {
+            GenericReader.ResolveStringPointerNow(ref context, name);
+            ResolveInlineUShortArray(ref context, boneNames, numBones);
+            ResolveParentArray(ref context, parentList, Math.Max(0, numBones - numRootBones));
+            ResolveQuatArray(ref context, quats, Math.Max(0, numBones - numRootBones));
+            ResolveVec3Array(ref context, trans, Math.Max(0, numBones - numRootBones));
+            ResolvePartClassificationArray(ref context, partClassification, numBones);
+            ResolveDObjAnimMatArray(ref context, baseMat, numBones);
+            ResolveMaterialHandleArray(ref context, materialHandles, numSurfs);
+            ResolveXModelCollSurfArray(ref context, collSurfs, numCollSurfs);
+            ResolveXBoneInfoArray(ref context, boneInfo, numBones);
+        }
+        finally
+        {
+            context.PopStreamBlock();
+        }
 
         return new XModel
         {
@@ -140,7 +150,7 @@ internal static class XModelReader
         };
     }
 
-    private static XModelLodInfo ReadXModelLodInfo(ref ZoneReadContext context)
+    private static XModelLodInfo ReadXModelLodInfo(ref XFileReadContext context)
     {
         var start = context.Position;
         var lodInfo = new XModelLodInfo
@@ -148,13 +158,13 @@ internal static class XModelReader
             Dist = context.ReadFloat(),
             NumSurfs = context.ReadUInt16(),
             SurfIndex = context.ReadUInt16(),
-            ModelSurfs = context.ReadPointer<XModelSurfs>(),
+            ModelSurfs = context.ReadAliasPointer<XModelSurfs>("XModelLodInfo.ModelSurfs"),
         };
 
         for (var i = 0; i < lodInfo.PartBits.Length; i++)
             lodInfo.PartBits[i] = context.ReadInt32();
 
-        lodInfo.Surfs = context.ReadPointer<XSurface[]>();
+        lodInfo.Surfs = context.CreatePointer<XSurface[]>(context.ReadInt32(), register: false);
 
         var bytesRead = context.Position - start;
         if (bytesRead != LodInfoSize)
@@ -164,21 +174,21 @@ internal static class XModelReader
     }
 
     private static void ResolveParentArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<XModelParent[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<XModelParent[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<XModelParent[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new XModelParent[count];
                     for (var i = 0; i < values.Length; i++)
@@ -190,21 +200,21 @@ internal static class XModelReader
     }
 
     private static void ResolveQuatArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<XModelQuat[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<XModelQuat[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<XModelQuat[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new XModelQuat[count];
                     for (var i = 0; i < values.Length; i++)
@@ -222,21 +232,21 @@ internal static class XModelReader
     }
 
     private static void ResolveVec3Array(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<Vec3[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<Vec3[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<Vec3[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new Vec3[count];
                     for (var i = 0; i < values.Length; i++)
@@ -248,21 +258,21 @@ internal static class XModelReader
     }
 
     private static void ResolvePartClassificationArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<XModelPartClassification[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<XModelPartClassification[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<XModelPartClassification[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new XModelPartClassification[count];
                     for (var i = 0; i < values.Length; i++)
@@ -274,21 +284,21 @@ internal static class XModelReader
     }
 
     private static void ResolveDObjAnimMatArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<DObjAnimMat[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<DObjAnimMat[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<DObjAnimMat[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new DObjAnimMat[count];
                     for (var i = 0; i < values.Length; i++)
@@ -307,28 +317,28 @@ internal static class XModelReader
     }
 
     private static void ResolveXModelCollSurfArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<XModelCollSurf[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<XModelCollSurf[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<XModelCollSurf[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new XModelCollSurf[count];
                     for (var i = 0; i < values.Length; i++)
                     {
                         values[i] = new XModelCollSurf
                         {
-                            CollTris = valueContext.ReadPointer<XModelCollTri[]>(),
+                            CollTris = valueContext.ReadDirectPointer<XModelCollTri[]>("XModelCollSurf.CollTris"),
                             NumCollTris = valueContext.ReadInt32(),
                             Bounds = ReadBounds(ref valueContext),
                             BoneIdx = valueContext.ReadInt32(),
@@ -343,21 +353,21 @@ internal static class XModelReader
     }
 
     private static void ResolveXBoneInfoArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<XBoneInfo[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<XBoneInfo[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<XBoneInfo[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new XBoneInfo[count];
                     for (var i = 0; i < values.Length; i++)
@@ -375,21 +385,21 @@ internal static class XModelReader
     }
 
     private static void ResolveInlineUShortArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<ushort[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<ushort[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<ushort[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new ushort[count];
                     for (var i = 0; i < values.Length; i++)
@@ -401,11 +411,11 @@ internal static class XModelReader
     }
 
     private static void ResolveMaterialHandleArray(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<ZonePointer<FastFile.Models.Assets.Material.Material>[]> pointer,
         int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
@@ -413,19 +423,20 @@ internal static class XModelReader
 
         context.ResolveInlinePointerNow(
             pointer,
-            (ref ZoneReadContext pointerContext, ZonePointer<ZonePointer<FastFile.Models.Assets.Material.Material>[]> p) =>
+            (ref XFileReadContext pointerContext, ZonePointer<ZonePointer<FastFile.Models.Assets.Material.Material>[]> p) =>
             {
                 var values = new ZonePointer<FastFile.Models.Assets.Material.Material>[count];
                 for (var i = 0; i < values.Length; i++)
-                    values[i] = pointerContext.ReadPointer<FastFile.Models.Assets.Material.Material>();
+                    values[i] = pointerContext.ReadAliasPointer<FastFile.Models.Assets.Material.Material>($"XModel.MaterialHandles[{i}]");
 
                 p.SetResult(values);
 
                 foreach (var value in values)
                 {
-                    pointerContext.ResolveInlinePointer(
+                    pointerContext.ResolvePointerInBlock(
                         value,
-                        (ref ZoneReadContext materialContext, ZonePointer<FastFile.Models.Assets.Material.Material> materialPointer) =>
+                        XFILE_BLOCK.TEMP,
+                        (ref XFileReadContext materialContext, ZonePointer<FastFile.Models.Assets.Material.Material> materialPointer) =>
                         {
                             materialPointer.SetResult(materialContext.ReadPointerValue(materialPointer, MaterialReader.Read));
                         });
@@ -433,7 +444,7 @@ internal static class XModelReader
             });
     }
 
-    private static int[] ReadInt32Array(ref ZoneReadContext context, int count)
+    private static int[] ReadInt32Array(ref XFileReadContext context, int count)
     {
         var values = new int[count];
         for (var i = 0; i < values.Length; i++)
@@ -442,7 +453,7 @@ internal static class XModelReader
         return values;
     }
 
-    private static Bounds ReadBounds(ref ZoneReadContext context)
+    private static Bounds ReadBounds(ref XFileReadContext context)
     {
         return new Bounds
         {
@@ -451,7 +462,7 @@ internal static class XModelReader
         };
     }
 
-    private static Vec3 ReadVec3(ref ZoneReadContext context)
+    private static Vec3 ReadVec3(ref XFileReadContext context)
     {
         return new Vec3
         {

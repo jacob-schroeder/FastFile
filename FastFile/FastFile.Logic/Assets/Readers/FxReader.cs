@@ -2,6 +2,7 @@ using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Effects;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
@@ -13,12 +14,12 @@ internal static class FxReader
     private const int FxTrailVertexSize = 24;
     private const int FxSparkFountainDefSize = 52;
 
-    public static FxEffectDef Read(ref ZoneReadContext context)
+    public static FxEffectDef Read(ref XFileReadContext context)
     {
         var asset = new FxEffectDef
         {
             Offset = context.Position,
-            NamePtr = context.ReadPointer<string>(),
+            NamePtr = context.ReadDirectPointer<string>("FxEffectDef.Name"),
             Flags = context.ReadInt32(),
             TotalSize = context.ReadInt32(),
             MsecLoopingLife = context.ReadInt32(),
@@ -28,31 +29,40 @@ internal static class FxReader
         };
 
         var elemDefCount = asset.ElemDefCountLooping + asset.ElemDefCountOneShot + asset.ElemDefCountEmission;
-        asset.ElemDefs = context.ReadPointer<FxElemDef[]>();
-        context.ResolveInlinePointer(asset.ElemDefs, (ref ZoneReadContext pointerContext, ZonePointer<FxElemDef[]> pointer) =>
-        {
-            pointer.SetResult(pointerContext.ReadPointerValue(
-                pointer,
-                (ref ZoneReadContext valueContext) => ReadFxElemDefs(ref valueContext, elemDefCount)));
-        });
+        asset.ElemDefs = context.ReadDirectPointer<FxElemDef[]>("FxEffectDef.ElemDefs");
 
-        GenericReader.ResolveStringPointerNow(ref context, asset.NamePtr);
+        context.PushStreamBlock(XFILE_BLOCK.LARGE);
+        try
+        {
+            context.ResolveInlinePointer(asset.ElemDefs, (ref XFileReadContext pointerContext, ZonePointer<FxElemDef[]> pointer) =>
+            {
+                pointer.SetResult(pointerContext.ReadPointerValue(
+                    pointer,
+                    (ref XFileReadContext valueContext) => ReadFxElemDefs(ref valueContext, elemDefCount)));
+            });
+
+            GenericReader.ResolveStringPointerNow(ref context, asset.NamePtr);
+        }
+        finally
+        {
+            context.PopStreamBlock();
+        }
 
         return asset;
     }
 
-    public static ZonePointer<FxEffectDef> ReadFxPointer(ref ZoneReadContext context)
+    public static ZonePointer<FxEffectDef> ReadFxPointer(ref XFileReadContext context)
     {
-        var pointer = context.ReadPointer<FxEffectDef>();
-        context.ResolveInlinePointer(pointer, ReadFxPointerValue);
+        var pointer = context.ReadAliasPointer<FxEffectDef>("FxEffectAssetRef");
+        context.ResolvePointerInBlock(pointer, XFILE_BLOCK.TEMP, ReadFxPointerValue);
         return pointer;
     }
 
-    private static void ReadFxPointerValue(ref ZoneReadContext context, ZonePointer<FxEffectDef> pointer)
+    private static void ReadFxPointerValue(ref XFileReadContext context, ZonePointer<FxEffectDef> pointer)
     {
         pointer.SetResult(context.ReadPointerValue(pointer, Read));
     }
-    private static FxElemDef[] ReadFxElemDefs(ref ZoneReadContext context, int count)
+    private static FxElemDef[] ReadFxElemDefs(ref XFileReadContext context, int count)
     {
         if (count <= 0)
             return [];
@@ -67,7 +77,7 @@ internal static class FxReader
         return values;
     }
 
-    private static FxElemDef ReadFxElemDef(ref ZoneReadContext context)
+    private static FxElemDef ReadFxElemDef(ref XFileReadContext context)
     {
         var start = context.Position;
         var elem = new FxElemDef
@@ -101,16 +111,16 @@ internal static class FxReader
         elem.VisualCount = context.ReadByte();
         elem.VelIntervalCount = context.ReadByte();
         elem.VisStateIntervalCount = context.ReadByte();
-        elem.VelSamples = context.ReadPointer<FxElemVelStateSample[]>();
-        elem.VisSamples = context.ReadPointer<FxElemVisStateSample[]>();
-        elem.Visuals = context.ReadPointer<FxElemVisual[]>();
+        elem.VelSamples = context.ReadDirectPointer<FxElemVelStateSample[]>("FxElemDef.VelSamples");
+        elem.VisSamples = context.ReadDirectPointer<FxElemVisStateSample[]>("FxElemDef.VisSamples");
+        elem.Visuals = context.ReadDirectPointer<FxElemVisual[]>("FxElemDef.Visuals");
         elem.CollBounds = ReadBounds(ref context);
-        elem.EffectOnImpact = context.ReadPointer<FxEffectDefRef>();
-        elem.EffectOnDeath = context.ReadPointer<FxEffectDefRef>();
-        elem.EffectEmitted = context.ReadPointer<FxEffectDefRef>();
+        elem.EffectOnImpact = context.ReadDirectPointer<FxEffectDefRef>("FxElemDef.EffectOnImpact");
+        elem.EffectOnDeath = context.ReadDirectPointer<FxEffectDefRef>("FxElemDef.EffectOnDeath");
+        elem.EffectEmitted = context.ReadDirectPointer<FxEffectDefRef>("FxElemDef.EffectEmitted");
         elem.EmitDist = ReadFxFloatRange(ref context);
         elem.EmitDistVariance = ReadFxFloatRange(ref context);
-        elem.Extended = context.ReadPointer<FxElemExtendedDef>();
+        elem.Extended = context.ReadDirectPointer<FxElemExtendedDef>("FxElemDef.Extended");
         elem.SortOrder = context.ReadByte();
         elem.LightingFrac = context.ReadByte();
         elem.UseItemClip = context.ReadByte();
@@ -123,7 +133,7 @@ internal static class FxReader
         return elem;
     }
 
-    private static void ResolveFxElemDefPointers(ref ZoneReadContext context, FxElemDef elem)
+    private static void ResolveFxElemDefPointers(ref XFileReadContext context, FxElemDef elem)
     {
         ResolveVelSamples(ref context, elem.VelSamples, elem.VelIntervalCount);
         ResolveVisSamples(ref context, elem.VisSamples, elem.VisStateIntervalCount);
@@ -134,19 +144,19 @@ internal static class FxReader
         ResolveExtended(ref context, elem);
     }
 
-    private static void ResolveVisuals(ref ZoneReadContext context, FxElemDef elem)
+    private static void ResolveVisuals(ref XFileReadContext context, FxElemDef elem)
     {
-        if (elem.Visuals.Kind != PointerKind.Inline)
+        if (!elem.Visuals.IsInlineData)
         {
             elem.Visuals.SetResult(default);
             return;
         }
 
-        context.ResolveInlinePointerNow(elem.Visuals, (ref ZoneReadContext pointerContext, ZonePointer<FxElemVisual[]> pointer) =>
+        context.ResolveInlinePointerNow(elem.Visuals, (ref XFileReadContext pointerContext, ZonePointer<FxElemVisual[]> pointer) =>
         {
             pointer.SetResult(pointerContext.ReadPointerValue(
                 pointer,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var visualCount = elem.VisualCount == 1 ? 1 : elem.VisualCount;
                     var visuals = new FxElemVisual[visualCount];
@@ -173,7 +183,7 @@ internal static class FxReader
         });
     }
 
-    private static FxElemVisual ReadFxElemVisual(ref ZoneReadContext context, byte elemType)
+    private static FxElemVisual ReadFxElemVisual(ref XFileReadContext context, byte elemType)
     {
         var visual = new FxElemVisual();
         switch (elemType)
@@ -189,7 +199,7 @@ internal static class FxReader
                 break;
             case 0x8:
             case 0x9:
-                visual.Anonymous = context.ReadPointer<FxUnknownVisual>();
+                visual.Anonymous = context.ReadDirectPointer<FxUnknownVisual>("FxElemVisual.Anonymous");
                 visual.Anonymous.SetResult(default);
                 break;
             default:
@@ -200,15 +210,15 @@ internal static class FxReader
         return visual;
     }
 
-    private static void ResolveEffectDefRefPointer(ref ZoneReadContext context, ZonePointer<FxEffectDefRef> pointer)
+    private static void ResolveEffectDefRefPointer(ref XFileReadContext context, ZonePointer<FxEffectDefRef> pointer)
     {
-        if (pointer.Kind != PointerKind.Inline)
+        if (!pointer.IsInlineData)
         {
             pointer.SetResult(default);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<FxEffectDefRef> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<FxEffectDefRef> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
@@ -216,42 +226,43 @@ internal static class FxReader
         });
     }
 
-    private static FxEffectDefRef ReadFxEffectDefRef(ref ZoneReadContext context)
+    private static FxEffectDefRef ReadFxEffectDefRef(ref XFileReadContext context)
     {
-        var handle = context.ReadPointer<FxEffectDef>();
-        var name = new ZonePointer<string>(handle.Raw);
+        var raw = context.ReadInt32();
+        var handle = context.CreatePointer<FxEffectDef>(raw, register: false);
+        var name = context.CreatePointer<string>(
+            raw,
+            resolutionKind: PointerResolutionKind.Direct,
+            fieldPath: "FxEffectDefRef.Name");
         var reference = new FxEffectDefRef
         {
             Handle = handle,
             Name = name,
         };
 
-        if (name.Kind == PointerKind.Inline)
-            context.ResolveInlinePointer(name, GenericReader.ReadStringPointerValue);
-        else
-            name.SetResult(default);
+        context.ResolveInlinePointer(name, GenericReader.ReadStringPointerValue);
 
         handle.SetResult(default);
         return reference;
     }
 
-    private static void ResolveExtended(ref ZoneReadContext context, FxElemDef elem)
+    private static void ResolveExtended(ref XFileReadContext context, FxElemDef elem)
     {
-        if (elem.Extended.Kind != PointerKind.Inline)
+        if (!elem.Extended.IsInlineData)
         {
             elem.Extended.SetResult(default);
             return;
         }
 
-        context.ResolveInlinePointerNow(elem.Extended, (ref ZoneReadContext pointerContext, ZonePointer<FxElemExtendedDef> pointer) =>
+        context.ResolveInlinePointerNow(elem.Extended, (ref XFileReadContext pointerContext, ZonePointer<FxElemExtendedDef> pointer) =>
         {
             pointer.SetResult(pointerContext.ReadPointerValue(
                 pointer,
-                (ref ZoneReadContext valueContext) => ReadExtendedDef(ref valueContext, elem.ElemType)));
+                (ref XFileReadContext valueContext) => ReadExtendedDef(ref valueContext, elem.ElemType)));
         });
     }
 
-    private static FxElemExtendedDef ReadExtendedDef(ref ZoneReadContext context, byte elemType)
+    private static FxElemExtendedDef ReadExtendedDef(ref XFileReadContext context, byte elemType)
     {
         return elemType switch
         {
@@ -261,7 +272,7 @@ internal static class FxReader
         };
     }
 
-    private static FxTrailDef ReadTrailDef(ref ZoneReadContext context)
+    private static FxTrailDef ReadTrailDef(ref XFileReadContext context)
     {
         var trail = new FxTrailDef
         {
@@ -272,9 +283,9 @@ internal static class FxReader
             InvSplitTime = context.ReadFloat(),
             VertCount = context.ReadInt32(),
         };
-        trail.Verts = context.ReadPointer<FxTrailVertex[]>();
+        trail.Verts = context.ReadDirectPointer<FxTrailVertex[]>("FxTrailDef.Verts");
         trail.IndCount = context.ReadInt32();
-        trail.Inds = context.ReadPointer<ushort[]>();
+        trail.Inds = context.ReadDirectPointer<ushort[]>("FxTrailDef.Inds");
 
         ResolveTrailVertices(ref context, trail.Verts, trail.VertCount);
         ResolveInlineUShorts(ref context, trail.Inds, trail.IndCount);
@@ -282,7 +293,7 @@ internal static class FxReader
         return trail;
     }
 
-    private static FxSparkFountainDef ReadSparkFountainDef(ref ZoneReadContext context)
+    private static FxSparkFountainDef ReadSparkFountainDef(ref XFileReadContext context)
     {
         var start = context.Position;
         var spark = new FxSparkFountainDef
@@ -309,19 +320,19 @@ internal static class FxReader
         return spark;
     }
 
-    private static void ResolveVelSamples(ref ZoneReadContext context, ZonePointer<FxElemVelStateSample[]> pointer, int count)
+    private static void ResolveVelSamples(ref XFileReadContext context, ZonePointer<FxElemVelStateSample[]> pointer, int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<FxElemVelStateSample[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<FxElemVelStateSample[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new FxElemVelStateSample[count];
                     for (var i = 0; i < values.Length; i++)
@@ -332,19 +343,19 @@ internal static class FxReader
         });
     }
 
-    private static void ResolveVisSamples(ref ZoneReadContext context, ZonePointer<FxElemVisStateSample[]> pointer, int count)
+    private static void ResolveVisSamples(ref XFileReadContext context, ZonePointer<FxElemVisStateSample[]> pointer, int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<FxElemVisStateSample[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<FxElemVisStateSample[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new FxElemVisStateSample[count];
                     for (var i = 0; i < values.Length; i++)
@@ -355,19 +366,19 @@ internal static class FxReader
         });
     }
 
-    private static void ResolveTrailVertices(ref ZoneReadContext context, ZonePointer<FxTrailVertex[]> pointer, int count)
+    private static void ResolveTrailVertices(ref XFileReadContext context, ZonePointer<FxTrailVertex[]> pointer, int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<FxTrailVertex[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<FxTrailVertex[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new FxTrailVertex[count];
                     for (var i = 0; i < values.Length; i++)
@@ -378,19 +389,19 @@ internal static class FxReader
         });
     }
 
-    private static void ResolveInlineUShorts(ref ZoneReadContext context, ZonePointer<ushort[]> pointer, int count)
+    private static void ResolveInlineUShorts(ref XFileReadContext context, ZonePointer<ushort[]> pointer, int count)
     {
-        if (count <= 0 || pointer.Kind != PointerKind.Inline)
+        if (count <= 0 || !pointer.IsInlineData)
         {
             pointer.SetResult([]);
             return;
         }
 
-        context.ResolveInlinePointerNow(pointer, (ref ZoneReadContext pointerContext, ZonePointer<ushort[]> p) =>
+        context.ResolveInlinePointerNow(pointer, (ref XFileReadContext pointerContext, ZonePointer<ushort[]> p) =>
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                (ref ZoneReadContext valueContext) =>
+                (ref XFileReadContext valueContext) =>
                 {
                     var values = new ushort[count];
                     for (var i = 0; i < values.Length; i++)
@@ -401,7 +412,7 @@ internal static class FxReader
         });
     }
 
-    private static FxSpawnDef ReadFxSpawnDef(ref ZoneReadContext context)
+    private static FxSpawnDef ReadFxSpawnDef(ref XFileReadContext context)
     {
         return new FxSpawnDef
         {
@@ -410,7 +421,7 @@ internal static class FxReader
         };
     }
 
-    private static FxIntRange ReadFxIntRange(ref ZoneReadContext context)
+    private static FxIntRange ReadFxIntRange(ref XFileReadContext context)
     {
         return new FxIntRange
         {
@@ -419,7 +430,7 @@ internal static class FxReader
         };
     }
 
-    private static FxFloatRange ReadFxFloatRange(ref ZoneReadContext context)
+    private static FxFloatRange ReadFxFloatRange(ref XFileReadContext context)
     {
         return new FxFloatRange
         {
@@ -428,7 +439,7 @@ internal static class FxReader
         };
     }
 
-    private static FxElemAtlas ReadFxElemAtlas(ref ZoneReadContext context)
+    private static FxElemAtlas ReadFxElemAtlas(ref XFileReadContext context)
     {
         return new FxElemAtlas
         {
@@ -442,7 +453,7 @@ internal static class FxReader
         };
     }
 
-    private static FxElemVelStateSample ReadVelStateSample(ref ZoneReadContext context)
+    private static FxElemVelStateSample ReadVelStateSample(ref XFileReadContext context)
     {
         var start = context.Position;
         var value = new FxElemVelStateSample
@@ -458,7 +469,7 @@ internal static class FxReader
         return value;
     }
 
-    private static FxElemVelStateInFrame ReadVelStateInFrame(ref ZoneReadContext context)
+    private static FxElemVelStateInFrame ReadVelStateInFrame(ref XFileReadContext context)
     {
         return new FxElemVelStateInFrame
         {
@@ -467,7 +478,7 @@ internal static class FxReader
         };
     }
 
-    private static FxElemVec3Range ReadVec3Range(ref ZoneReadContext context)
+    private static FxElemVec3Range ReadVec3Range(ref XFileReadContext context)
     {
         return new FxElemVec3Range
         {
@@ -476,7 +487,7 @@ internal static class FxReader
         };
     }
 
-    private static FxElemVisStateSample ReadVisStateSample(ref ZoneReadContext context)
+    private static FxElemVisStateSample ReadVisStateSample(ref XFileReadContext context)
     {
         var start = context.Position;
         var value = new FxElemVisStateSample
@@ -492,7 +503,7 @@ internal static class FxReader
         return value;
     }
 
-    private static FxElemVisualState ReadVisualState(ref ZoneReadContext context)
+    private static FxElemVisualState ReadVisualState(ref XFileReadContext context)
     {
         return new FxElemVisualState
         {
@@ -511,7 +522,7 @@ internal static class FxReader
         };
     }
 
-    private static FxTrailVertex ReadTrailVertex(ref ZoneReadContext context)
+    private static FxTrailVertex ReadTrailVertex(ref XFileReadContext context)
     {
         var start = context.Position;
         var value = new FxTrailVertex
@@ -531,7 +542,7 @@ internal static class FxReader
         return value;
     }
 
-    private static FastFile.Models.Utils.Bounds ReadBounds(ref ZoneReadContext context)
+    private static FastFile.Models.Utils.Bounds ReadBounds(ref XFileReadContext context)
     {
         return new FastFile.Models.Utils.Bounds
         {
@@ -540,7 +551,7 @@ internal static class FxReader
         };
     }
 
-    private static FastFile.Models.Utils.Vec3 ReadVec3(ref ZoneReadContext context)
+    private static FastFile.Models.Utils.Vec3 ReadVec3(ref XFileReadContext context)
     {
         return new FastFile.Models.Utils.Vec3
         {

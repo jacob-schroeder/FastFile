@@ -6,7 +6,7 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class LocalizeReader
 {
-    public static LocalizeEntry Read(ref ZoneReadContext context)
+    public static LocalizeEntry Read(ref XFileReadContext context)
     {
         return new LocalizeEntry
         {

@@ -4,7 +4,7 @@ using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
-internal delegate BaseAsset XAssetReader(ref ZoneReadContext context);
+internal delegate BaseAsset XAssetReader(ref XFileReadContext context);
 
 internal static class XAssetReaderRegistry
 {

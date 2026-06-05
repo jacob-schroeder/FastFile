@@ -3,12 +3,13 @@ using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
 internal static class MaterialReader
 {
-    public static Material Read(ref ZoneReadContext context)
+    public static Material Read(ref XFileReadContext context)
     {
         var material = new Material
         {
@@ -29,56 +30,70 @@ internal static class MaterialReader
             material.Ushorts[i] = context.ReadUInt16();
 
         material.UshortArray = context.ReadPointer<ushort[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<ushort[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<ushort[]> pointer) =>
             {
                 var values = new ushort[Material.TECHNIQUE_COUNT];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = pointerContext.ReadUInt16();
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "Material.UshortArray");
 #endif
 
-        material.TechniqueSet = context.ReadPointer<MaterialTechniqueSet>(
-            (ref ZoneReadContext pointerContext, ZonePointer<MaterialTechniqueSet> pointer) =>
+        material.TechniqueSet = context.ReadAliasPointer<MaterialTechniqueSet>("Material.TechniqueSet");
+        context.ResolvePointerInBlock(
+            material.TechniqueSet,
+            XFILE_BLOCK.TEMP,
+            (ref XFileReadContext pointerContext, ZonePointer<MaterialTechniqueSet> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, TechsetReader.Read);
                 pointer.SetResult(value);
             });
         material.TextureTable = context.ReadPointer<MaterialTextureDef[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<MaterialTextureDef[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<MaterialTextureDef[]> pointer) =>
             {
                 var values = ReadArray(ref pointerContext, material.TextureCount, ReadMaterialTextureDef);
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "Material.TextureTable");
         material.ConstantTable = context.ReadPointer<MaterialConstantDef[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<MaterialConstantDef[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<MaterialConstantDef[]> pointer) =>
             {
                 var values = ReadArray(ref pointerContext, material.ConstantCount, ReadMaterialConstantDef);
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "Material.ConstantTable");
         material.StateBitTable = context.ReadPointer<GfxStateBits[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<GfxStateBits[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<GfxStateBits[]> pointer) =>
             {
                 var values = ReadArray(ref pointerContext, material.StateBitsCount, ReadGfxStateBits);
                 pointer.SetResult(values);
-            });
-        material.UnknownXStringArray = context.ReadPointer<ZonePointer<string>[]>();
+            },
+            PointerResolutionKind.Direct,
+            "Material.StateBitTable");
+        material.UnknownXStringArray = context.ReadDirectPointer<ZonePointer<string>[]>("Material.UnknownXStringArray");
 
         return material;
     }
 
-    public static ZonePointer<Material> ReadMaterialPointer(ref ZoneReadContext context)
+    public static ZonePointer<Material> ReadMaterialPointer(ref XFileReadContext context)
     {
-        var pointer = context.ReadPointer<Material>();
-        context.ResolveInlinePointer(pointer, (ref ZoneReadContext pointerContext, ZonePointer<Material> p) =>
-        {
-            var value = pointerContext.ReadPointerValue(p, Read);
-            p.SetResult(value);
-        });
+        var pointer = context.ReadAliasPointer<Material>("MaterialAssetRef");
+        context.ResolvePointerInBlock(
+            pointer,
+            XFILE_BLOCK.TEMP,
+            (ref XFileReadContext pointerContext, ZonePointer<Material> p) =>
+            {
+                var value = pointerContext.ReadPointerValue(p, Read);
+                p.SetResult(value);
+            });
         return pointer;
     }
 
-    private static MaterialInfo ReadMaterialInfo(ref ZoneReadContext context)
+    private static MaterialInfo ReadMaterialInfo(ref XFileReadContext context)
     {
         var info = new MaterialInfo
         {
@@ -103,7 +118,7 @@ internal static class MaterialReader
         return info;
     }
 
-    private static MaterialTextureDef ReadMaterialTextureDef(ref ZoneReadContext context)
+    private static MaterialTextureDef ReadMaterialTextureDef(ref XFileReadContext context)
     {
         var texture = new MaterialTextureDef
         {
@@ -120,27 +135,32 @@ internal static class MaterialReader
         texture.Info = new MaterialTextureDefInfo
         {
             Raw = raw,
-            Image = new ZonePointer<GfxImage>(raw),
-            Water = new ZonePointer<Water>(raw),
+            Image = context.CreatePointer<GfxImage>(raw, register: false),
+            Water = context.CreatePointer<Water>(raw, register: false),
         };
 
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
         {
+            context.RegisterPointer(texture.Info.Water, PointerResolutionKind.Direct, "MaterialTextureDef.Water");
             context.ResolvePointer(texture.Info.Water, ReadWaterPointerValue);
         }
         else
         {
-            context.ResolvePointer(texture.Info.Image, (ref ZoneReadContext pointerContext, ZonePointer<GfxImage> pointer) =>
-            {
-                var value = pointerContext.ReadPointerValue(pointer, ImageReader.Read);
-                pointer.SetResult(value);
-            });
+            context.RegisterPointer(texture.Info.Image, PointerResolutionKind.Alias, "MaterialTextureDef.Image");
+            context.ResolvePointerInBlock(
+                texture.Info.Image,
+                XFILE_BLOCK.TEMP,
+                (ref XFileReadContext pointerContext, ZonePointer<GfxImage> pointer) =>
+                {
+                    var value = pointerContext.ReadPointerValue(pointer, ImageReader.Read);
+                    pointer.SetResult(value);
+                });
         }
 
         return texture;
     }
 
-    private static MaterialConstantDef ReadMaterialConstantDef(ref ZoneReadContext context)
+    private static MaterialConstantDef ReadMaterialConstantDef(ref XFileReadContext context)
     {
         return new MaterialConstantDef
         {
@@ -150,7 +170,7 @@ internal static class MaterialReader
         };
     }
 
-    private static GfxStateBits ReadGfxStateBits(ref ZoneReadContext context)
+    private static GfxStateBits ReadGfxStateBits(ref XFileReadContext context)
     {
         var stateBits = new GfxStateBits();
 #if XBOX
@@ -158,26 +178,28 @@ internal static class MaterialReader
             stateBits.LoadBits[i] = context.ReadInt32();
 #elif PS3
         stateBits.LoadBits = context.ReadPointer<int[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<int[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<int[]> pointer) =>
             {
                 var values = new int[2];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = pointerContext.ReadInt32();
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "GfxStateBits.LoadBits");
         stateBits.Unknown = context.ReadInt32();
 #endif
         return stateBits;
     }
 
-    private static Water ReadWater(ref ZoneReadContext context)
+    private static Water ReadWater(ref XFileReadContext context)
     {
         var water = new Water
         {
             Writable = new WaterWritable { FloatTime = context.ReadFloat() },
-            H0X = context.ReadPointer<float[]>(),
-            H0Y = context.ReadPointer<float[]>(),
-            WTerm = context.ReadPointer<float[]>(),
+            H0X = context.ReadDirectPointer<float[]>("Water.H0X"),
+            H0Y = context.ReadDirectPointer<float[]>("Water.H0Y"),
+            WTerm = context.ReadDirectPointer<float[]>("Water.WTerm"),
             M = context.ReadInt32(),
             N = context.ReadInt32(),
             Lx = context.ReadFloat(),
@@ -194,41 +216,41 @@ internal static class MaterialReader
         water.Image = ImageReader.ReadImagePointer(ref context);
 
         var sampleCount = water.M * water.N;
-        context.ResolvePointer(water.H0X, (ref ZoneReadContext pointerContext, ZonePointer<float[]> pointer) =>
+        context.ResolvePointer(water.H0X, (ref XFileReadContext pointerContext, ZonePointer<float[]> pointer) =>
         {
             pointer.SetResult(pointerContext.ReadPointerValue(
                 pointer,
-                (ref ZoneReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
+                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
         });
-        context.ResolvePointer(water.H0Y, (ref ZoneReadContext pointerContext, ZonePointer<float[]> pointer) =>
+        context.ResolvePointer(water.H0Y, (ref XFileReadContext pointerContext, ZonePointer<float[]> pointer) =>
         {
             pointer.SetResult(pointerContext.ReadPointerValue(
                 pointer,
-                (ref ZoneReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
+                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
         });
-        context.ResolvePointer(water.WTerm, (ref ZoneReadContext pointerContext, ZonePointer<float[]> pointer) =>
+        context.ResolvePointer(water.WTerm, (ref XFileReadContext pointerContext, ZonePointer<float[]> pointer) =>
         {
             pointer.SetResult(pointerContext.ReadPointerValue(
                 pointer,
-                (ref ZoneReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
+                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
         });
 
         return water;
     }
 
-    private static void ReadWaterPointerValue(ref ZoneReadContext context, ZonePointer<Water> pointer)
+    private static void ReadWaterPointerValue(ref XFileReadContext context, ZonePointer<Water> pointer)
     {
         pointer.SetResult(context.ReadPointerValue(pointer, ReadWater));
     }
 
-    private static float[] ReadFloatArray(ref ZoneReadContext context, int count)
+    private static float[] ReadFloatArray(ref XFileReadContext context, int count)
     {
         var values = new float[count];
         for (var i = 0; i < values.Length; i++)
             values[i] = context.ReadFloat();
         return values;
     }
-    private static T[] ReadArray<T>(ref ZoneReadContext context, int count, ZoneValueReader<T> reader)
+    private static T[] ReadArray<T>(ref XFileReadContext context, int count, XFileValueReader<T> reader)
     {
         var values = new T[count];
         for (var i = 0; i < count; i++)

@@ -7,7 +7,7 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class StructuredDataReader
 {
-    public static StructuredDataDefSet Read(ref ZoneReadContext context)
+    public static StructuredDataDefSet Read(ref XFileReadContext context)
     {
         var asset = new StructuredDataDefSet
         {
@@ -17,19 +17,21 @@ internal static class StructuredDataReader
         };
 
         asset.DefsPtr = context.ReadPointer<StructuredDataDef[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataDef[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataDef[]> pointer) =>
             {
                 var values = new StructuredDataDef[Math.Max(0, asset.DefCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataDef(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataDefSet.Defs");
 
         return asset;
     }
 
-    private static StructuredDataDef ReadStructuredDataDef(ref ZoneReadContext context)
+    private static StructuredDataDef ReadStructuredDataDef(ref XFileReadContext context)
     {
         var value = new StructuredDataDef
         {
@@ -39,47 +41,55 @@ internal static class StructuredDataReader
         };
 
         value.EnumsPtr = context.ReadPointer<StructuredDataEnum[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataEnum[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataEnum[]> pointer) =>
             {
                 var values = new StructuredDataEnum[Math.Max(0, value.EnumCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataEnum(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataDef.Enums");
 
         value.StructCount = context.ReadInt32();
         value.StructsPtr = context.ReadPointer<StructuredDataStruct[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataStruct[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataStruct[]> pointer) =>
             {
                 var values = new StructuredDataStruct[Math.Max(0, value.StructCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataStruct(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataDef.Structs");
 
         value.IndexedArrayCount = context.ReadInt32();
         value.IndexedArraysPtr = context.ReadPointer<StructuredDataIndexedArray[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataIndexedArray[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataIndexedArray[]> pointer) =>
             {
                 var values = new StructuredDataIndexedArray[Math.Max(0, value.IndexedArrayCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataIndexedArray(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataDef.IndexedArrays");
 
         value.EnumedArrayCount = context.ReadInt32();
         value.EnumedArraysPtr = context.ReadPointer<StructuredDataEnumedArray[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataEnumedArray[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataEnumedArray[]> pointer) =>
             {
                 var values = new StructuredDataEnumedArray[Math.Max(0, value.EnumedArrayCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataEnumedArray(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataDef.EnumedArrays");
 
         value.RootType = ReadStructuredDataType(ref context);
         value.Size = context.ReadUInt32();
@@ -87,7 +97,7 @@ internal static class StructuredDataReader
         return value;
     }
 
-    private static StructuredDataEnum ReadStructuredDataEnum(ref ZoneReadContext context)
+    private static StructuredDataEnum ReadStructuredDataEnum(ref XFileReadContext context)
     {
         var value = new StructuredDataEnum
         {
@@ -96,19 +106,21 @@ internal static class StructuredDataReader
         };
 
         value.EntriesPtr = context.ReadPointer<StructuredDataEnumEntry[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataEnumEntry[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataEnumEntry[]> pointer) =>
             {
                 var values = new StructuredDataEnumEntry[Math.Max(0, value.EntryCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataEnumEntry(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataEnum.Entries");
 
         return value;
     }
 
-    private static StructuredDataEnumEntry ReadStructuredDataEnumEntry(ref ZoneReadContext context)
+    private static StructuredDataEnumEntry ReadStructuredDataEnumEntry(ref XFileReadContext context)
     {
         return new StructuredDataEnumEntry
         {
@@ -118,7 +130,7 @@ internal static class StructuredDataReader
         };
     }
 
-    private static StructuredDataStruct ReadStructuredDataStruct(ref ZoneReadContext context)
+    private static StructuredDataStruct ReadStructuredDataStruct(ref XFileReadContext context)
     {
         var value = new StructuredDataStruct
         {
@@ -126,14 +138,16 @@ internal static class StructuredDataReader
         };
 
         value.PropertiesPtr = context.ReadPointer<StructuredDataStructProperty[]>(
-            (ref ZoneReadContext pointerContext, ZonePointer<StructuredDataStructProperty[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<StructuredDataStructProperty[]> pointer) =>
             {
                 var values = new StructuredDataStructProperty[Math.Max(0, value.PropertyCount)];
                 for (var i = 0; i < values.Length; i++)
                     values[i] = ReadStructuredDataStructProperty(ref pointerContext);
 
                 pointer.SetResult(values);
-            });
+            },
+            PointerResolutionKind.Direct,
+            "StructuredDataStruct.Properties");
 
         value.Size = context.ReadInt32();
         value.BitOffset = context.ReadUInt32();
@@ -141,7 +155,7 @@ internal static class StructuredDataReader
         return value;
     }
 
-    private static StructuredDataStructProperty ReadStructuredDataStructProperty(ref ZoneReadContext context)
+    private static StructuredDataStructProperty ReadStructuredDataStructProperty(ref XFileReadContext context)
     {
         return new StructuredDataStructProperty
         {
@@ -151,7 +165,7 @@ internal static class StructuredDataReader
         };
     }
 
-    private static StructuredDataIndexedArray ReadStructuredDataIndexedArray(ref ZoneReadContext context)
+    private static StructuredDataIndexedArray ReadStructuredDataIndexedArray(ref XFileReadContext context)
     {
         return new StructuredDataIndexedArray
         {
@@ -161,7 +175,7 @@ internal static class StructuredDataReader
         };
     }
 
-    private static StructuredDataEnumedArray ReadStructuredDataEnumedArray(ref ZoneReadContext context)
+    private static StructuredDataEnumedArray ReadStructuredDataEnumedArray(ref XFileReadContext context)
     {
         return new StructuredDataEnumedArray
         {
@@ -171,7 +185,7 @@ internal static class StructuredDataReader
         };
     }
 
-    private static StructuredDataType ReadStructuredDataType(ref ZoneReadContext context)
+    private static StructuredDataType ReadStructuredDataType(ref XFileReadContext context)
     {
         return new StructuredDataType
         {

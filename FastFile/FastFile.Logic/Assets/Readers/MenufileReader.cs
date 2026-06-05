@@ -4,21 +4,22 @@ using FastFile.Models.Assets;
 using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
 internal static class MenufileReader
 {
-    public static BaseAsset Read(ref ZoneReadContext context)
+    public static BaseAsset Read(ref XFileReadContext context)
     {
         var asset = new MenuList
         {
             Offset = context.Position,
         };
 
-        asset.NamePtr = context.ReadPointer<string>();
+        asset.NamePtr = context.ReadDirectPointer<string>("MenuList.Name");
         asset.MenuCount = context.ReadInt32();
-        var menusPointer = context.ReadPointer<ZonePointer<MenuDef>[]>();
+        var menusPointer = context.ReadDirectPointer<ZonePointer<MenuDef>[]>("MenuList.Menus");
 
         if (asset.MenuCount is < 0 or > 10_000
             || asset.MenuCount == 0 && (asset.NamePtr.Kind != PointerKind.Null || menusPointer.Kind != PointerKind.Null))
@@ -30,19 +31,20 @@ internal static class MenufileReader
         context.ResolveInlinePointer(asset.NamePtr, GenericReader.ReadStringPointerValue);
         context.ResolveInlinePointer(
             menusPointer,
-            (ref ZoneReadContext pointerContext, ZonePointer<ZonePointer<MenuDef>[]> pointer) =>
+            (ref XFileReadContext pointerContext, ZonePointer<ZonePointer<MenuDef>[]> pointer) =>
             {
                 var pointers = new ZonePointer<MenuDef>[asset.MenuCount];
                 for (var i = 0; i < asset.MenuCount; i++)
-                    pointers[i] = pointerContext.ReadPointer<MenuDef>();
+                    pointers[i] = pointerContext.ReadAliasPointer<MenuDef>($"MenuList.Menus[{i}]");
 
                 pointer.SetResult(pointers);
 
                 foreach (var menuPointer in pointers)
                 {
-                    pointerContext.ResolveInlinePointer(
+                    pointerContext.ResolvePointerInBlock(
                         menuPointer,
-                        (ref ZoneReadContext menuContext, ZonePointer<MenuDef> resolvedMenuPointer) =>
+                        XFILE_BLOCK.TEMP,
+                        (ref XFileReadContext menuContext, ZonePointer<MenuDef> resolvedMenuPointer) =>
                         {
                             var value = menuContext.ReadPointerValue(resolvedMenuPointer, MenuReader.Read);
                             resolvedMenuPointer.SetResult(value);

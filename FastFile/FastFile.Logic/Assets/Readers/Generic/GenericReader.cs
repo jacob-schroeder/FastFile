@@ -6,24 +6,28 @@ namespace FastFile.Logic.Assets.Readers.Generic;
 internal static class GenericReader
 {
     public static ZonePointer<string> ReadStringPointer(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         bool resolve = true)
     {
         return resolve
-            ? context.ReadPointer<string>(ReadStringPointerValue)
-            : context.ReadPointer<string>();
+            ? context.ReadPointer<string>(
+                ReadStringPointerValue,
+                PointerResolutionKind.Direct,
+                "XString")
+            : context.ReadDirectPointer<string>("XString");
     }
 
     public static ZonePointer<ZonePointer<string>[]> ReadStringPointerArrayPointer(
-        ref ZoneReadContext context,
-        int count)
+        ref XFileReadContext context,
+        int count,
+        string fieldPath = "XStringArray")
     {
-        var pointer = context.ReadPointer<ZonePointer<string>[]>();
-        context.ResolveInlinePointer(pointer, (ref ZoneReadContext pointerContext, ZonePointer<ZonePointer<string>[]> p) =>
+        var pointer = context.ReadDirectPointer<ZonePointer<string>[]>(fieldPath);
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<ZonePointer<string>[]> p) =>
         {
             var values = new ZonePointer<string>[Math.Max(0, count)];
             for (var i = 0; i < values.Length; i++)
-                values[i] = pointerContext.ReadPointer<string>();
+                values[i] = pointerContext.ReadDirectPointer<string>($"{fieldPath}[{i}]");
 
             p.SetResult(values);
 
@@ -35,17 +39,17 @@ internal static class GenericReader
     }
 
     public static void ReadStringPointerValue(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<string> pointer)
     {
         pointer.SetResult(context.ReadPointerValue(pointer, ReadCString));
     }
 
     public static void ResolveStringPointerNow(
-        ref ZoneReadContext context,
+        ref XFileReadContext context,
         ZonePointer<string> pointer)
     {
-        if (pointer.Kind != PointerKind.Inline)
+        if (!pointer.IsInlineData)
         {
             pointer.SetResult(default);
             return;
@@ -54,7 +58,7 @@ internal static class GenericReader
         context.ResolveInlinePointerNow(pointer, ReadStringPointerValue);
     }
 
-    public static string ReadCString(ref ZoneReadContext context)
+    public static string ReadCString(ref XFileReadContext context)
     {
         return context.ReadCString();
     }

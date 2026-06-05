@@ -17,7 +17,7 @@ internal static class Memory
         if (ptr.Kind == PointerKind.Null)
             return;
 
-        if (ptr.Kind == PointerKind.Inline)
+        if (ptr.IsInlineData)
             ptr.SetOffset(position);
     }
 }

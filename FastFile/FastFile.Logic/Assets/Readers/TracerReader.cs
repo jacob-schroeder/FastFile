@@ -2,12 +2,13 @@ using FastFile.Logic.Assets.Readers.Generic;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Tracers;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
 internal static class TracerReader
 {
-    public static TracerDef Read(ref ZoneReadContext context)
+    public static TracerDef Read(ref XFileReadContext context)
     {
         var asset = new TracerDef
         {
@@ -28,12 +29,16 @@ internal static class TracerReader
         return asset;
     }
 
-    public static ZonePointer<TracerDef> ReadTracerPointer(ref ZoneReadContext context)
+    public static ZonePointer<TracerDef> ReadTracerPointer(ref XFileReadContext context)
     {
-        return context.ReadPointer<TracerDef>(
-            (ref ZoneReadContext pointerContext, ZonePointer<TracerDef> pointer) =>
+        var pointer = context.ReadAliasPointer<TracerDef>("TracerAssetRef");
+        context.ResolvePointerInBlock(
+            pointer,
+            XFILE_BLOCK.TEMP,
+            (ref XFileReadContext pointerContext, ZonePointer<TracerDef> pointer) =>
             {
                 pointer.SetResult(pointerContext.ReadPointerValue(pointer, Read));
             });
+        return pointer;
     }
 }
