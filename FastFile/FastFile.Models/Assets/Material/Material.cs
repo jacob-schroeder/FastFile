@@ -9,7 +9,7 @@ namespace FastFile.Models.Assets.Material;
 public class Material() : BaseAsset(XAssetType.Material)
 {
 #if PS3
-    public const int TECHNIQUE_COUNT = 38;
+    public const int TECHNIQUE_COUNT = 37;
 #elif XBOX
     public const int TECHNIQUE_COUNT = 33;
 #else
@@ -23,8 +23,11 @@ public class Material() : BaseAsset(XAssetType.Material)
     public byte StateBitsCount { get; set; }
     public byte StateFlags { get; set; }
     public byte CameraRegion { get; set; }
+    public byte UnknownXStringCount { get; set; }
 #if PS3
+    public byte MaterialPadding { get; set; }
     public ushort[] Ushorts { get; set; } = new ushort[TECHNIQUE_COUNT];
+    public byte[] UshortPadding { get; set; } = new byte[2];
     public ZonePointer<ushort[]> UshortArray { get; set; }
 #endif
     public ZonePointer<MaterialTechniqueSet> TechniqueSet { get; set; }
@@ -137,7 +140,13 @@ public class MaterialInfo
 
 public class GfxImage() : BaseAsset(XAssetType.Image)
 {
+    public const int EBOOT_ROOT_SIZE = 0x50;
+    public const int EBOOT_LOAD_DEF_POINTER_OFFSET = 0x28;
+    public const int EBOOT_NAME_POINTER_OFFSET = 0x4C;
+
+    public byte[] EbootRootPrefix { get; set; } = new byte[EBOOT_LOAD_DEF_POINTER_OFFSET];
     public ZonePointer<GfxImageLoadDef> LoadDef { get; set; } = new(0);
+    public byte[] EbootRootSuffix { get; set; } = new byte[EBOOT_NAME_POINTER_OFFSET - EBOOT_LOAD_DEF_POINTER_OFFSET - 4];
     public byte MapType { get; set; }
     public byte Semantic { get; set; }
     public byte Category { get; set; }

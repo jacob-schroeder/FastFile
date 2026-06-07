@@ -24,11 +24,59 @@ namespace FastFile.Logic.Zone;
 
 public sealed partial class XFileWriter
 {
+    private const int XModelCollSurfSize = 0x24;
+
     private static void WriteWeaponVariantDef(XFileWriterContext context, WeaponVariantDef weapon)
     {
         var queue = new XFileInlineWriteQueue();
         WriteWeaponVariantDef(context, queue, weapon);
+        ResolveInlineQueue(context, queue);
+    }
 
+    private static void WriteXModel(XFileWriterContext context, XModel asset)
+    {
+        var queue = new XFileInlineWriteQueue();
+        WriteXModel(context, queue, asset);
+        ResolveInlineQueue(context, queue);
+    }
+
+    private static void WriteXModelSurfs(XFileWriterContext context, XModelSurfs asset)
+    {
+        var queue = new XFileInlineWriteQueue();
+        WriteXModelSurfs(context, queue, asset);
+        ResolveInlineQueue(context, queue);
+    }
+
+    private static void WritePhysPreset(XFileWriterContext context, PhysPreset asset)
+    {
+        var queue = new XFileInlineWriteQueue();
+        WritePhysPreset(context, queue, asset);
+        ResolveInlineQueue(context, queue);
+    }
+
+    private static void WritePhysCollmap(XFileWriterContext context, PhysCollmap asset)
+    {
+        var queue = new XFileInlineWriteQueue();
+        WritePhysCollmap(context, queue, asset);
+        ResolveInlineQueue(context, queue);
+    }
+
+    private static void WriteFxEffectDef(XFileWriterContext context, FxEffectDef asset)
+    {
+        var queue = new XFileInlineWriteQueue();
+        WriteFxEffectDef(context, queue, asset);
+        ResolveInlineQueue(context, queue);
+    }
+
+    private static void WriteTracerDef(XFileWriterContext context, TracerDef asset)
+    {
+        var queue = new XFileInlineWriteQueue();
+        WriteTracerDef(context, queue, asset);
+        ResolveInlineQueue(context, queue);
+    }
+
+    private static void ResolveInlineQueue(XFileWriterContext context, XFileInlineWriteQueue queue)
+    {
         if (context.TryDeferInlineWrite(queue.Resolve))
             return;
 
@@ -100,8 +148,8 @@ public sealed partial class XFileWriter
             WriteWeaponFxPointer(context, queue, effect);
 
         foreach (var soundAlias in weapon.SoundAliases)
-            WriteWeaponStringPointer(context, queue, soundAlias);
-        WriteWeaponStringPointerArrayPointer(context, queue, weapon.BounceSound, "WeaponDef.BounceSound");
+            WriteWeaponSoundAliasPointer(context, queue, soundAlias, "WeaponDef.SoundAliases");
+        WriteWeaponSoundAliasPointerArrayPointer(context, queue, weapon.BounceSound, "WeaponDef.BounceSound");
 
         foreach (var effect in weapon.EffectPointersA)
             WriteWeaponFxPointer(context, queue, effect);
@@ -144,7 +192,7 @@ public sealed partial class XFileWriter
         foreach (var effect in weapon.ProjectileEffects)
             WriteWeaponFxPointer(context, queue, effect);
         foreach (var soundAlias in weapon.ProjectileSoundAliases)
-            WriteWeaponStringPointer(context, queue, soundAlias);
+            WriteWeaponSoundAliasPointer(context, queue, soundAlias, "WeaponDef.ProjectileSoundAliases");
         WriteInt32Array(context, weapon.ProjectileFieldsA);
         WriteWeaponFloatArrayPointer(context, queue, weapon.ParallelBounce, "WeaponDef.ParallelBounce");
         WriteWeaponFloatArrayPointer(context, queue, weapon.PerpendicularBounce, "WeaponDef.PerpendicularBounce");
@@ -154,7 +202,7 @@ public sealed partial class XFileWriter
         context.WriteInt32(weapon.ImpactFieldB);
         WriteInt32Array(context, weapon.ImpactFieldsC);
         WriteWeaponFxPointer(context, queue, weapon.ViewShellEjectEffect);
-        WriteWeaponStringPointer(context, queue, weapon.ShellEjectSound);
+        WriteWeaponSoundAliasPointer(context, queue, weapon.ShellEjectSound, "WeaponDef.ShellEjectSound");
         WriteInt32Array(context, weapon.ShellEjectFields);
         WriteInt32Array(context, weapon.AdsHipGunKickAiDistanceFields);
 
@@ -194,17 +242,17 @@ public sealed partial class XFileWriter
         WriteWeaponTracerPointer(context, queue, weapon.Tracer);
 
         WriteInt32Array(context, weapon.TracerFields);
-        WriteWeaponStringPointer(context, queue, weapon.TurretOverheatSound);
+        WriteWeaponSoundAliasPointer(context, queue, weapon.TurretOverheatSound, "WeaponDef.TurretOverheatSound");
         WriteWeaponFxPointer(context, queue, weapon.TurretOverheatEffect);
         WriteWeaponStringPointer(context, queue, weapon.TurretBarrelSpinRumble);
         WriteInt32Array(context, weapon.TurretFields);
-        WriteWeaponStringPointer(context, queue, weapon.TurretBarrelSpinMaxSnd);
+        WriteWeaponSoundAliasPointer(context, queue, weapon.TurretBarrelSpinMaxSnd, "WeaponDef.TurretBarrelSpinMaxSnd");
         foreach (var soundAlias in weapon.TurretBarrelSpinUpSnd)
-            WriteWeaponStringPointer(context, queue, soundAlias);
+            WriteWeaponSoundAliasPointer(context, queue, soundAlias, "WeaponDef.TurretBarrelSpinUpSnd");
         foreach (var soundAlias in weapon.TurretBarrelSpinDownSnd)
-            WriteWeaponStringPointer(context, queue, soundAlias);
-        WriteWeaponStringPointer(context, queue, weapon.MissileConeSoundAlias);
-        WriteWeaponStringPointer(context, queue, weapon.MissileConeSoundAliasAtBase);
+            WriteWeaponSoundAliasPointer(context, queue, soundAlias, "WeaponDef.TurretBarrelSpinDownSnd");
+        WriteWeaponSoundAliasPointer(context, queue, weapon.MissileConeSoundAlias, "WeaponDef.MissileConeSoundAlias");
+        WriteWeaponSoundAliasPointer(context, queue, weapon.MissileConeSoundAliasAtBase, "WeaponDef.MissileConeSoundAliasAtBase");
         context.WriteFloat(weapon.MissileConeSoundRadiusAtTop);
         context.WriteFloat(weapon.MissileConeSoundRadiusAtBase);
         context.WriteFloat(weapon.MissileConeSoundHeight);
@@ -218,11 +266,7 @@ public sealed partial class XFileWriter
         context.WriteFloat(weapon.MissileConeSoundPitchBottomSize);
         context.WriteFloat(weapon.MissileConeSoundCrossfadeTopSize);
         context.WriteFloat(weapon.MissileConeSoundCrossfadeBottomSize);
-        context.WriteBool(weapon.SharedAmmo);
-        context.WriteBool(weapon.LockonSupported);
-        context.WriteBool(weapon.RequireLockonToFire);
-        context.WriteBool(weapon.BigExplosion);
-        WriteWeaponBooleanFlags(context, weapon.BooleanFlags);
+        WriteWeaponBooleanTail(context, weapon);
         EnsureFixedSize(context.Position - start, WeaponDefSize, "WeaponDef");
     }
 
@@ -245,6 +289,38 @@ public sealed partial class XFileWriter
         {
             foreach (var value in values)
                 WriteWeaponStringPointer(writeContext, writeQueue, value);
+        });
+    }
+
+    private static void WriteWeaponSoundAliasPointer(
+        XFileWriterContext context,
+        XFileInlineWriteQueue queue,
+        ZonePointer<string>? pointer,
+        string fieldPath)
+    {
+        context.WritePointerRaw(pointer, PointerResolutionKind.Direct, fieldPath);
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        queue.Add(() =>
+        {
+            context.RegisterMaterializedPointerValue(pointer, XFileWriteRules.PointerSize);
+            var nestedName = new ZonePointer<string>(-1);
+            nestedName.SetResult(pointer.Result);
+            WriteWeaponStringPointer(context, queue, nestedName);
+        });
+    }
+
+    private static void WriteWeaponSoundAliasPointerArrayPointer(
+        XFileWriterContext context,
+        XFileInlineWriteQueue queue,
+        ZonePointer<ZonePointer<string>[]>? pointer,
+        string fieldPath)
+    {
+        WriteWeaponPointer(context, queue, pointer, PointerResolutionKind.Direct, fieldPath, (writeContext, writeQueue, values) =>
+        {
+            foreach (var value in values)
+                WriteWeaponSoundAliasPointer(writeContext, writeQueue, value, $"{fieldPath}.Element");
         });
     }
 
@@ -447,11 +523,8 @@ public sealed partial class XFileWriter
         WriteXBoneInfoArrayPointer(context, queue, asset.BoneInfo);
         context.WriteFloat(asset.Radius);
         context.WriteBounds(asset.Bounds);
+        WriteWeaponUShortArrayPointer(context, queue, asset.InvHighMipRadius, "XModel.InvHighMipRadius");
         context.WriteInt32(asset.MemUsage);
-        context.WriteBool(asset.Bad);
-        context.WriteByte(asset.BadPadding0);
-        context.WriteByte(asset.BadPadding1);
-        context.WriteByte(asset.BadPadding2);
         WritePhysPresetPointer(context, queue, asset.PhysPreset);
         WritePhysCollmapPointer(context, queue, asset.PhysCollmap);
     }
@@ -564,12 +637,14 @@ public sealed partial class XFileWriter
 
     private static void WriteXModelCollSurf(XFileWriterContext context, XModelCollSurf value)
     {
-        context.WritePointerRaw(value.CollTris, PointerResolutionKind.Direct, "XModelCollSurf.CollTris");
-        context.WriteInt32(value.NumCollTris);
-        context.WriteBounds(value.Bounds);
-        context.WriteInt32(value.BoneIdx);
-        context.WriteInt32(value.Contents);
-        context.WriteInt32(value.SurfFlags);
+        var bytes = value.RawBytes;
+        if (bytes is { Length: XModelCollSurfSize })
+        {
+            context.WriteBytes(bytes);
+            return;
+        }
+
+        context.WriteZeroes(XModelCollSurfSize);
     }
 
     private static void WriteXBoneInfoArrayPointer(
@@ -778,11 +853,29 @@ public sealed partial class XFileWriter
         XFileInlineWriteQueue queue,
         FxElemDef elem)
     {
+        if (!UsesFxVisualArrayPointer(elem))
+        {
+            WriteFxElemVisual(context, queue, elem.ElemType, GetFxSingleVisual(elem));
+            return;
+        }
+
         WriteWeaponPointer(context, queue, elem.Visuals, PointerResolutionKind.Direct, "FxElemDef.Visuals", (writeContext, writeQueue, values) =>
         {
             foreach (var visual in values)
                 WriteFxElemVisual(writeContext, writeQueue, elem.ElemType, visual);
         });
+    }
+
+    private static bool UsesFxVisualArrayPointer(FxElemDef elem)
+    {
+        return elem.ElemType == 0xB || elem.VisualCount > 1;
+    }
+
+    private static FxElemVisual GetFxSingleVisual(FxElemDef elem)
+    {
+        return elem.Visuals is { Result.Length: > 0 } pointer
+            ? pointer.Result[0]
+            : throw new InvalidDataException("FxElemDef.Visuals is missing the in-place visual.");
     }
 
     private static void WriteFxElemVisual(
@@ -911,7 +1004,6 @@ public sealed partial class XFileWriter
                 writeContext.WriteFloat(value.Normal0);
                 writeContext.WriteFloat(value.Normal1);
                 writeContext.WriteFloat(value.TexCoord);
-                writeContext.WriteInt32(value.AlignmentPadding);
             }
         });
     }
@@ -1011,6 +1103,21 @@ public sealed partial class XFileWriter
     {
         foreach (var value in values ?? [])
             context.WriteFloat(value);
+    }
+
+    private static void WriteWeaponBooleanTail(XFileWriterContext context, WeaponDef weapon)
+    {
+        if (weapon.BooleanTailBytes is { Length: 0x30 } bytes)
+        {
+            context.WriteBytes(bytes);
+            return;
+        }
+
+        context.WriteBool(weapon.SharedAmmo);
+        context.WriteBool(weapon.LockonSupported);
+        context.WriteBool(weapon.RequireLockonToFire);
+        context.WriteBool(weapon.BigExplosion);
+        WriteWeaponBooleanFlags(context, weapon.BooleanFlags);
     }
 
     private static void WriteWeaponBooleanFlags(XFileWriterContext context, WeaponBooleanFlags flags)

@@ -39,6 +39,7 @@ public class MaterialTechnique
 
 public class MaterialPass
 {
+    public int Offset { get; set; }
     public ZonePointer<MaterialVertexDeclaration> VertexDecl { get; set; } = new(0);
     public ZonePointer<MaterialVertexShader> VertexShader { get; set; } = new(0);
     public ZonePointer<MaterialPixelShader> PixelShader { get; set; } = new(0);
@@ -47,6 +48,7 @@ public class MaterialPass
     public byte StableArgCount { get; set; }
     public byte CustomSamplerFlags { get; set; }
     public byte PrecompiledIndex { get; set; }
+    public byte[] Padding { get; set; } = new byte[3];
     public ZonePointer<MaterialShaderArgument[]> Args { get; set; } = new(0);
     public int ArgCount => PerPrimArgCount + PerObjArgCount + StableArgCount;
 }
@@ -88,12 +90,43 @@ public class MaterialArgumentCodeConst
 
 public class MaterialVertexDeclaration
 {
+    public int Offset { get; set; }
+    public byte[] Raw { get; set; } = new byte[0x1C];
 }
 
-public class MaterialVertexShader
+public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
 {
+    public ZonePointer<string> NamePtr { get; set; } = new(0);
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public MaterialVertexShaderProgram Program { get; set; } = new();
+
+    public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
+        ? $"VertexShader 0x{Offset:X8}"
+        : Name;
 }
 
-public class MaterialPixelShader
+public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
 {
+    public ZonePointer<string> NamePtr { get; set; } = new(0);
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public MaterialPixelShaderProgram Program { get; set; } = new();
+
+    public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
+        ? $"PixelShader 0x{Offset:X8}"
+        : Name;
+}
+
+public class MaterialVertexShaderProgram
+{
+    public int Offset { get; set; }
+    public ZonePointer<byte[]> Data { get; set; } = new(0);
+    public int DataSize { get; set; }
+}
+
+public class MaterialPixelShaderProgram
+{
+    public int Offset { get; set; }
+    public ZonePointer<byte[]> Data { get; set; } = new(0);
+    public int DataSize { get; set; }
+    public byte[] RootSuffix { get; set; } = new byte[0x0C];
 }

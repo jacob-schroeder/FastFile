@@ -12,11 +12,17 @@ internal static class XAssetReaderRegistry
         new Dictionary<XAssetType, XAssetReader>
         {
             [XAssetType.Localize] = LocalizeReader.Read,
+            [XAssetType.ComMap] = ComWorldReader.Read,
             [XAssetType.Fx] = FxReader.Read,
+            [XAssetType.FxMap] = FxWorldReader.Read,
+            [XAssetType.Font] = FontReader.Read,
             [XAssetType.Image] = ImageReader.Read,
+            [XAssetType.ImpactFx] = ImpactFxReader.Read,
+            [XAssetType.LightDef] = LightDefReader.Read,
             [XAssetType.LoadedSound] = LoadedSoundReader.Read,
             [XAssetType.Material] = MaterialReader.Read,
             [XAssetType.MenuFile] = MenufileReader.Read,
+            [XAssetType.PixelShader] = TechsetReader.ReadPixelShader,
             [XAssetType.PhysCollmap] = PhysicsReader.ReadPhysCollmap,
             [XAssetType.PhysPreset] = PhysicsReader.ReadPhysPreset,
             [XAssetType.RawFile] = RawFileReader.Read,
@@ -26,7 +32,10 @@ internal static class XAssetReaderRegistry
             [XAssetType.StructuredDataDef] = StructuredDataReader.Read,
             [XAssetType.Techset] = TechsetReader.Read,
             [XAssetType.Tracer] = TracerReader.Read,
+            [XAssetType.Vehicle] = VehicleReader.Read,
+            [XAssetType.VertexShader] = TechsetReader.ReadVertexShader,
             [XAssetType.Weapon] = WeaponReader.Read,
+            [XAssetType.XAnim] = XAnimReader.Read,
             [XAssetType.XModel] = XModelReader.Read,
             [XAssetType.XModelSurfs] = XModelSurfsReader.Read,
         };

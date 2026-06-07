@@ -4,6 +4,7 @@ namespace FastFile.Logic.Zone;
 
 internal sealed class XFileReadStreamBlocks
 {
+    private readonly int[] _blockSizes;
     private readonly int[] _positions;
     private readonly Stack<XFileStreamBlockStackEntry> _blockStack = new();
     private int _activeBlockIndex;
@@ -11,7 +12,10 @@ internal sealed class XFileReadStreamBlocks
     public XFileReadStreamBlocks(XFile header, int initialZonePosition)
     {
         var blockCount = Math.Max((int)XFILE_BLOCK.MAX_XFILE_COUNT, header.BlockSize.Length);
+        _blockSizes = new int[blockCount];
         _positions = new int[blockCount];
+        for (var i = 0; i < _blockSizes.Length && i < header.BlockSize.Length; i++)
+            _blockSizes[i] = header.BlockSize[i];
         _positions[(int)XFILE_BLOCK.TEMP] = GetBlockSize(header, XFILE_BLOCK.TEMP);
         _positions[(int)XFILE_BLOCK.LARGE] = XFileWriteRules.Ps3LargeBlockInitialOffset;
         _activeBlockIndex = (int)XFILE_BLOCK.TEMP;
@@ -21,6 +25,18 @@ internal sealed class XFileReadStreamBlocks
     public int ActivePosition => _positions[_activeBlockIndex];
 
     public XFileBlockAddress ActiveAddress => new(_activeBlockIndex, ActivePosition);
+
+    public bool TryGetBlockSize(int blockIndex, out int size)
+    {
+        if (blockIndex < 0 || blockIndex >= _positions.Length)
+        {
+            size = 0;
+            return false;
+        }
+
+        size = _blockSizes[blockIndex];
+        return true;
+    }
 
     public void PushStreamBlock(XFILE_BLOCK block)
     {
@@ -51,15 +67,24 @@ internal sealed class XFileReadStreamBlocks
 
     public XFileBlockAddress Align(int alignment)
     {
+        AlignAndGetPadding(alignment);
+
+        return ActiveAddress;
+    }
+
+    public int AlignAndGetPadding(int alignment)
+    {
         if (alignment <= 0)
             throw new InvalidDataException($"Cannot align XFile stream block with invalid alignment {alignment:N0}.");
 
         var position = ActivePosition;
         var remainder = position % alignment;
-        if (remainder != 0)
-            _positions[_activeBlockIndex] = position + alignment - remainder;
+        if (remainder == 0)
+            return 0;
 
-        return ActiveAddress;
+        var padding = alignment - remainder;
+        _positions[_activeBlockIndex] = position + padding;
+        return padding;
     }
 
     public XFileBlockAddress Reserve(

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace UI;
@@ -24,7 +25,11 @@ public partial class MainWindow : Window
     private XFile? _zoneHeader;
     private XAssetList? _assetList;
     private string? _currentFileName;
+    private string? _currentFilePath;
     private readonly List<string> _logMessages = new();
+    private readonly object _loadProgressGate = new();
+    private int _loadingStatusVersion;
+    private int _lastQueuedAssetLoadPercent = -1;
 
     public MainWindow()
     {
@@ -67,6 +72,7 @@ public partial class MainWindow : Window
         _zoneHeader = _document.ZoneHeader;
         _assetList = _document.AssetList;
         _currentFileName = null;
+        _currentFilePath = null;
 
         ResetLog();
         AddLog("INFO", "Initialized a new fastfile document");
@@ -108,6 +114,9 @@ public partial class MainWindow : Window
 
             ResetLog();
             AddLog("INFO", $"Opening {file.Name}");
+            var filePath = file.TryGetLocalPath();
+            UpdateOpenFileStatus($"Opening {file.Name}", filePath ?? file.Name);
+            BeginLoadingStatus("Reading file");
 
             await using var fileStream = await file.OpenReadAsync();
             using var memoryStream = new MemoryStream();
@@ -115,26 +124,31 @@ public partial class MainWindow : Window
 
             var buffer = memoryStream.ToArray();
 
-            await Task.Run(() => ParseFastFile(buffer));
+            BeginLoadingStatus("Loading zone");
+            await Task.Run(() => ParseFastFile(buffer, QueueAssetReadProgress));
             _currentFileName = file.Name;
+            _currentFilePath = filePath;
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
             UpdateAssetsTabView();
             UpdateDocumentState();
 
+            CompleteLoadingStatus();
             FastFileTabView.SetStatus($"Opened: {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
             AddLog("INFO", "File load complete");
             UpdateLogView();
         }
         catch (Exception ex)
         {
+            ClearLoadingStatus();
+            UpdateOpenFileStatus();
             FastFileTabView.SetStatus($"Unable to open file.\n{ex.Message}");
             AddLog("ERROR", ex.Message);
             UpdateLogView();
         }
     }
 
-    private void ParseFastFile(byte[] buffer)
+    private void ParseFastFile(byte[] buffer, Action<int, int>? assetReadProgress)
     {
         var ffReader = new FastFileReader(buffer, buffer.Length);
         AddLog("INFO", "Parsing fastfile header");
@@ -147,7 +161,7 @@ public partial class MainWindow : Window
         AddLog("INFO", "Zone unpacked");
         AddWarnings("FastFileReader", ffReader.Warnings);
         
-        var zoneReader = new XFileReader(zone);
+        var zoneReader = new XFileReader(zone, assetReadProgress);
         AddLog("INFO", "Parsing XFile header");
         var zoneHeader = zoneReader.ParseHeader();
         AddLog("INFO", "XFile header parsed");
@@ -163,6 +177,84 @@ public partial class MainWindow : Window
         _zoneHeader = zoneHeader;
         _assetList = assetList;
         _document = FastFileDocument.FromParsed(buffer, fastFileHeader, zoneHeader, assetList, zone);
+    }
+
+    private void BeginLoadingStatus(string message)
+    {
+        Interlocked.Increment(ref _loadingStatusVersion);
+        lock (_loadProgressGate)
+        {
+            _lastQueuedAssetLoadPercent = -1;
+        }
+
+        LoadingStatusPanel.IsVisible = true;
+        LoadingStatusTextBlock.Text = message;
+        LoadingProgressBar.IsIndeterminate = true;
+        LoadingProgressBar.Value = 0;
+        LoadingPercentTextBlock.Text = string.Empty;
+    }
+
+    private void QueueAssetReadProgress(int assetsRead, int assetCount)
+    {
+        if (assetCount <= 0)
+            return;
+
+        var percent = GetAssetReadPercent(assetsRead, assetCount);
+        lock (_loadProgressGate)
+        {
+            if (percent != 100 && percent <= _lastQueuedAssetLoadPercent)
+                return;
+
+            _lastQueuedAssetLoadPercent = percent;
+        }
+
+        var loadingStatusVersion = Volatile.Read(ref _loadingStatusVersion);
+        Dispatcher.UIThread.Post(
+            () => UpdateAssetReadProgress(loadingStatusVersion, assetsRead, assetCount),
+            DispatcherPriority.Background);
+    }
+
+    private void UpdateAssetReadProgress(int loadingStatusVersion, int assetsRead, int assetCount)
+    {
+        if (loadingStatusVersion != Volatile.Read(ref _loadingStatusVersion)
+            || !LoadingStatusPanel.IsVisible)
+        {
+            return;
+        }
+
+        var percent = GetAssetReadPercent(assetsRead, assetCount);
+        var displayedPercent = Math.Max((int)Math.Round(LoadingProgressBar.Value), percent);
+        LoadingStatusTextBlock.Text = "Loading assets";
+        LoadingProgressBar.IsIndeterminate = false;
+        LoadingProgressBar.Value = displayedPercent;
+        LoadingPercentTextBlock.Text = $"{displayedPercent}%";
+    }
+
+    private static int GetAssetReadPercent(int assetsRead, int assetCount)
+    {
+        if (assetCount <= 0)
+            return 0;
+
+        return Math.Clamp((int)Math.Round(assetsRead * 100d / assetCount), 0, 100);
+    }
+
+    private void CompleteLoadingStatus()
+    {
+        ClearLoadingStatus();
+    }
+
+    private void ClearLoadingStatus()
+    {
+        Interlocked.Increment(ref _loadingStatusVersion);
+        lock (_loadProgressGate)
+        {
+            _lastQueuedAssetLoadPercent = -1;
+        }
+
+        LoadingStatusPanel.IsVisible = false;
+        LoadingProgressBar.IsIndeterminate = false;
+        LoadingProgressBar.Value = 0;
+        LoadingPercentTextBlock.Text = string.Empty;
     }
 
     private void UpdateFastFileHeaderView()
@@ -280,6 +372,7 @@ public partial class MainWindow : Window
             _buffer = writtenFastFile;
             _document = FastFileDocument.FromParsed(writtenFastFile, writtenFastFileHeader, writtenZoneHeader, _assetList, writtenZone);
             _currentFileName = saveFile.Name;
+            _currentFilePath = saveFile.TryGetLocalPath();
 
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
@@ -311,6 +404,26 @@ public partial class MainWindow : Window
     private void UpdateDocumentState()
     {
         SaveMenuItem.IsEnabled = _document is not null;
+        UpdateOpenFileStatus();
+    }
+
+    private void UpdateOpenFileStatus(string? displayText = null, string? tooltip = null)
+    {
+        if (string.IsNullOrWhiteSpace(displayText))
+        {
+            displayText = _document is null
+                ? "None"
+                : string.IsNullOrWhiteSpace(_currentFileName)
+                    ? "Untitled"
+                    : _currentFileName;
+
+            tooltip = string.IsNullOrWhiteSpace(_currentFilePath)
+                ? displayText
+                : _currentFilePath;
+        }
+
+        OpenFileStatusTextBlock.Text = displayText;
+        ToolTip.SetTip(OpenFileStatusBadge, tooltip ?? displayText);
     }
 
     private void CloseMenuItem_Click(object? sender, RoutedEventArgs e)

@@ -11,8 +11,13 @@ internal static class FxReader
     private const int FxElemDefSize = 0xFC;
     private const int FxElemVelStateSampleSize = 96;
     private const int FxElemVisStateSampleSize = 48;
-    private const int FxTrailVertexSize = 24;
+    private const int FxTrailVertexSize = 20;
     private const int FxSparkFountainDefSize = 52;
+    private static readonly bool TraceFx = IsTraceEnabled("FASTFILE_TRACE_FX");
+    private static readonly int TraceFxStart = GetTraceInt("FASTFILE_TRACE_FX_START", 0);
+    private static readonly int TraceFxEnd = GetTraceInt("FASTFILE_TRACE_FX_END", int.MaxValue);
+    private static readonly int TraceFxLimit = GetTraceInt("FASTFILE_TRACE_FX_LIMIT", 4096);
+    private static int _traceFxCount;
 
     public static FxEffectDef Read(ref XFileReadContext context)
     {
@@ -30,6 +35,11 @@ internal static class FxReader
 
         var elemDefCount = asset.ElemDefCountLooping + asset.ElemDefCountOneShot + asset.ElemDefCountEmission;
         asset.ElemDefs = context.ReadDirectPointer<FxElemDef[]>("FxEffectDef.ElemDefs");
+        Trace(
+            ref context,
+            $"root src=0x{asset.Offset:X8} end=0x{context.Position:X8} nameRaw=0x{asset.NamePtr.Raw:X8} "
+            + $"flags=0x{asset.Flags:X8} total=0x{asset.TotalSize:X} counts={asset.ElemDefCountLooping}+{asset.ElemDefCountOneShot}+{asset.ElemDefCountEmission} "
+            + $"elemDefsRaw=0x{asset.ElemDefs.Raw:X8}");
 
         context.PushStreamBlock(XFILE_BLOCK.LARGE);
         try
@@ -64,20 +74,24 @@ internal static class FxReader
     }
     private static FxElemDef[] ReadFxElemDefs(ref XFileReadContext context, int count)
     {
+        var start = context.Position;
+        Trace(ref context, $"elemDefs begin src=0x{start:X8} count={count}");
+
         if (count <= 0)
             return [];
 
         var values = new FxElemDef[count];
         for (var i = 0; i < values.Length; i++)
-            values[i] = ReadFxElemDef(ref context);
+            values[i] = ReadFxElemDef(ref context, i);
 
         foreach (var value in values)
             ResolveFxElemDefPointers(ref context, value);
 
+        Trace(ref context, $"elemDefs end src=0x{start:X8} end=0x{context.Position:X8} len=0x{context.Position - start:X}");
         return values;
     }
 
-    private static FxElemDef ReadFxElemDef(ref XFileReadContext context)
+    private static FxElemDef ReadFxElemDef(ref XFileReadContext context, int index)
     {
         var start = context.Position;
         var elem = new FxElemDef
@@ -113,7 +127,7 @@ internal static class FxReader
         elem.VisStateIntervalCount = context.ReadByte();
         elem.VelSamples = context.ReadDirectPointer<FxElemVelStateSample[]>("FxElemDef.VelSamples");
         elem.VisSamples = context.ReadDirectPointer<FxElemVisStateSample[]>("FxElemDef.VisSamples");
-        elem.Visuals = context.ReadDirectPointer<FxElemVisual[]>("FxElemDef.Visuals");
+        elem.Visuals = ReadFxElemVisualsField(ref context, elem);
         elem.CollBounds = ReadBounds(ref context);
         elem.EffectOnImpact = context.ReadDirectPointer<FxEffectDefRef>("FxElemDef.EffectOnImpact");
         elem.EffectOnDeath = context.ReadDirectPointer<FxEffectDefRef>("FxElemDef.EffectOnDeath");
@@ -130,22 +144,70 @@ internal static class FxReader
         if (bytesRead != FxElemDefSize)
             throw new InvalidDataException($"FxElemDef read {bytesRead:N0} bytes; expected {FxElemDefSize:N0} bytes.");
 
+        Trace(
+            ref context,
+            $"elem[{index:D2}] root src=0x{start:X8} end=0x{context.Position:X8} "
+            + $"type=0x{elem.ElemType:X2} visualCount={elem.VisualCount} velIntervals={elem.VelIntervalCount} visIntervals={elem.VisStateIntervalCount} "
+            + $"velRaw=0x{elem.VelSamples.Raw:X8} visRaw=0x{elem.VisSamples.Raw:X8} visualRaw=0x{elem.Visuals.Raw:X8} "
+            + $"impactRaw=0x{elem.EffectOnImpact.Raw:X8} deathRaw=0x{elem.EffectOnDeath.Raw:X8} emittedRaw=0x{elem.EffectEmitted.Raw:X8} extRaw=0x{elem.Extended.Raw:X8}");
         return elem;
     }
 
     private static void ResolveFxElemDefPointers(ref XFileReadContext context, FxElemDef elem)
     {
-        ResolveVelSamples(ref context, elem.VelSamples, elem.VelIntervalCount);
-        ResolveVisSamples(ref context, elem.VisSamples, elem.VisStateIntervalCount);
+        var start = context.Position;
+        Trace(
+            ref context,
+            $"elem children begin src=0x{start:X8} type=0x{elem.ElemType:X2} visualCount={elem.VisualCount}");
+        var childStart = context.Position;
+        ResolveVelSamples(ref context, elem.VelSamples, elem.VelIntervalCount + 1);
+        TraceSpan(ref context, "velSamples", childStart);
+        childStart = context.Position;
+        ResolveVisSamples(ref context, elem.VisSamples, elem.VisStateIntervalCount + 1);
+        TraceSpan(ref context, "visSamples", childStart);
+        childStart = context.Position;
         ResolveVisuals(ref context, elem);
+        TraceSpan(ref context, "visuals", childStart);
+        childStart = context.Position;
         ResolveEffectDefRefPointer(ref context, elem.EffectOnImpact);
+        TraceSpan(ref context, "effectImpact", childStart);
+        childStart = context.Position;
         ResolveEffectDefRefPointer(ref context, elem.EffectOnDeath);
+        TraceSpan(ref context, "effectDeath", childStart);
+        childStart = context.Position;
         ResolveEffectDefRefPointer(ref context, elem.EffectEmitted);
+        TraceSpan(ref context, "effectEmitted", childStart);
+        childStart = context.Position;
         ResolveExtended(ref context, elem);
+        TraceSpan(ref context, "extended", childStart);
+        Trace(
+            ref context,
+            $"elem children end src=0x{start:X8} end=0x{context.Position:X8} len=0x{context.Position - start:X}");
+    }
+
+    private static ZonePointer<FxElemVisual[]> ReadFxElemVisualsField(ref XFileReadContext context, FxElemDef elem)
+    {
+        if (UsesVisualArrayPointer(elem))
+            return context.ReadDirectPointer<FxElemVisual[]>("FxElemDef.Visuals");
+
+        var pointer = new ZonePointer<FxElemVisual[]>(0);
+        pointer.SetResult([ReadFxElemVisual(ref context, elem.ElemType, resolvePointers: false)]);
+        return pointer;
     }
 
     private static void ResolveVisuals(ref XFileReadContext context, FxElemDef elem)
     {
+        if (!UsesVisualArrayPointer(elem))
+        {
+            if (elem.Visuals.Result is { } visuals)
+            {
+                foreach (var visual in visuals)
+                    ResolveFxElemVisual(ref context, elem.ElemType, visual);
+            }
+
+            return;
+        }
+
         if (!elem.Visuals.IsInlineData)
         {
             elem.Visuals.SetResult(default);
@@ -158,7 +220,7 @@ internal static class FxReader
                 pointer,
                 (ref XFileReadContext valueContext) =>
                 {
-                    var visualCount = elem.VisualCount == 1 ? 1 : elem.VisualCount;
+                    var visualCount = elem.VisualCount;
                     var visuals = new FxElemVisual[visualCount];
 
                     if (elem.ElemType == 0xB)
@@ -167,35 +229,51 @@ internal static class FxReader
                         {
                             visuals[i] = new FxElemVisual
                             {
-                                DecalMaterial0 = MaterialReader.ReadMaterialPointer(ref valueContext),
-                                DecalMaterial1 = MaterialReader.ReadMaterialPointer(ref valueContext),
+                                DecalMaterial0 = MaterialReader.ReadMaterialPointerField(ref valueContext),
+                                DecalMaterial1 = MaterialReader.ReadMaterialPointerField(ref valueContext),
                             };
                         }
+
+                        foreach (var visual in visuals)
+                            ResolveFxElemVisual(ref valueContext, elem.ElemType, visual);
 
                         return visuals;
                     }
 
                     for (var i = 0; i < visuals.Length; i++)
-                        visuals[i] = ReadFxElemVisual(ref valueContext, elem.ElemType);
+                        visuals[i] = ReadFxElemVisual(ref valueContext, elem.ElemType, resolvePointers: false);
+
+                    foreach (var visual in visuals)
+                        ResolveFxElemVisual(ref valueContext, elem.ElemType, visual);
 
                     return visuals;
                 }));
         });
     }
 
-    private static FxElemVisual ReadFxElemVisual(ref XFileReadContext context, byte elemType)
+    private static bool UsesVisualArrayPointer(FxElemDef elem)
+    {
+        return elem.ElemType == 0xB || elem.VisualCount > 1;
+    }
+
+    private static FxElemVisual ReadFxElemVisual(
+        ref XFileReadContext context,
+        byte elemType,
+        bool resolvePointers = true)
     {
         var visual = new FxElemVisual();
         switch (elemType)
         {
             case 0x7:
-                visual.Model = XModelReader.ReadXModelPointer(ref context);
+                visual.Model = XModelReader.ReadXModelPointerField(ref context);
+                if (resolvePointers)
+                    XModelReader.ResolveXModelPointer(ref context, visual.Model);
                 break;
             case 0xC:
-                visual.EffectDef = ReadFxEffectDefRef(ref context);
+                visual.EffectDef = ReadFxEffectDefRef(ref context, resolveName: resolvePointers);
                 break;
             case 0xA:
-                visual.SoundName = GenericReader.ReadStringPointer(ref context);
+                visual.SoundName = GenericReader.ReadStringPointer(ref context, resolve: resolvePointers);
                 break;
             case 0x8:
             case 0x9:
@@ -203,11 +281,43 @@ internal static class FxReader
                 visual.Anonymous.SetResult(default);
                 break;
             default:
-                visual.Material = MaterialReader.ReadMaterialPointer(ref context);
+                visual.Material = MaterialReader.ReadMaterialPointerField(ref context);
+                if (resolvePointers)
+                    MaterialReader.ResolveMaterialPointer(ref context, visual.Material);
                 break;
         }
 
         return visual;
+    }
+
+    private static void ResolveFxElemVisual(
+        ref XFileReadContext context,
+        byte elemType,
+        FxElemVisual visual)
+    {
+        switch (elemType)
+        {
+            case 0x7:
+                XModelReader.ResolveXModelPointerNow(ref context, visual.Model);
+                break;
+            case 0xC:
+                ResolveFxEffectDefRef(ref context, visual.EffectDef);
+                break;
+            case 0xA:
+                GenericReader.ResolveStringPointerNow(ref context, visual.SoundName);
+                break;
+            case 0x8:
+            case 0x9:
+                visual.Anonymous.SetResult(default);
+                break;
+            case 0xB:
+                MaterialReader.ResolveMaterialPointerNow(ref context, visual.DecalMaterial0);
+                MaterialReader.ResolveMaterialPointerNow(ref context, visual.DecalMaterial1);
+                break;
+            default:
+                MaterialReader.ResolveMaterialPointerNow(ref context, visual.Material);
+                break;
+        }
     }
 
     private static void ResolveEffectDefRefPointer(ref XFileReadContext context, ZonePointer<FxEffectDefRef> pointer)
@@ -222,11 +332,13 @@ internal static class FxReader
         {
             p.SetResult(pointerContext.ReadPointerValue(
                 p,
-                ReadFxEffectDefRef));
+                (ref XFileReadContext valueContext) => ReadFxEffectDefRef(ref valueContext)));
         });
     }
 
-    private static FxEffectDefRef ReadFxEffectDefRef(ref XFileReadContext context)
+    private static FxEffectDefRef ReadFxEffectDefRef(
+        ref XFileReadContext context,
+        bool resolveName = true)
     {
         var raw = context.ReadInt32();
         var handle = context.CreatePointer<FxEffectDef>(raw, register: false);
@@ -240,10 +352,19 @@ internal static class FxReader
             Name = name,
         };
 
-        context.ResolveInlinePointer(name, GenericReader.ReadStringPointerValue);
+        if (resolveName)
+            context.ResolveInlinePointer(name, GenericReader.ReadStringPointerValue);
 
         handle.SetResult(default);
         return reference;
+    }
+
+    private static void ResolveFxEffectDefRef(
+        ref XFileReadContext context,
+        FxEffectDefRef reference)
+    {
+        GenericReader.ResolveStringPointerNow(ref context, reference.Name);
+        reference.Handle.SetResult(default);
     }
 
     private static void ResolveExtended(ref XFileReadContext context, FxElemDef elem)
@@ -532,7 +653,6 @@ internal static class FxReader
             Normal0 = context.ReadFloat(),
             Normal1 = context.ReadFloat(),
             TexCoord = context.ReadFloat(),
-            AlignmentPadding = context.ReadInt32(),
         };
 
         var bytesRead = context.Position - start;
@@ -559,5 +679,47 @@ internal static class FxReader
             Y = context.ReadFloat(),
             Z = context.ReadFloat(),
         };
+    }
+
+    private static void TraceSpan(ref XFileReadContext context, string label, int start)
+    {
+        Trace(ref context, $"{label} src=0x{start:X8} end=0x{context.Position:X8} len=0x{context.Position - start:X}");
+    }
+
+    private static void Trace(ref XFileReadContext context, string message)
+    {
+        if (!TraceFx || !IsTraceOffset(context.Position) || _traceFxCount >= TraceFxLimit)
+            return;
+
+        Interlocked.Increment(ref _traceFxCount);
+        Console.Error.WriteLine($"[fx-trace] asset[{context.CurrentAssetIndex:D5}:{context.CurrentAssetType}] {message}");
+    }
+
+    private static bool IsTraceOffset(int offset)
+    {
+        return offset >= TraceFxStart && offset <= TraceFxEnd;
+    }
+
+    private static bool IsTraceEnabled(string name)
+    {
+        return Environment.GetEnvironmentVariable(name) is { Length: > 0 } value
+            && value != "0";
+    }
+
+    private static int GetTraceInt(string name, int fallback)
+    {
+        var value = Environment.GetEnvironmentVariable(name);
+        if (string.IsNullOrWhiteSpace(value))
+            return fallback;
+
+        if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(value[2..], System.Globalization.NumberStyles.HexNumber, null, out var hex))
+        {
+            return hex;
+        }
+
+        return int.TryParse(value, out var parsed)
+            ? parsed
+            : fallback;
     }
 }

@@ -26,8 +26,10 @@ public partial class MaterialAssetView : UserControl
         MaterialNameTextBlock.Text = name;
         MaterialSubtitleTextBlock.Text = FormatTechniqueSet(material.TechniqueSet);
         MaterialTextureCountTextBlock.Text = $"{material.TextureCount:N0} textures";
+        var textureItems = BuildTextureItems(material);
+        UpdateMaterialPreview(textureItems, material.TextureCount);
         MaterialDetailsItemsControl.ItemsSource = BuildMaterialDetails(material);
-        MaterialTexturesItemsControl.ItemsSource = BuildTextureItems(material);
+        MaterialTexturesItemsControl.ItemsSource = textureItems;
         MaterialConstantsItemsControl.ItemsSource = BuildConstantItems(material);
     }
 
@@ -86,6 +88,76 @@ public partial class MaterialAssetView : UserControl
             SampleState = $"0x{texture.SampleState:X2}",
             Preview = decoded?.Bitmap
         };
+    }
+
+    private void UpdateMaterialPreview(MaterialTextureDisplayItem[] textures, int declaredTextureCount)
+    {
+        var preview = SelectPreviewTexture(textures);
+
+        MaterialPreviewImage.Source = preview?.Preview;
+        MaterialPreviewImage.IsVisible = preview?.HasPreview == true;
+        MaterialPreviewUnavailableTextBlock.IsVisible = preview?.HasPreview != true;
+
+        if (preview?.HasPreview == true)
+        {
+            MaterialPreviewNameTextBlock.Text = preview.ImageName;
+            MaterialPreviewMetaTextBlock.Text = FormatPreviewMeta(preview);
+            MaterialPreviewUnavailableTextBlock.Text = string.Empty;
+            return;
+        }
+
+        MaterialPreviewNameTextBlock.Text = "No material preview";
+        MaterialPreviewMetaTextBlock.Text = declaredTextureCount == 0
+            ? "No textures"
+            : $"{declaredTextureCount:N0} textures";
+        MaterialPreviewUnavailableTextBlock.Text = preview is null
+            ? "This material does not have a resolved texture table."
+            : $"No decoded texture preview is available.\n{preview.Status}";
+    }
+
+    private static MaterialTextureDisplayItem? SelectPreviewTexture(MaterialTextureDisplayItem[] textures)
+    {
+        var decodedTextures = textures
+            .Where(texture => texture.HasPreview)
+            .ToArray();
+
+        if (decodedTextures.Length == 0)
+        {
+            return textures.FirstOrDefault();
+        }
+
+        var preferredSemantics = new[]
+        {
+            MaterialTextureSemantic.TS_COLOR_MAP.ToString(),
+            MaterialTextureSemantic.TS_2D.ToString(),
+            MaterialTextureSemantic.TS_FUNCTION.ToString(),
+            MaterialTextureSemantic.TS_SPECULAR_MAP.ToString(),
+            MaterialTextureSemantic.TS_NORMAL_MAP.ToString(),
+            MaterialTextureSemantic.TS_WATER_MAP.ToString()
+        };
+
+        foreach (var semantic in preferredSemantics)
+        {
+            var match = decodedTextures.FirstOrDefault(texture => texture.Semantic == semantic);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return decodedTextures[0];
+    }
+
+    private static string FormatPreviewMeta(MaterialTextureDisplayItem texture)
+    {
+        var values = new[]
+        {
+            texture.Semantic,
+            texture.ImageSize,
+            texture.Format
+        };
+
+        return string.Join(" - ", values.Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     private static MaterialConstantDisplayItem[] BuildConstantItems(MaterialAsset material)

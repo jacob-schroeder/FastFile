@@ -9,7 +9,16 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class MaterialReader
 {
+    private static readonly bool TraceMaterial =
+        Environment.GetEnvironmentVariable("FASTFILE_TRACE_MATERIAL") is { Length: > 0 } value
+        && value != "0";
+
     public static Material Read(ref XFileReadContext context)
+    {
+        return Read(ref context, resolveChildrenNow: false);
+    }
+
+    private static Material Read(ref XFileReadContext context, bool resolveChildrenNow)
     {
         var material = new Material
         {
@@ -20,84 +29,232 @@ internal static class MaterialReader
             ConstantCount = context.ReadByte(),
             StateBitsCount = context.ReadByte(),
             StateFlags = context.ReadByte(),
-            CameraRegion = context.ReadByte()
+            CameraRegion = context.ReadByte(),
+            UnknownXStringCount = context.ReadByte()
         };
 
 #if PS3
-        context.ReadByte();
+        material.MaterialPadding = context.ReadByte();
 
         for (var i = 0; i < material.Ushorts.Length; i++)
             material.Ushorts[i] = context.ReadUInt16();
 
-        material.UshortArray = context.ReadPointer<ushort[]>(
-            (ref XFileReadContext pointerContext, ZonePointer<ushort[]> pointer) =>
-            {
-                var values = new ushort[Material.TECHNIQUE_COUNT];
-                for (var i = 0; i < values.Length; i++)
-                    values[i] = pointerContext.ReadUInt16();
-                pointer.SetResult(values);
-            },
-            PointerResolutionKind.Direct,
-            "Material.UshortArray");
+        material.UshortPadding = context.ReadBytes(2);
+
+        material.UshortArray = context.ReadDirectPointer<ushort[]>("Material.UshortArray");
 #endif
 
         material.TechniqueSet = context.ReadAliasPointer<MaterialTechniqueSet>("Material.TechniqueSet");
-        context.ResolvePointerInBlock(
+        material.TextureTable = context.ReadDirectPointer<MaterialTextureDef[]>("Material.TextureTable");
+        material.ConstantTable = context.ReadDirectPointer<MaterialConstantDef[]>("Material.ConstantTable");
+        material.StateBitTable = context.ReadDirectPointer<GfxStateBits[]>("Material.StateBitTable");
+        material.UnknownXStringArray = context.ReadDirectPointer<ZonePointer<string>[]>("Material.UnknownXStringArray");
+
+        TraceMaterialRoot(material);
+        ResolveMaterialChildren(ref context, material, resolveChildrenNow);
+
+        return material;
+    }
+
+    private static void ResolveMaterialChildren(
+        ref XFileReadContext context,
+        Material material,
+        bool resolveNow)
+    {
+        ResolveInBlock(
+            ref context,
+            material.Info.NamePtr,
+            XFILE_BLOCK.LARGE,
+            GenericReader.ReadStringPointerValue,
+            resolveNow);
+#if PS3
+        // EBOOT pushes block 2 before loading this table. Official mp_rust keeps the following
+        // large-stream texture/image payload in-place, so this cannot be read with the large cursor.
+        material.UshortArray.SetResult([]);
+#endif
+
+        ResolveInBlock(
+            ref context,
             material.TechniqueSet,
             XFILE_BLOCK.TEMP,
             (ref XFileReadContext pointerContext, ZonePointer<MaterialTechniqueSet> pointer) =>
             {
                 var value = pointerContext.ReadPointerValue(pointer, TechsetReader.Read);
                 pointer.SetResult(value);
-            });
-        material.TextureTable = context.ReadPointer<MaterialTextureDef[]>(
+            },
+            resolveNow);
+        ResolveInBlock(
+            ref context,
+            material.TextureTable,
+            XFILE_BLOCK.LARGE,
             (ref XFileReadContext pointerContext, ZonePointer<MaterialTextureDef[]> pointer) =>
             {
-                var values = ReadArray(ref pointerContext, material.TextureCount, ReadMaterialTextureDef);
+                var values = pointerContext.ReadPointerValue(
+                    pointer,
+                    (ref XFileReadContext valueContext) => ReadMaterialTextureTable(
+                        ref valueContext,
+                        material.TextureCount,
+                        resolveNow));
                 pointer.SetResult(values);
             },
-            PointerResolutionKind.Direct,
-            "Material.TextureTable");
-        material.ConstantTable = context.ReadPointer<MaterialConstantDef[]>(
+            resolveNow);
+        ResolveInBlock(
+            ref context,
+            material.ConstantTable,
+            XFILE_BLOCK.LARGE,
             (ref XFileReadContext pointerContext, ZonePointer<MaterialConstantDef[]> pointer) =>
             {
-                var values = ReadArray(ref pointerContext, material.ConstantCount, ReadMaterialConstantDef);
+                var values = pointerContext.ReadPointerValue(
+                    pointer,
+                    (ref XFileReadContext valueContext) =>
+                        ReadArray(ref valueContext, material.ConstantCount, ReadMaterialConstantDef));
                 pointer.SetResult(values);
             },
-            PointerResolutionKind.Direct,
-            "Material.ConstantTable");
-        material.StateBitTable = context.ReadPointer<GfxStateBits[]>(
+            resolveNow);
+        ResolveInBlock(
+            ref context,
+            material.StateBitTable,
+            XFILE_BLOCK.LARGE,
             (ref XFileReadContext pointerContext, ZonePointer<GfxStateBits[]> pointer) =>
             {
-                var values = ReadArray(ref pointerContext, material.StateBitsCount, ReadGfxStateBits);
+                var values = pointerContext.ReadPointerValue(
+                    pointer,
+                    (ref XFileReadContext valueContext) => ReadGfxStateBitsTable(
+                        ref valueContext,
+                        material.StateBitsCount,
+                        resolveNow));
                 pointer.SetResult(values);
             },
-            PointerResolutionKind.Direct,
-            "Material.StateBitTable");
-        material.UnknownXStringArray = context.ReadDirectPointer<ZonePointer<string>[]>("Material.UnknownXStringArray");
+            resolveNow);
+        ResolveInBlock(
+            ref context,
+            material.UnknownXStringArray,
+            XFILE_BLOCK.LARGE,
+            (ref XFileReadContext pointerContext, ZonePointer<ZonePointer<string>[]> pointer) =>
+            {
+                var values = pointerContext.ReadPointerValue(
+                    pointer,
+                    (ref XFileReadContext valueContext) => ReadUnknownXStringArray(
+                        ref valueContext,
+                        material.UnknownXStringCount,
+                        resolveNow));
+                pointer.SetResult(values);
+            },
+            resolveNow);
+    }
 
-        return material;
+    private static void TraceMaterialRoot(Material material)
+    {
+        Trace(
+            $"root src=0x{material.Offset:X8} tex={material.TextureCount} const={material.ConstantCount} "
+            + $"state={material.StateBitsCount} xstr={material.UnknownXStringCount} "
+#if PS3
+            + $"ushortArray=0x{material.UshortArray.Raw:X8} "
+#endif
+            + $"tech=0x{material.TechniqueSet.Raw:X8} texPtr=0x{material.TextureTable.Raw:X8} "
+            + $"constPtr=0x{material.ConstantTable.Raw:X8} statePtr=0x{material.StateBitTable.Raw:X8} "
+            + $"xstrPtr=0x{material.UnknownXStringArray.Raw:X8}");
+    }
+
+    private static void ResolveInBlock<T>(
+        ref XFileReadContext context,
+        ZonePointer<T> pointer,
+        XFILE_BLOCK block,
+        XFilePointerResolver<T> resolver,
+        bool resolveNow,
+        XFileStreamAlignment? alignment = null)
+    {
+        if (resolveNow)
+        {
+            if (alignment is { } streamAlignment)
+                context.ResolvePointerAlignedNowInBlock(pointer, block, streamAlignment, resolver);
+            else
+                context.ResolvePointerNowInBlock(pointer, block, resolver);
+            return;
+        }
+
+        if (alignment is { } queuedAlignment)
+            context.ResolvePointerAlignedInBlock(pointer, block, queuedAlignment, resolver);
+        else
+            context.ResolvePointerInBlock(pointer, block, resolver);
+    }
+
+    private static ZonePointer<string>[] ReadUnknownXStringArray(
+        ref XFileReadContext context,
+        int count,
+        bool resolveNow)
+    {
+        var stringPointers = new ZonePointer<string>[count];
+        for (var i = 0; i < stringPointers.Length; i++)
+            stringPointers[i] = GenericReader.ReadStringPointer(ref context, resolve: !resolveNow);
+
+        if (resolveNow)
+        {
+            foreach (var pointer in stringPointers)
+                GenericReader.ResolveStringPointerNow(ref context, pointer);
+        }
+
+        return stringPointers;
+    }
+
+    private static void Trace(string message)
+    {
+        if (TraceMaterial)
+            Console.Error.WriteLine($"[material-trace] {message}");
     }
 
     public static ZonePointer<Material> ReadMaterialPointer(ref XFileReadContext context)
     {
-        var pointer = context.ReadAliasPointer<Material>("MaterialAssetRef");
+        var pointer = ReadMaterialPointerField(ref context);
+        ResolveMaterialPointer(ref context, pointer);
+        return pointer;
+    }
+
+    public static ZonePointer<Material> ReadMaterialPointerField(ref XFileReadContext context)
+    {
+        return context.ReadAliasPointer<Material>("MaterialAssetRef");
+    }
+
+    public static void ResolveMaterialPointer(
+        ref XFileReadContext context,
+        ZonePointer<Material> pointer)
+    {
         context.ResolvePointerInBlock(
             pointer,
             XFILE_BLOCK.TEMP,
-            (ref XFileReadContext pointerContext, ZonePointer<Material> p) =>
-            {
-                var value = pointerContext.ReadPointerValue(p, Read);
-                p.SetResult(value);
-            });
-        return pointer;
+            ReadMaterialPointerValue);
+    }
+
+    public static void ResolveMaterialPointerNow(
+        ref XFileReadContext context,
+        ZonePointer<Material> pointer)
+    {
+        context.ResolvePointerNowInBlock(pointer, XFILE_BLOCK.TEMP, ReadMaterialPointerValueNow);
+    }
+
+    private static void ReadMaterialPointerValue(
+        ref XFileReadContext context,
+        ZonePointer<Material> pointer)
+    {
+        var value = context.ReadPointerValue(pointer, Read);
+        pointer.SetResult(value);
+    }
+
+    private static void ReadMaterialPointerValueNow(
+        ref XFileReadContext context,
+        ZonePointer<Material> pointer)
+    {
+        var value = context.ReadPointerValue(
+            pointer,
+            (ref XFileReadContext valueContext) => Read(ref valueContext, resolveChildrenNow: true));
+        pointer.SetResult(value);
     }
 
     private static MaterialInfo ReadMaterialInfo(ref XFileReadContext context)
     {
         var info = new MaterialInfo
         {
-            NamePtr = GenericReader.ReadStringPointer(ref context),
+            NamePtr = GenericReader.ReadStringPointer(ref context, resolve: false),
             GameFlags = context.ReadByte(),
             SortKey = context.ReadByte(),
             TextureAtlasRowCount = context.ReadByte(),
@@ -118,7 +275,22 @@ internal static class MaterialReader
         return info;
     }
 
-    private static MaterialTextureDef ReadMaterialTextureDef(ref XFileReadContext context)
+    private static MaterialTextureDef[] ReadMaterialTextureTable(
+        ref XFileReadContext context,
+        int count,
+        bool resolvePointersNow)
+    {
+        var values = new MaterialTextureDef[count];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = ReadMaterialTextureDefField(ref context);
+
+        foreach (var texture in values)
+            ResolveMaterialTextureDefPointer(ref context, texture, resolvePointersNow);
+
+        return values;
+    }
+
+    private static MaterialTextureDef ReadMaterialTextureDefField(ref XFileReadContext context)
     {
         var texture = new MaterialTextureDef
         {
@@ -127,8 +299,6 @@ internal static class MaterialReader
             NameEnd = context.ReadByte(),
             SampleState = context.ReadByte(),
             Semantic = (MaterialTextureSemantic)context.ReadByte(),
-            IsMatureContent = context.ReadByte(),
-            Pad = context.ReadBytes(3),
         };
 
         var raw = context.ReadInt32();
@@ -139,25 +309,30 @@ internal static class MaterialReader
             Water = context.CreatePointer<Water>(raw, register: false),
         };
 
+        return texture;
+    }
+
+    private static void ResolveMaterialTextureDefPointer(
+        ref XFileReadContext context,
+        MaterialTextureDef texture,
+        bool resolveNow)
+    {
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
         {
             context.RegisterPointer(texture.Info.Water, PointerResolutionKind.Direct, "MaterialTextureDef.Water");
-            context.ResolvePointer(texture.Info.Water, ReadWaterPointerValue);
+            if (resolveNow)
+                context.ResolveInlinePointerNow(texture.Info.Water, ReadWaterPointerValueNow);
+            else
+                context.ResolvePointer(texture.Info.Water, ReadWaterPointerValue);
         }
         else
         {
             context.RegisterPointer(texture.Info.Image, PointerResolutionKind.Alias, "MaterialTextureDef.Image");
-            context.ResolvePointerInBlock(
-                texture.Info.Image,
-                XFILE_BLOCK.TEMP,
-                (ref XFileReadContext pointerContext, ZonePointer<GfxImage> pointer) =>
-                {
-                    var value = pointerContext.ReadPointerValue(pointer, ImageReader.Read);
-                    pointer.SetResult(value);
-                });
+            if (resolveNow)
+                ImageReader.ResolveImagePointerNow(ref context, texture.Info.Image);
+            else
+                ImageReader.ResolveImagePointer(ref context, texture.Info.Image);
         }
-
-        return texture;
     }
 
     private static MaterialConstantDef ReadMaterialConstantDef(ref XFileReadContext context)
@@ -170,14 +345,46 @@ internal static class MaterialReader
         };
     }
 
-    private static GfxStateBits ReadGfxStateBits(ref XFileReadContext context)
+    private static GfxStateBits[] ReadGfxStateBitsTable(
+        ref XFileReadContext context,
+        int count,
+        bool resolveLoadBitsNow)
+    {
+        var values = new GfxStateBits[count];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = ReadGfxStateBitsField(ref context);
+
+#if PS3
+        foreach (var value in values)
+            ResolveGfxStateBitsLoadBits(ref context, value, resolveLoadBitsNow);
+#endif
+
+        return values;
+    }
+
+    private static GfxStateBits ReadGfxStateBitsField(ref XFileReadContext context)
     {
         var stateBits = new GfxStateBits();
 #if XBOX
         for (var i = 0; i < stateBits.LoadBits.Length; i++)
             stateBits.LoadBits[i] = context.ReadInt32();
 #elif PS3
-        stateBits.LoadBits = context.ReadPointer<int[]>(
+        stateBits.LoadBits = context.ReadDirectPointer<int[]>("GfxStateBits.LoadBits");
+        stateBits.Unknown = context.ReadInt32();
+#endif
+        return stateBits;
+    }
+
+#if PS3
+    private static void ResolveGfxStateBitsLoadBits(
+        ref XFileReadContext context,
+        GfxStateBits stateBits,
+        bool resolveNow)
+    {
+        ResolveInBlock(
+            ref context,
+            stateBits.LoadBits,
+            XFILE_BLOCK.TEMP,
             (ref XFileReadContext pointerContext, ZonePointer<int[]> pointer) =>
             {
                 var values = new int[2];
@@ -185,14 +392,16 @@ internal static class MaterialReader
                     values[i] = pointerContext.ReadInt32();
                 pointer.SetResult(values);
             },
-            PointerResolutionKind.Direct,
-            "GfxStateBits.LoadBits");
-        stateBits.Unknown = context.ReadInt32();
-#endif
-        return stateBits;
+            resolveNow);
     }
+#endif
 
     private static Water ReadWater(ref XFileReadContext context)
+    {
+        return ReadWater(ref context, resolveChildrenNow: false);
+    }
+
+    private static Water ReadWater(ref XFileReadContext context, bool resolveChildrenNow)
     {
         var water = new Water
         {
@@ -213,27 +422,17 @@ internal static class MaterialReader
         water.Amplitude = context.ReadFloat();
         for (var i = 0; i < water.CodeConstant.Length; i++)
             water.CodeConstant[i] = context.ReadFloat();
-        water.Image = ImageReader.ReadImagePointer(ref context);
+        water.Image = ImageReader.ReadImagePointerField(ref context);
 
         var sampleCount = water.M * water.N;
-        context.ResolvePointer(water.H0X, (ref XFileReadContext pointerContext, ZonePointer<float[]> pointer) =>
-        {
-            pointer.SetResult(pointerContext.ReadPointerValue(
-                pointer,
-                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
-        });
-        context.ResolvePointer(water.H0Y, (ref XFileReadContext pointerContext, ZonePointer<float[]> pointer) =>
-        {
-            pointer.SetResult(pointerContext.ReadPointerValue(
-                pointer,
-                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
-        });
-        context.ResolvePointer(water.WTerm, (ref XFileReadContext pointerContext, ZonePointer<float[]> pointer) =>
-        {
-            pointer.SetResult(pointerContext.ReadPointerValue(
-                pointer,
-                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
-        });
+        ResolveWaterFloatArray(ref context, water.H0X, sampleCount, resolveChildrenNow);
+        ResolveWaterFloatArray(ref context, water.H0Y, sampleCount, resolveChildrenNow);
+        ResolveWaterFloatArray(ref context, water.WTerm, sampleCount, resolveChildrenNow);
+
+        if (resolveChildrenNow)
+            ImageReader.ResolveImagePointerNow(ref context, water.Image);
+        else
+            ImageReader.ResolveImagePointer(ref context, water.Image);
 
         return water;
     }
@@ -241,6 +440,32 @@ internal static class MaterialReader
     private static void ReadWaterPointerValue(ref XFileReadContext context, ZonePointer<Water> pointer)
     {
         pointer.SetResult(context.ReadPointerValue(pointer, ReadWater));
+    }
+
+    private static void ReadWaterPointerValueNow(ref XFileReadContext context, ZonePointer<Water> pointer)
+    {
+        pointer.SetResult(context.ReadPointerValue(
+            pointer,
+            (ref XFileReadContext valueContext) => ReadWater(ref valueContext, resolveChildrenNow: true)));
+    }
+
+    private static void ResolveWaterFloatArray(
+        ref XFileReadContext context,
+        ZonePointer<float[]> pointer,
+        int sampleCount,
+        bool resolveNow)
+    {
+        void Resolver(ref XFileReadContext pointerContext, ZonePointer<float[]> valuePointer)
+        {
+            valuePointer.SetResult(pointerContext.ReadPointerValue(
+                valuePointer,
+                (ref XFileReadContext valueContext) => ReadFloatArray(ref valueContext, sampleCount)));
+        }
+
+        if (resolveNow)
+            context.ResolveInlinePointerNow(pointer, Resolver);
+        else
+            context.ResolvePointer(pointer, Resolver);
     }
 
     private static float[] ReadFloatArray(ref XFileReadContext context, int count)

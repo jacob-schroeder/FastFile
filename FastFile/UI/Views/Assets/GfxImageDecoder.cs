@@ -86,14 +86,15 @@ internal static class GfxImageDecoder
     {
         switch (format)
         {
+            // PS3/GCM labels still carry little-endian DXT block payloads in observed fastfiles.
             case ImagePixelFormat.Bc1:
-                DecodeBc1(data, pixels, width, height, IsGcmFormat(rawFormat));
+                DecodeBc1(data, pixels, width, height, bigEndianBlocks: false);
                 break;
             case ImagePixelFormat.Bc2:
-                DecodeBc2(data, pixels, width, height, IsGcmFormat(rawFormat));
+                DecodeBc2(data, pixels, width, height, bigEndianBlocks: false);
                 break;
             case ImagePixelFormat.Bc3:
-                DecodeBc3(data, pixels, width, height, IsGcmFormat(rawFormat));
+                DecodeBc3(data, pixels, width, height, bigEndianBlocks: false);
                 break;
             case ImagePixelFormat.Bgra32:
                 DecodeBgra32(data, pixels, IsGcmFormat(rawFormat));

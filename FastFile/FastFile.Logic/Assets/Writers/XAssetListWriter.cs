@@ -1,7 +1,9 @@
 using System.Buffers.Binary;
 using System.Text;
 using FastFile.Models.Assets;
+using FastFile.Models.Assets.Eboot;
 using FastFile.Models.Assets.Effects;
+using FastFile.Models.Assets.Fonts;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.Localize;
 using FastFile.Models.Assets.Menu;
@@ -10,6 +12,7 @@ using FastFile.Models.Assets.Menu.Enums;
 using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Assets.Physics;
 using FastFile.Models.Assets.RawFiles;
+using FastFile.Models.Assets.SoundAliasList;
 using FastFile.Models.Assets.StringTables;
 using FastFile.Models.Assets.StructuredData;
 using FastFile.Models.Assets.TechniqueSet;
@@ -170,8 +173,44 @@ public sealed partial class XFileWriter
     {
         switch (asset)
         {
+            case PhysPreset physPreset:
+                WritePhysPreset(context, physPreset);
+                return true;
+            case PhysCollmap physCollmap:
+                WritePhysCollmap(context, physCollmap);
+                return true;
+            case XModelSurfs xmodelSurfs:
+                WriteXModelSurfs(context, xmodelSurfs);
+                return true;
+            case XModel xmodel:
+                WriteXModel(context, xmodel);
+                return true;
+            case XAnimParts xanim:
+                WriteXAnimParts(context, xanim);
+                return true;
+            case Material material:
+                WriteMaterial(context, material);
+                return true;
+            case MaterialPixelShader pixelShader:
+                WriteMaterialPixelShader(context, pixelShader);
+                return true;
+            case MaterialVertexShader vertexShader:
+                WriteMaterialVertexShader(context, vertexShader);
+                return true;
             case MaterialTechniqueSet techset:
                 WriteTechset(context, techset);
+                return true;
+            case GfxImage image:
+                WriteImage(context, image);
+                return true;
+            case SndAliasList sound:
+                WriteSndAliasList(context, sound);
+                return true;
+            case SndCurve sndCurve:
+                WriteSndCurve(context, sndCurve);
+                return true;
+            case LoadedSound loadedSound:
+                WriteLoadedSound(context, loadedSound);
                 return true;
             case MenuList menuList:
                 WriteMenuList(context, menuList);
@@ -193,6 +232,15 @@ public sealed partial class XFileWriter
                 return true;
             case WeaponVariantDef weapon:
                 WriteWeaponVariantDef(context, weapon);
+                return true;
+            case FxEffectDef fx:
+                WriteFxEffectDef(context, fx);
+                return true;
+            case FontAsset font:
+                WriteFontAsset(context, font);
+                return true;
+            case TracerDef tracer:
+                WriteTracerDef(context, tracer);
                 return true;
             default:
                 return false;

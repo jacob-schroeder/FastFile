@@ -55,6 +55,18 @@ internal sealed class XFileStreamLayout
         return streamOffset >= 0 && streamOffset < _blockSizes[streamBlockIndex];
     }
 
+    public bool TryGetBlockSize(int streamBlockIndex, out int blockSize)
+    {
+        if (streamBlockIndex < 0 || streamBlockIndex >= _blockSizes.Length)
+        {
+            blockSize = 0;
+            return false;
+        }
+
+        blockSize = _blockSizes[streamBlockIndex];
+        return true;
+    }
+
     private static int[] GetBlockZoneBases(int xfileSize, int[] blockSizes)
     {
         var blockBases = new int[blockSizes.Length];

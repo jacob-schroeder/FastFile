@@ -159,7 +159,6 @@ public sealed class FxTrailVertex
     public float Normal0 { get; set; }
     public float Normal1 { get; set; }
     public float TexCoord { get; set; }
-    public int AlignmentPadding { get; set; }
 }
 
 public sealed class FxTrailDef

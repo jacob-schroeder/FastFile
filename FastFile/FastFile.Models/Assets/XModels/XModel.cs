@@ -34,13 +34,10 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     public ZonePointer<XBoneInfo[]> BoneInfo { get; set; }
     public float Radius { get; set; }
     public Bounds Bounds { get; set; }
+    public ZonePointer<ushort[]> InvHighMipRadius { get; set; }
     public int MemUsage { get; set; }
-    public bool Bad { get; set; }
-    public byte BadPadding0 { get; set; }
-    public byte BadPadding1 { get; set; }
-    public byte BadPadding2 { get; set; }
-    public ZonePointer<PhysPreset> PhysPreset { get; set; }
-    public ZonePointer<PhysCollmap> PhysCollmap { get; set; }
+    public AliasPointer<PhysPreset> PhysPreset { get; set; }
+    public AliasPointer<PhysCollmap> PhysCollmap { get; set; }
 
     public override string? GetDisplayName => Name;
 }
@@ -82,11 +79,72 @@ public sealed class XModelLodInfo
 
 public sealed class XSurface
 {
+    public int Offset { get; set; }
     public byte TileMode { get; set; }
+    public byte Deformed { get; set; }
+    public byte StreamFlags { get; set; }
+    public byte Unknown03 { get; set; }
+    public ushort VertCount { get; set; }
+    public ushort TriCount { get; set; }
+    public ZonePointer<ushort[]> TriIndices { get; set; }
+    public XSurfaceVertexInfo VertInfo { get; set; } = new();
+    public ZonePointer<byte[]> Verts0 { get; set; }
+    public XSurfaceGpuBuffer Vb0 { get; set; } = new();
+    public ZonePointer<byte[]> Verts1 { get; set; }
+    public XSurfaceGpuBuffer Vb1 { get; set; } = new();
+    public int VertListCount { get; set; }
+    public ZonePointer<XRigidVertList[]> VertList { get; set; }
+    public XSurfaceGpuBuffer IndexBuffer { get; set; } = new();
+    public int[] PartBits { get; set; } = new int[5];
+}
+
+public sealed class XSurfaceVertexInfo
+{
+    public short[] VertCount { get; set; } = new short[4];
+    public ZonePointer<ushort[]> VertsBlend { get; set; }
+}
+
+public sealed class XSurfaceGpuBuffer
+{
+    public int Word0 { get; set; }
+    public int Word1 { get; set; }
+}
+
+public sealed class XRigidVertList
+{
+    public ushort BoneOffset { get; set; }
+    public ushort VertCount { get; set; }
+    public ushort TriOffset { get; set; }
+    public ushort TriCount { get; set; }
+    public ZonePointer<XSurfaceCollisionTree> CollisionTree { get; set; }
+}
+
+public sealed class XSurfaceCollisionTree
+{
+    public Vec3 Trans { get; set; }
+    public Vec3 Scale { get; set; }
+    public uint NodeCount { get; set; }
+    public ZonePointer<XSurfaceCollisionNode[]> Nodes { get; set; }
+    public uint LeafCount { get; set; }
+    public ZonePointer<XSurfaceCollisionLeaf[]> Leafs { get; set; }
+}
+
+public sealed class XSurfaceCollisionNode
+{
+    public ushort[] Mins { get; set; } = new ushort[3];
+    public ushort[] Maxs { get; set; } = new ushort[3];
+    public ushort ChildBeginIndex { get; set; }
+    public ushort ChildCount { get; set; }
+}
+
+public sealed class XSurfaceCollisionLeaf
+{
+    public ushort TriangleBeginIndex { get; set; }
 }
 
 public sealed class XModelCollSurf
 {
+    public byte[] RawBytes { get; set; } = [];
     public ZonePointer<XModelCollTri[]> CollTris { get; set; }
     public int NumCollTris { get; set; }
     public Bounds Bounds { get; set; }

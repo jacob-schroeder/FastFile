@@ -266,6 +266,9 @@ internal static class MenuReader
                 break;
             case 4:
             case 9:
+            case 10:
+            case 11:
+            case 14:
             case 16:
             case 17:
             case 18:
@@ -278,7 +281,6 @@ internal static class MenuReader
                 context.RegisterPointer(data.ListBox, PointerResolutionKind.Direct, "ItemDef.TypeData.ListBox");
                 context.ResolveInlinePointer(data.ListBox, ReadListBoxDefPointerValue);
                 break;
-            case 10:
             case 12:
                 context.RegisterPointer(data.Multi, PointerResolutionKind.Direct, "ItemDef.TypeData.Multi");
                 context.ResolveInlinePointer(data.Multi, ReadMultiDefPointerValue);

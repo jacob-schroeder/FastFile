@@ -49,7 +49,7 @@ internal static class GenericReader
         ref XFileReadContext context,
         ZonePointer<string> pointer)
     {
-        if (!pointer.IsInlineData)
+        if (!pointer.CanMaterializeInline)
         {
             pointer.SetResult(default);
             return;

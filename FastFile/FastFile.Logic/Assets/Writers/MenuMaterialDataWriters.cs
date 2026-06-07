@@ -35,6 +35,9 @@ public sealed partial class XFileWriter
             context.WritePointerRaw(technique, PointerResolutionKind.Direct, "Techset.Techniques");
 
         WritePendingString(context, name);
+
+        foreach (var technique in techset.Techniques)
+            WriteQueuedMaterialTechnique(context, technique);
     }
 
     private static void WriteMenuList(XFileWriterContext context, MenuList asset)
@@ -695,16 +698,21 @@ public sealed partial class XFileWriter
     private static void WriteMaterial(XFileWriterContext context, Material material)
     {
         WriteMaterialInfo(context, material.Info);
-        context.WriteBytes(material.StateBitsEntry);
+        WriteFixedBytes(context, material.StateBitsEntry, Material.TECHNIQUE_COUNT);
         context.WriteByte(material.TextureCount);
         context.WriteByte(material.ConstantCount);
         context.WriteByte(material.StateBitsCount);
         context.WriteByte(material.StateFlags);
         context.WriteByte(material.CameraRegion);
+        context.WriteByte(material.UnknownXStringCount);
 #if PS3
-        context.WriteByte(0);
-        foreach (var value in material.Ushorts)
+        context.WriteByte(material.MaterialPadding);
+        for (var i = 0; i < Material.TECHNIQUE_COUNT; i++)
+        {
+            var value = i < material.Ushorts.Length ? material.Ushorts[i] : (ushort)0;
             context.WriteUInt16(value);
+        }
+        WriteFixedBytes(context, material.UshortPadding, 2);
         context.WritePointerRaw(material.UshortArray, PointerResolutionKind.Direct, "Material.UshortArray");
 #endif
         context.WritePointerRaw(material.TechniqueSet, PointerResolutionKind.Alias, "Material.TechniqueSet");
@@ -721,6 +729,7 @@ public sealed partial class XFileWriter
         WriteQueuedMaterialTextureTable(context, material.TextureTable);
         WriteQueuedMaterialConstantTable(context, material.ConstantTable);
         WriteQueuedStateBitTable(context, material.StateBitTable);
+        WriteQueuedUnknownXStringArray(context, material.UnknownXStringArray);
     }
 
     private static void WriteMaterialInfo(XFileWriterContext context, MaterialInfo info)
@@ -753,6 +762,25 @@ public sealed partial class XFileWriter
             context.WriteUInt16(value);
     }
 
+    private static void WriteQueuedUnknownXStringArray(
+        XFileWriterContext context,
+        ZonePointer<ZonePointer<string>[]>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedUnknownXStringArray(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.RegisterMaterializedPointerValue(pointer);
+
+        foreach (var value in pointer.Result)
+            context.WritePointerRaw(value, PointerResolutionKind.Direct, "XString");
+
+        foreach (var value in pointer.Result)
+            WriteQueuedString(context, value);
+    }
+
     private static void WriteQueuedTechset(
         XFileWriterContext context,
         ZonePointer<MaterialTechniqueSet>? pointer)
@@ -764,6 +792,254 @@ public sealed partial class XFileWriter
         {
             WriteInlineAssetReferenceBody(context, pointer, WriteTechset);
         }
+    }
+
+    private static void WriteQueuedMaterialTechnique(
+        XFileWriterContext context,
+        ZonePointer<MaterialTechnique>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialTechnique(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            context.RegisterMaterializedPointerValue(pointer);
+            WriteMaterialTechnique(context, pointer.Result);
+        });
+    }
+
+    private static void WriteMaterialTechnique(
+        XFileWriterContext context,
+        MaterialTechnique technique)
+    {
+        context.WritePointerRaw(technique.NamePtr, PointerResolutionKind.Direct, "XString");
+        context.WriteUInt16(technique.Flags);
+        context.WriteUInt16(technique.PassCount);
+
+        foreach (var pass in technique.Passes)
+            WriteMaterialPass(context, pass);
+
+        foreach (var pass in technique.Passes)
+            WriteQueuedMaterialPassPointers(context, pass);
+
+        WriteQueuedString(context, technique.NamePtr);
+    }
+
+    private static void WriteMaterialPass(XFileWriterContext context, MaterialPass pass)
+    {
+        context.WritePointerRaw(pass.VertexDecl, PointerResolutionKind.Direct, "MaterialPass.VertexDecl");
+        context.WritePointerRaw(pass.VertexShader, PointerResolutionKind.Alias, "MaterialPass.VertexShader");
+        context.WritePointerRaw(pass.PixelShader, PointerResolutionKind.Alias, "MaterialPass.PixelShader");
+        context.WriteByte(pass.PerPrimArgCount);
+        context.WriteByte(pass.PerObjArgCount);
+        context.WriteByte(pass.StableArgCount);
+        context.WriteByte(pass.CustomSamplerFlags);
+        context.WriteByte(pass.PrecompiledIndex);
+        WriteFixedBytes(context, pass.Padding, 3);
+        context.WritePointerRaw(pass.Args, PointerResolutionKind.Direct, "MaterialPass.Args");
+    }
+
+    private static void WriteQueuedMaterialPassPointers(XFileWriterContext context, MaterialPass pass)
+    {
+        WriteQueuedMaterialVertexDeclaration(context, pass.VertexDecl);
+        WriteQueuedMaterialVertexShader(context, pass.VertexShader);
+        WriteQueuedMaterialPixelShader(context, pass.PixelShader);
+        WriteQueuedMaterialShaderArguments(context, pass.Args);
+    }
+
+    private static void WriteQueuedMaterialVertexDeclaration(
+        XFileWriterContext context,
+        ZonePointer<MaterialVertexDeclaration>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialVertexDeclaration(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            context.RegisterMaterializedPointerValue(pointer);
+            WriteFixedBytes(context, pointer.Result.Raw, 0x1C);
+        });
+    }
+
+    private static void WriteQueuedMaterialVertexShader(
+        XFileWriterContext context,
+        ZonePointer<MaterialVertexShader>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialVertexShader(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.RegisterMaterializedPointerValue(pointer);
+            WriteMaterialVertexShader(context, pointer.Result);
+        });
+    }
+
+    private static void WriteMaterialVertexShader(
+        XFileWriterContext context,
+        MaterialVertexShader shader)
+    {
+        context.WritePointerRaw(shader.NamePtr, PointerResolutionKind.Direct, "XString");
+        WriteMaterialVertexShaderProgram(context, shader.Program);
+
+        WriteQueuedLargeString(context, shader.NamePtr);
+        WriteQueuedMaterialShaderProgramData(context, shader.Program.Data, shader.Program.DataSize);
+    }
+
+    private static void WriteQueuedMaterialPixelShader(
+        XFileWriterContext context,
+        ZonePointer<MaterialPixelShader>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialPixelShader(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.RegisterMaterializedPointerValue(pointer);
+            WriteMaterialPixelShader(context, pointer.Result);
+        });
+    }
+
+    private static void WriteMaterialPixelShader(
+        XFileWriterContext context,
+        MaterialPixelShader shader)
+    {
+        context.WritePointerRaw(shader.NamePtr, PointerResolutionKind.Direct, "XString");
+        WriteMaterialPixelShaderProgram(context, shader.Program);
+
+        WriteQueuedLargeString(context, shader.NamePtr);
+        WriteQueuedMaterialShaderProgramData(context, shader.Program.Data, shader.Program.DataSize);
+    }
+
+    private static void WriteQueuedLargeString(
+        XFileWriterContext context,
+        ZonePointer<string>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedLargeString(context, pointer)))
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () => WriteQueuedString(context, pointer));
+    }
+
+    private static void WriteMaterialVertexShaderProgram(
+        XFileWriterContext context,
+        MaterialVertexShaderProgram program)
+    {
+        context.WritePointerRaw(program.Data, PointerResolutionKind.Direct, "MaterialVertexShader.Program.Data");
+        context.WriteInt32(program.DataSize);
+    }
+
+    private static void WriteMaterialPixelShaderProgram(
+        XFileWriterContext context,
+        MaterialPixelShaderProgram program)
+    {
+        context.WritePointerRaw(program.Data, PointerResolutionKind.Direct, "MaterialPixelShader.Program.Data");
+        context.WriteInt32(program.DataSize);
+        WriteFixedBytes(context, program.RootSuffix, 0x0C);
+    }
+
+    private static void WriteQueuedMaterialShaderProgramData(
+        XFileWriterContext context,
+        ZonePointer<byte[]>? pointer,
+        int size)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialShaderProgramData(context, pointer, size)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.AlignStreamOnly(XFileStreamAlignment.Four);
+            context.RegisterMaterializedPointerValue(pointer, Math.Max(0, size));
+            WriteFixedBytes(context, pointer.Result, Math.Max(0, size));
+        });
+    }
+
+    private static void WriteQueuedMaterialShaderArguments(
+        XFileWriterContext context,
+        ZonePointer<MaterialShaderArgument[]>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialShaderArguments(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            context.RegisterMaterializedPointerValue(pointer);
+
+            foreach (var argument in pointer.Result)
+                WriteMaterialShaderArgument(context, argument);
+
+            foreach (var argument in pointer.Result)
+                WriteQueuedMaterialShaderArgumentPointers(context, argument);
+        });
+    }
+
+    private static void WriteMaterialShaderArgument(
+        XFileWriterContext context,
+        MaterialShaderArgument argument)
+    {
+        context.WriteUInt16((ushort)argument.Type);
+        context.WriteUInt16(argument.Dest);
+
+        if (argument.Type is MaterialShaderArgumentType.MTL_ARG_LITERAL_VERTEX_CONST
+            or MaterialShaderArgumentType.MTL_ARG_LITERAL_PIXEL_CONST)
+        {
+            context.WritePointerRaw(
+                argument.Argument.LiteralConst,
+                PointerResolutionKind.Direct,
+                "MaterialShaderArgument.LiteralConst");
+            return;
+        }
+
+        context.WriteInt32(argument.Argument.Raw);
+    }
+
+    private static void WriteQueuedMaterialShaderArgumentPointers(
+        XFileWriterContext context,
+        MaterialShaderArgument argument)
+    {
+        if (argument.Type is not (MaterialShaderArgumentType.MTL_ARG_LITERAL_VERTEX_CONST
+            or MaterialShaderArgumentType.MTL_ARG_LITERAL_PIXEL_CONST))
+        {
+            return;
+        }
+
+        WriteQueuedMaterialLiteralConst(context, argument.Argument.LiteralConst);
+    }
+
+    private static void WriteQueuedMaterialLiteralConst(
+        XFileWriterContext context,
+        ZonePointer<float[]>? pointer)
+    {
+        if (context.TryDeferInlineWrite(() => WriteQueuedMaterialLiteralConst(context, pointer)))
+            return;
+
+        if (pointer is not { IsInlineData: true, Result: not null })
+            return;
+
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            context.RegisterMaterializedPointerValue(pointer);
+            for (var i = 0; i < 4; i++)
+                context.WriteFloat(i < pointer.Result.Length ? pointer.Result[i] : 0.0f);
+        });
     }
 
     private static void WriteQueuedMaterialTextureTable(
@@ -794,8 +1070,6 @@ public sealed partial class XFileWriter
         context.WriteByte(texture.NameEnd);
         context.WriteByte(texture.SampleState);
         context.WriteByte((byte)texture.Semantic);
-        context.WriteByte(texture.IsMatureContent);
-        context.WriteBytes(texture.Pad);
 
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
             context.WritePointerRaw(texture.Info.Water, PointerResolutionKind.Direct, "MaterialTextureDef.Water");
@@ -959,45 +1233,101 @@ public sealed partial class XFileWriter
 
     private static void WriteImage(XFileWriterContext context, GfxImage image)
     {
-        context.WritePointerRaw(image.LoadDef);
-        context.WriteByte(image.MapType);
-        context.WriteByte(image.Semantic);
-        context.WriteByte(image.Category);
-        context.WriteByte(image.UseSrgbReads);
-        context.WriteBytes(image.Picmip);
-        context.WriteByte(image.NoPicmip);
-        context.WriteByte(image.Track);
-        WriteInt32Array(context, image.CardMemory);
-        context.WritePointerRaw(image.NamePtr);
-        context.WriteUInt16(image.Width);
-        context.WriteUInt16(image.Height);
-        context.WriteUInt16(image.Depth);
-        context.WriteByte(image.DelayLoadPixels);
-        context.WriteBytes(image.Pad);
+        context.WriteBytes(BuildImageRootPrefix(image));
+        context.WritePointerRaw(image.LoadDef, PointerResolutionKind.Direct, "GfxImage.LoadDef");
+        context.WriteBytes(NormalizeBytes(
+            image.EbootRootSuffix,
+            GfxImage.EBOOT_NAME_POINTER_OFFSET
+            - GfxImage.EBOOT_LOAD_DEF_POINTER_OFFSET
+            - XFileWriteRules.PointerSize));
+        context.WritePointerRaw(image.NamePtr, PointerResolutionKind.Direct, "GfxImage.Name");
 
-        WriteQueuedImageLoadDef(context, image.LoadDef);
+        WriteQueuedImageLoadDef(context, image, image.LoadDef);
         WriteQueuedString(context, image.NamePtr);
     }
 
     private static void WriteQueuedImageLoadDef(
         XFileWriterContext context,
+        GfxImage image,
         ZonePointer<GfxImageLoadDef>? pointer)
     {
-        if (context.TryDeferInlineWrite(() => WriteQueuedImageLoadDef(context, pointer)))
+        if (context.TryDeferInlineWrite(() => WriteQueuedImageLoadDef(context, image, pointer)))
             return;
 
         if (pointer is not { IsInlineData: true, Result: not null })
             return;
 
-        context.RegisterMaterializedPointerValue(pointer);
+        var data = pointer.Result.Data ?? [];
+        var block = image.MapType == 11 ? XFILE_BLOCK.RUNTIME : XFILE_BLOCK.PHYSICAL;
+        context.WithStreamBlock(block, () =>
+        {
+            context.AlignStreamOnly(XFileStreamAlignment.OneTwentyEight);
+            context.RegisterMaterializedPointerValue(pointer, data.Length);
+            context.WriteBytes(data);
+        });
+    }
 
-        var loadDef = pointer.Result;
-        context.WriteByte(loadDef.LevelCount);
-        context.WriteBytes(loadDef.Pad);
-        context.WriteInt32(loadDef.Flags);
-        context.WriteInt32(loadDef.Format);
-        context.WriteInt32(loadDef.ResourceSize);
-        context.WriteBytes(loadDef.Data);
+    private static byte[] BuildImageRootPrefix(GfxImage image)
+    {
+        var prefix = NormalizeBytes(image.EbootRootPrefix, GfxImage.EBOOT_LOAD_DEF_POINTER_OFFSET);
+        var loadDef = image.LoadDef?.Result;
+        var resourceSize = GetImageResourceSize(loadDef);
+
+        if (loadDef is not null)
+        {
+            prefix[0x00] = loadDef.LevelCount;
+            CopyFixed(loadDef.Pad, prefix, 0x01, 3);
+            if (loadDef.Flags != 0)
+                BinaryPrimitives.WriteInt32BigEndian(prefix.AsSpan(0x04, 4), loadDef.Flags);
+            else if (loadDef.Format != 0)
+                prefix[0x07] = (byte)loadDef.Format;
+        }
+
+        if (image.Width != 0)
+            BinaryPrimitives.WriteUInt16BigEndian(prefix.AsSpan(0x08, 2), image.Width);
+        if (image.Height != 0)
+            BinaryPrimitives.WriteUInt16BigEndian(prefix.AsSpan(0x0A, 2), image.Height);
+        if (image.Depth != 0)
+            BinaryPrimitives.WriteUInt16BigEndian(prefix.AsSpan(0x0C, 2), image.Depth);
+
+        prefix[0x18] = image.UseSrgbReads;
+        prefix[0x19] = image.MapType;
+        prefix[0x1A] = image.Semantic;
+        prefix[0x1B] = image.Category;
+        BinaryPrimitives.WriteInt32BigEndian(prefix.AsSpan(0x1C, 4), resourceSize);
+
+        if (image.CardMemory is { Length: > 0 })
+            BinaryPrimitives.WriteInt32BigEndian(prefix.AsSpan(0x20, 4), image.CardMemory[0]);
+        if (image.CardMemory is { Length: > 1 })
+            BinaryPrimitives.WriteInt32BigEndian(prefix.AsSpan(0x24, 4), image.CardMemory[1]);
+
+        return prefix;
+    }
+
+    private static int GetImageResourceSize(GfxImageLoadDef? loadDef)
+    {
+        if (loadDef is null)
+            return 0;
+
+        return loadDef.Data.Length > 0
+            ? loadDef.Data.Length
+            : Math.Max(0, loadDef.ResourceSize);
+    }
+
+    private static byte[] NormalizeBytes(byte[]? source, int length)
+    {
+        var value = new byte[length];
+        CopyFixed(source, value, 0, length);
+        return value;
+    }
+
+    private static void CopyFixed(byte[]? source, byte[] destination, int offset, int length)
+    {
+        if (source is null || length <= 0 || offset < 0 || offset >= destination.Length)
+            return;
+
+        source.AsSpan(0, Math.Min(source.Length, Math.Min(length, destination.Length - offset)))
+            .CopyTo(destination.AsSpan(offset));
     }
 
     private static void WriteStringTable(XFileWriterContext context, StringTable table)

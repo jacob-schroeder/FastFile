@@ -18,7 +18,8 @@ public class ChannelMap
 
 public class SpeakerMap
 {
-    public bool IsDefault { get; set; }
+    public byte IsDefault { get; set; }
+    public byte[] Padding { get; set; } = new byte[3];
     public ZonePointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public ChannelMap[][] ChannelMaps { get; set; } = [];
@@ -35,8 +36,8 @@ public enum SndAliasType : byte
 
 public class StreamFileNamePacked
 {
-    public ulong Offset { get; set; }
-    public ulong Length { get; set; }
+    public uint Offset { get; set; }
+    public uint Length { get; set; }
 }
 
 public class StreamFileNameRaw
@@ -47,20 +48,19 @@ public class StreamFileNameRaw
 
 public class StreamFileInfo
 {
-    public StreamFileNameRaw Raw { get; set; }
-    public StreamFileNamePacked Packed { get; set; }
+    public StreamFileNameRaw Raw { get; set; } = new();
+    public StreamFileNamePacked Packed { get; set; } = new();
 }
 
 public class StreamFileName
 {
-    public ushort IsLocalized { get; set; }
-    public ushort FileIndex { get; set; }
-    public StreamFileInfo Info { get; set; }
+    public uint FileIndex { get; set; }
+    public StreamFileInfo Info { get; set; } = new();
 }
 
 public class StreamedSound
 {
-    public StreamFileName Filename { get; set; }
+    public StreamFileName Filename { get; set; } = new();
     public uint TotalMsec { get; set; }
 }
 
@@ -68,13 +68,18 @@ public class LoadedSound() : BaseAsset(XAssetType.LoadedSound)
 {
     public ZonePointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public int PhysicalDataByteCount { get; set; }
+    public byte[] SoundInfoBytes { get; set; } = new byte[10];
+    public ushort SeekTableCount { get; set; }
+    public ZonePointer<byte[]> SeekTablePtr { get; set; } = new(0);
+    public ZonePointer<byte[]> PhysicalDataPtr { get; set; } = new(0);
 
     public override string? GetDisplayName => Name;
 }
 
 public class PrimedSound
 {
-    public StreamFileName Filename { get; set; }
+    public StreamFileName Filename { get; set; } = new();
     public ZonePointer<LoadedSound> LoadedPart { get; set; }
     public int DataOffset { get; set; }
     public int TotalSize { get; set; }
@@ -89,8 +94,11 @@ public class SoundData
 public class SoundFile
 {
     public SndAliasType Type { get; set; }
-    public bool Exists { get; set; }
-    public SoundData Sound { get; set; }
+    public byte Exists { get; set; }
+    public byte[] Padding { get; set; } = new byte[2];
+    public SoundData Sound { get; set; } = new();
+    public ZonePointer<LoadedSound> LoadedSoundPtr { get; set; } = new(0);
+    public StreamFileName StreamFileName { get; set; }
 }
 
 public class SndCurve() : BaseAsset(XAssetType.SndCurve)
@@ -98,6 +106,8 @@ public class SndCurve() : BaseAsset(XAssetType.SndCurve)
     public ZonePointer<string> FilenamePtr { get; set; }
     public string Filename => FilenamePtr is { IsResolved: true } ? FilenamePtr.Result ?? string.Empty : string.Empty;
     public ushort KnotCount { get; set; }
+    public byte[] AlignmentPadding { get; set; } = new byte[2];
+    public byte[] KnotBytes { get; set; } = new byte[16 * 2 * 4];
 
     public override string? GetDisplayName => Filename;
 }
@@ -137,6 +147,7 @@ public class SndAliasList() : BaseAsset(XAssetType.Sound)
     public ZonePointer<string> AliasNamePtr { get; set; }
     public string AliasName => AliasNamePtr is { IsResolved: true } ? AliasNamePtr.Result ?? string.Empty : string.Empty;
     public ZonePointer<SndAlias> Head { get; set; }
+    public ZonePointer<SndAlias[]> AliasesPtr { get; set; } = new(0);
     public int Count { get; set; }
 
     public override string? GetDisplayName => AliasName;

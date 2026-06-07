@@ -129,6 +129,7 @@ public sealed class WeaponDef
     public float MissileConeSoundPitchBottomSize { get; set; }
     public float MissileConeSoundCrossfadeTopSize { get; set; }
     public float MissileConeSoundCrossfadeBottomSize { get; set; }
+    public byte[] BooleanTailBytes { get; set; } = [];
     public bool SharedAmmo { get; set; }
     public bool LockonSupported { get; set; }
     public bool RequireLockonToFire { get; set; }

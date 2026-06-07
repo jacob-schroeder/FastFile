@@ -17,6 +17,7 @@ internal static class WeaponReader
     private const int SurfaceCount = 31;
     private const int HitLocationCount = 20;
     private const int WeaponSoundAliasCount = 47;
+    private const int WeaponBooleanTailSize = 0x30;
 
     public static WeaponVariantDef Read(ref XFileReadContext context)
     {
@@ -97,8 +98,8 @@ internal static class WeaponReader
             weaponDef.FlashEffects[i] = FxReader.ReadFxPointer(ref context);
 
         for (var i = 0; i < WeaponSoundAliasCount; i++)
-            weaponDef.SoundAliases[i] = ReadSoundAliasPointer(ref context);
-        weaponDef.BounceSound = GenericReader.ReadStringPointerArrayPointer(ref context, SurfaceCount, "WeaponDef.BounceSound");
+            weaponDef.SoundAliases[i] = ReadSoundAliasPointer(ref context, $"WeaponDef.SoundAliases[{i}]");
+        weaponDef.BounceSound = ReadSoundAliasPointerArrayPointer(ref context, SurfaceCount, "WeaponDef.BounceSound");
 
         for (var i = 0; i < weaponDef.EffectPointersA.Length; i++)
             weaponDef.EffectPointersA[i] = FxReader.ReadFxPointer(ref context);
@@ -141,7 +142,7 @@ internal static class WeaponReader
         for (var i = 0; i < weaponDef.ProjectileEffects.Length; i++)
             weaponDef.ProjectileEffects[i] = FxReader.ReadFxPointer(ref context);
         for (var i = 0; i < weaponDef.ProjectileSoundAliases.Length; i++)
-            weaponDef.ProjectileSoundAliases[i] = ReadSoundAliasPointer(ref context);
+            weaponDef.ProjectileSoundAliases[i] = ReadSoundAliasPointer(ref context, $"WeaponDef.ProjectileSoundAliases[{i}]");
         weaponDef.ProjectileFieldsA = ReadInt32Array(ref context, weaponDef.ProjectileFieldsA.Length);
         weaponDef.ParallelBounce = ReadFloatArrayPointer(ref context, SurfaceCount, "WeaponDef.ParallelBounce");
         weaponDef.PerpendicularBounce = ReadFloatArrayPointer(ref context, SurfaceCount, "WeaponDef.PerpendicularBounce");
@@ -151,7 +152,7 @@ internal static class WeaponReader
         weaponDef.ImpactFieldB = context.ReadInt32();
         weaponDef.ImpactFieldsC = ReadInt32Array(ref context, weaponDef.ImpactFieldsC.Length);
         weaponDef.ViewShellEjectEffect = FxReader.ReadFxPointer(ref context);
-        weaponDef.ShellEjectSound = ReadSoundAliasPointer(ref context);
+        weaponDef.ShellEjectSound = ReadSoundAliasPointer(ref context, "WeaponDef.ShellEjectSound");
         weaponDef.ShellEjectFields = ReadInt32Array(ref context, weaponDef.ShellEjectFields.Length);
         weaponDef.AdsHipGunKickAiDistanceFields = ReadInt32Array(ref context, weaponDef.AdsHipGunKickAiDistanceFields.Length);
 
@@ -194,17 +195,17 @@ internal static class WeaponReader
         weaponDef.Tracer = TracerReader.ReadTracerPointer(ref context);
 
         weaponDef.TracerFields = ReadInt32Array(ref context, weaponDef.TracerFields.Length);
-        weaponDef.TurretOverheatSound = ReadSoundAliasPointer(ref context);
+        weaponDef.TurretOverheatSound = ReadSoundAliasPointer(ref context, "WeaponDef.TurretOverheatSound");
         weaponDef.TurretOverheatEffect = FxReader.ReadFxPointer(ref context);
         weaponDef.TurretBarrelSpinRumble = GenericReader.ReadStringPointer(ref context);
         weaponDef.TurretFields = ReadInt32Array(ref context, weaponDef.TurretFields.Length);
-        weaponDef.TurretBarrelSpinMaxSnd = ReadSoundAliasPointer(ref context);
+        weaponDef.TurretBarrelSpinMaxSnd = ReadSoundAliasPointer(ref context, "WeaponDef.TurretBarrelSpinMaxSnd");
         for (var i = 0; i < 4; i++)
-            weaponDef.TurretBarrelSpinUpSnd[i] = ReadSoundAliasPointer(ref context);
+            weaponDef.TurretBarrelSpinUpSnd[i] = ReadSoundAliasPointer(ref context, $"WeaponDef.TurretBarrelSpinUpSnd[{i}]");
         for (var i = 0; i < 4; i++)
-            weaponDef.TurretBarrelSpinDownSnd[i] = ReadSoundAliasPointer(ref context);
-        weaponDef.MissileConeSoundAlias = ReadSoundAliasPointer(ref context);
-        weaponDef.MissileConeSoundAliasAtBase = ReadSoundAliasPointer(ref context);
+            weaponDef.TurretBarrelSpinDownSnd[i] = ReadSoundAliasPointer(ref context, $"WeaponDef.TurretBarrelSpinDownSnd[{i}]");
+        weaponDef.MissileConeSoundAlias = ReadSoundAliasPointer(ref context, "WeaponDef.MissileConeSoundAlias");
+        weaponDef.MissileConeSoundAliasAtBase = ReadSoundAliasPointer(ref context, "WeaponDef.MissileConeSoundAliasAtBase");
         weaponDef.MissileConeSoundRadiusAtTop = context.ReadFloat();
         weaponDef.MissileConeSoundRadiusAtBase = context.ReadFloat();
         weaponDef.MissileConeSoundHeight = context.ReadFloat();
@@ -218,69 +219,116 @@ internal static class WeaponReader
         weaponDef.MissileConeSoundPitchBottomSize = context.ReadFloat();
         weaponDef.MissileConeSoundCrossfadeTopSize = context.ReadFloat();
         weaponDef.MissileConeSoundCrossfadeBottomSize = context.ReadFloat();
-        weaponDef.SharedAmmo = context.ReadBool();
-        weaponDef.LockonSupported = context.ReadBool();
-        weaponDef.RequireLockonToFire = context.ReadBool();
-        weaponDef.BigExplosion = context.ReadBool();
-        weaponDef.BooleanFlags = ReadWeaponBooleanFlags(ref context);
+        ReadWeaponBooleanTail(ref context, weaponDef);
         EnsureFixedSize(context.Position - start, WeaponDefSize, "WeaponDef");
         return weaponDef;
     }
 
-    private static WeaponBooleanFlags ReadWeaponBooleanFlags(ref XFileReadContext context)
+    private static void ReadWeaponBooleanTail(
+        ref XFileReadContext context,
+        WeaponDef weaponDef)
     {
+        var bytes = context.ReadBytes(WeaponBooleanTailSize);
+        weaponDef.BooleanTailBytes = bytes;
+
+        var offset = 0;
+        weaponDef.SharedAmmo = ReadWeaponBool(bytes, ref offset);
+        weaponDef.LockonSupported = ReadWeaponBool(bytes, ref offset);
+        weaponDef.RequireLockonToFire = ReadWeaponBool(bytes, ref offset);
+        weaponDef.BigExplosion = ReadWeaponBool(bytes, ref offset);
+        weaponDef.BooleanFlags = ReadWeaponBooleanFlags(bytes.AsSpan(offset));
+    }
+
+    private static WeaponBooleanFlags ReadWeaponBooleanFlags(ReadOnlySpan<byte> bytes)
+    {
+        var offset = 0;
         return new WeaponBooleanFlags
         {
-            NoAdsWhenMagEmpty = context.ReadBool(),
-            AvoidDropCleanup = context.ReadBool(),
-            InheritsPerks = context.ReadBool(),
-            CrosshairColorChange = context.ReadBool(),
-            RifleBullet = context.ReadBool(),
-            ArmorPiercing = context.ReadBool(),
-            BoltAction = context.ReadBool(),
-            AimDownSight = context.ReadBool(),
-            RechamberWhileAds = context.ReadBool(),
-            BulletExplosiveDamage = context.ReadBool(),
-            CookOffHold = context.ReadBool(),
-            ClipOnly = context.ReadBool(),
-            NoAmmoPickup = context.ReadBool(),
-            AdsFireOnly = context.ReadBool(),
-            CancelAutoHolsterWhenEmpty = context.ReadBool(),
-            DisableSwitchToWhenEmpty = context.ReadBool(),
-            SuppressAmmoReserveDisplay = context.ReadBool(),
-            LaserSightDuringNightvision = context.ReadBool(),
-            MarkableViewmodel = context.ReadBool(),
-            NoDualWield = context.ReadBool(),
-            FlipKillIcon = context.ReadBool(),
-            NoPartialReload = context.ReadBool(),
-            SegmentedReload = context.ReadBool(),
-            BlocksProne = context.ReadBool(),
-            Silenced = context.ReadBool(),
-            IsRollingGrenade = context.ReadBool(),
-            ProjExplosionEffectForceNormalUp = context.ReadBool(),
-            ProjImpactExplode = context.ReadBool(),
-            StickToPlayers = context.ReadBool(),
-            HasDetonator = context.ReadBool(),
-            DisableFiring = context.ReadBool(),
-            TimedDetonation = context.ReadBool(),
-            Rotate = context.ReadBool(),
-            HoldButtonToThrow = context.ReadBool(),
-            FreezeMovementWhenFiring = context.ReadBool(),
-            ThermalScope = context.ReadBool(),
-            AltModeSameWeapon = context.ReadBool(),
-            TurretBarrelSpinEnabled = context.ReadBool(),
-            MissileConeSoundEnabled = context.ReadBool(),
-            MissileConeSoundPitchshiftEnabled = context.ReadBool(),
-            MissileConeSoundCrossfadeEnabled = context.ReadBool(),
-            OffhandHoldIsCancelable = context.ReadBool(),
-            Ps3TailFlag0 = context.ReadByte(),
-            Ps3TailFlag1 = context.ReadByte(),
+            NoAdsWhenMagEmpty = ReadWeaponBool(bytes, ref offset),
+            AvoidDropCleanup = ReadWeaponBool(bytes, ref offset),
+            InheritsPerks = ReadWeaponBool(bytes, ref offset),
+            CrosshairColorChange = ReadWeaponBool(bytes, ref offset),
+            RifleBullet = ReadWeaponBool(bytes, ref offset),
+            ArmorPiercing = ReadWeaponBool(bytes, ref offset),
+            BoltAction = ReadWeaponBool(bytes, ref offset),
+            AimDownSight = ReadWeaponBool(bytes, ref offset),
+            RechamberWhileAds = ReadWeaponBool(bytes, ref offset),
+            BulletExplosiveDamage = ReadWeaponBool(bytes, ref offset),
+            CookOffHold = ReadWeaponBool(bytes, ref offset),
+            ClipOnly = ReadWeaponBool(bytes, ref offset),
+            NoAmmoPickup = ReadWeaponBool(bytes, ref offset),
+            AdsFireOnly = ReadWeaponBool(bytes, ref offset),
+            CancelAutoHolsterWhenEmpty = ReadWeaponBool(bytes, ref offset),
+            DisableSwitchToWhenEmpty = ReadWeaponBool(bytes, ref offset),
+            SuppressAmmoReserveDisplay = ReadWeaponBool(bytes, ref offset),
+            LaserSightDuringNightvision = ReadWeaponBool(bytes, ref offset),
+            MarkableViewmodel = ReadWeaponBool(bytes, ref offset),
+            NoDualWield = ReadWeaponBool(bytes, ref offset),
+            FlipKillIcon = ReadWeaponBool(bytes, ref offset),
+            NoPartialReload = ReadWeaponBool(bytes, ref offset),
+            SegmentedReload = ReadWeaponBool(bytes, ref offset),
+            BlocksProne = ReadWeaponBool(bytes, ref offset),
+            Silenced = ReadWeaponBool(bytes, ref offset),
+            IsRollingGrenade = ReadWeaponBool(bytes, ref offset),
+            ProjExplosionEffectForceNormalUp = ReadWeaponBool(bytes, ref offset),
+            ProjImpactExplode = ReadWeaponBool(bytes, ref offset),
+            StickToPlayers = ReadWeaponBool(bytes, ref offset),
+            HasDetonator = ReadWeaponBool(bytes, ref offset),
+            DisableFiring = ReadWeaponBool(bytes, ref offset),
+            TimedDetonation = ReadWeaponBool(bytes, ref offset),
+            Rotate = ReadWeaponBool(bytes, ref offset),
+            HoldButtonToThrow = ReadWeaponBool(bytes, ref offset),
+            FreezeMovementWhenFiring = ReadWeaponBool(bytes, ref offset),
+            ThermalScope = ReadWeaponBool(bytes, ref offset),
+            AltModeSameWeapon = ReadWeaponBool(bytes, ref offset),
+            TurretBarrelSpinEnabled = ReadWeaponBool(bytes, ref offset),
+            MissileConeSoundEnabled = ReadWeaponBool(bytes, ref offset),
+            MissileConeSoundPitchshiftEnabled = ReadWeaponBool(bytes, ref offset),
+            MissileConeSoundCrossfadeEnabled = ReadWeaponBool(bytes, ref offset),
+            OffhandHoldIsCancelable = ReadWeaponBool(bytes, ref offset),
+            Ps3TailFlag0 = bytes[offset++],
+            Ps3TailFlag1 = bytes[offset],
         };
     }
 
-    private static ZonePointer<string> ReadSoundAliasPointer(ref XFileReadContext context)
+    private static bool ReadWeaponBool(
+        ReadOnlySpan<byte> bytes,
+        ref int offset)
     {
-        return GenericReader.ReadStringPointer(ref context);
+        return bytes[offset++] != 0;
+    }
+
+    private static ZonePointer<string> ReadSoundAliasPointer(
+        ref XFileReadContext context,
+        string fieldPath)
+    {
+        var pointer = context.ReadDirectPointer<string>(fieldPath);
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<string> p) =>
+        {
+            var aliasName = GenericReader.ReadStringPointer(ref pointerContext, resolve: false);
+            GenericReader.ResolveStringPointerNow(ref pointerContext, aliasName);
+            p.SetResult(aliasName.Result);
+        });
+
+        return pointer;
+    }
+
+    private static ZonePointer<ZonePointer<string>[]> ReadSoundAliasPointerArrayPointer(
+        ref XFileReadContext context,
+        int count,
+        string fieldPath)
+    {
+        var pointer = context.ReadDirectPointer<ZonePointer<string>[]>(fieldPath);
+        context.ResolveInlinePointer(pointer, (ref XFileReadContext pointerContext, ZonePointer<ZonePointer<string>[]> p) =>
+        {
+            var values = new ZonePointer<string>[Math.Max(0, count)];
+            for (var i = 0; i < values.Length; i++)
+                values[i] = ReadSoundAliasPointer(ref pointerContext, $"{fieldPath}[{i}]");
+
+            p.SetResult(values);
+        });
+
+        return pointer;
     }
 
     private static ZonePointer<ushort[]> ReadUShortArrayPointer(

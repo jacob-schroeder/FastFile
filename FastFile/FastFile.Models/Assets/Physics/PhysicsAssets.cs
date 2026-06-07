@@ -30,7 +30,7 @@ public class PhysCollmap() : BaseAsset(XAssetType.PhysCollmap)
     public ZonePointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public uint Count { get; set; }
-    public ZonePointer<PhysGeomInfo[]> Geoms { get; set; }
+    public DirectPointer<PhysGeomInfo[]> Geoms { get; set; }
     public PhysMass Mass { get; set; }
     public Bounds Bounds { get; set; }
 
@@ -39,7 +39,7 @@ public class PhysCollmap() : BaseAsset(XAssetType.PhysCollmap)
 
 public sealed class PhysGeomInfo
 {
-    public ZonePointer<BrushWrapper> BrushWrapper { get; set; }
+    public DirectPointer<BrushWrapper> BrushWrapper { get; set; }
     public int Type { get; set; }
     public Vec3[] Orientation { get; set; } = new Vec3[3];
     public Bounds Bounds { get; set; }
@@ -48,6 +48,36 @@ public sealed class PhysGeomInfo
 public sealed class BrushWrapper
 {
     public Bounds Bounds { get; set; }
+    public CBrush Brush { get; set; } = new();
+    public int TotalEdgeCount { get; set; }
+    public DirectPointer<CPlane[]> Planes { get; set; }
+}
+
+public sealed class CBrush
+{
+    public ushort NumSides { get; set; }
+    public ushort GlassPieceIndex { get; set; }
+    public DirectPointer<CBrushSide[]> Sides { get; set; }
+    public DirectPointer<byte[]> BaseAdjacentSide { get; set; }
+    public short[] AxialMaterialNum { get; set; } = new short[6];
+    public byte[] FirstAdjacentSideOffsets { get; set; } = new byte[6];
+    public byte[] EdgeCount { get; set; } = new byte[6];
+}
+
+public sealed class CBrushSide
+{
+    public DirectPointer<CPlane> Plane { get; set; }
+    public ushort MaterialNum { get; set; }
+    public byte FirstAdjacentSideOffset { get; set; }
+    public byte EdgeCount { get; set; }
+}
+
+public sealed class CPlane
+{
+    public Vec3 Normal { get; set; }
+    public float Dist { get; set; }
+    public byte Type { get; set; }
+    public byte[] Padding { get; set; } = new byte[3];
 }
 
 public sealed class PhysMass

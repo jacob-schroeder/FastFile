@@ -35,6 +35,10 @@ public class Pointer
         && PointerFieldStreamOffset >= 0;
     public bool HasAliasCellStreamAddress => AliasCellStreamBlockIndex >= 0 && AliasCellStreamOffset >= 0;
     public bool IsInlineData => Kind is PointerKind.Inline or PointerKind.Insert;
+    public bool CanMaterializeInline =>
+        Kind is PointerKind.Inline
+        || (Kind is PointerKind.Insert && ResolutionKind != PointerResolutionKind.Direct);
+    public virtual PointerResolutionKind DeclaredResolutionKind => PointerResolutionKind.Unknown;
 
     public Pointer(int raw)
     {

@@ -15,8 +15,13 @@ internal delegate void XFilePointerResolver<T>(
 internal interface IQueuedXFilePointerResolver
 {
     string Name { get; }
+    string FieldPath { get; }
+    int Raw { get; }
+    XFILE_BLOCK? MaterializationBlock { get; }
     void Resolve(ref XFileReadContext context);
 }
+
+internal readonly record struct XFileResolverScope(int InlineCount, int DeferredCount);
 
 internal sealed class QueuedXFilePointerResolver<T>(
     ZonePointer<T> pointer,
@@ -25,6 +30,9 @@ internal sealed class QueuedXFilePointerResolver<T>(
     XFileStreamAlignment? streamAlignment = null) : IQueuedXFilePointerResolver
 {
     public string Name => typeof(T).Name;
+    public string FieldPath => pointer.FieldPath;
+    public int Raw => pointer.Raw;
+    public XFILE_BLOCK? MaterializationBlock => materializationBlock;
 
     public void Resolve(ref XFileReadContext context)
     {
@@ -47,10 +55,10 @@ internal sealed class QueuedXFilePointerResolver<T>(
 
     private void ResolveCore(ref XFileReadContext context)
     {
-        var start = context.Position;
         if (streamAlignment is { } alignment)
             context.AlignStreamOnly(alignment);
 
+        var start = context.Position;
         context.PrepareInlinePointerMaterialization(pointer);
         var streamStart = context.GetActiveStreamAddress();
         Memory.ResolvePointer(pointer, context.Position);
@@ -72,6 +80,84 @@ internal sealed class QueuedXFilePointerResolver<T>(
     }
 }
 
+internal static class XFileReadTrace
+{
+    private static readonly bool TraceResolve = IsTraceEnabled("FASTFILE_TRACE_RESOLVE");
+    private static readonly int TraceResolveLimit = GetInt("FASTFILE_TRACE_RESOLVE_LIMIT", int.MaxValue);
+    private static readonly int TraceResolveStart = GetOffset("FASTFILE_TRACE_RESOLVE_START", 0);
+    private static readonly int TraceResolveEnd = GetOffset("FASTFILE_TRACE_RESOLVE_END", int.MaxValue);
+    private static int _traceResolveCount;
+
+    public static void TraceResolver(
+        string phase,
+        IQueuedXFilePointerResolver resolver,
+        int zoneOffset,
+        XFileBlockAddress streamAddress,
+        int assetIndex,
+        XAssetType assetType,
+        int queueIndex,
+        int olderSiblingCount,
+        int deferredCount,
+        int zoneLength)
+    {
+        var zoneEnd = zoneOffset + Math.Max(0, zoneLength);
+        var overlapsWindow = phase == "end"
+            ? zoneOffset <= TraceResolveEnd && zoneEnd >= TraceResolveStart
+            : zoneOffset >= TraceResolveStart && zoneOffset <= TraceResolveEnd;
+
+        if (!TraceResolve
+            || !overlapsWindow
+            || _traceResolveCount >= TraceResolveLimit)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _traceResolveCount);
+        var block = resolver.MaterializationBlock is { } materializationBlock
+            ? $" materialize=b{(int)materializationBlock}"
+            : string.Empty;
+        var field = string.IsNullOrWhiteSpace(resolver.FieldPath)
+            ? string.Empty
+            : $" field={resolver.FieldPath}";
+
+        Console.Error.WriteLine(
+            $"[resolve-trace] {phase} asset[{assetIndex:D5}:{assetType}] q={queueIndex} "
+            + $"src=0x{zoneOffset:X8}/0x{zoneLength:X} stream=b{streamAddress.BlockIndex}:0x{streamAddress.Offset:X8} "
+            + $"type={resolver.Name} raw=0x{resolver.Raw:X8}{block}{field} "
+            + $"older={olderSiblingCount} deferred={deferredCount}");
+    }
+
+    private static bool IsTraceEnabled(string name)
+    {
+        return Environment.GetEnvironmentVariable(name) is { Length: > 0 } value
+            && value != "0";
+    }
+
+    private static int GetInt(string name, int fallback)
+    {
+        return int.TryParse(Environment.GetEnvironmentVariable(name), out var value) && value >= 0
+            ? value
+            : fallback;
+    }
+
+    private static int GetOffset(string name, int fallback)
+    {
+        var value = Environment.GetEnvironmentVariable(name);
+        if (string.IsNullOrWhiteSpace(value))
+            return fallback;
+
+        if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(value[2..], System.Globalization.NumberStyles.HexNumber, null, out var hex))
+        {
+            return hex;
+        }
+
+        return int.TryParse(value, out var decimalValue)
+            ? decimalValue
+            : fallback;
+    }
+}
+
 internal ref struct XFileReadContext
 {
     private readonly ReadOnlySpan<byte> _span;
@@ -81,8 +167,13 @@ internal ref struct XFileReadContext
     private readonly List<IQueuedXFilePointerResolver> _inlineResolvers = new();
     private readonly List<IQueuedXFilePointerResolver> _deferredResolvers = new();
     private readonly List<MaterializedPointerSpan> _materializedSpans = new();
-    private readonly List<OffsetPointerTarget> _offsetPointers = new();
+    private readonly Dictionary<int, MaterializedSpanBlockIndex> _materializedSpanIndexes = new();
+    private readonly Dictionary<OffsetPointerAddress, List<OffsetPointerTarget>> _pendingOffsetPointers = new();
+    private readonly Dictionary<int, SortedSet<int>> _pendingOffsetKeysByBlock = new();
+    private readonly Dictionary<OffsetStringLookupKey, string> _offsetStringCache = new();
     private readonly List<StringTableCell[]> _stringTableCellSets = new();
+    private int _inlineResolverHead;
+    private int _unresolvedOffsetPointerCount;
     private bool _deferInlinePointers;
 
     public XFileReadContext(
@@ -114,6 +205,16 @@ internal ref struct XFileReadContext
     public int Position;
 
     public ReadOnlySpan<byte> Span => _span;
+
+    internal int CurrentAssetIndex { get; private set; } = -1;
+
+    internal XAssetType CurrentAssetType { get; private set; }
+
+    internal void SetCurrentAsset(int index, XAssetType type)
+    {
+        CurrentAssetIndex = index;
+        CurrentAssetType = type;
+    }
 
     public bool PushInlinePointerDeferral(bool deferInlinePointers = true)
     {
@@ -248,24 +349,43 @@ internal ref struct XFileReadContext
         PointerResolutionKind resolutionKind,
         string? fieldPath = null)
     {
+        return ReadPointerCore<T, ZonePointer<T>>(
+            raw => new ZonePointer<T>(raw),
+            resolutionKind,
+            fieldPath);
+    }
+
+    private TPointer ReadPointerCore<T, TPointer>(
+        Func<int, TPointer> createPointer,
+        PointerResolutionKind resolutionKind,
+        string? fieldPath = null)
+        where TPointer : ZonePointer<T>
+    {
         EnsureAvailable(4, $"Pointer<{typeof(T).Name}>");
         var pointerFieldOffset = Position;
         var pointerFieldStreamAddress = GetActiveStreamAddress();
-        var pointer = Memory.ReadPointer<T>(_span, ref Position);
+        var raw = _span.ReadInt32(ref Position);
+        var pointer = createPointer(raw);
         AdvanceStream(4);
         RegisterPointer(pointer, typeof(T), pointerFieldOffset, pointerFieldStreamAddress, resolutionKind, fieldPath);
 
         return pointer;
     }
 
-    public ZonePointer<T> ReadDirectPointer<T>(string? fieldPath = null)
+    public DirectPointer<T> ReadDirectPointer<T>(string? fieldPath = null)
     {
-        return ReadPointer<T>(PointerResolutionKind.Direct, fieldPath);
+        return ReadPointerCore<T, DirectPointer<T>>(
+            raw => new DirectPointer<T>(raw),
+            PointerResolutionKind.Direct,
+            fieldPath);
     }
 
-    public ZonePointer<T> ReadAliasPointer<T>(string? fieldPath = null)
+    public AliasPointer<T> ReadAliasPointer<T>(string? fieldPath = null)
     {
-        return ReadPointer<T>(PointerResolutionKind.Alias, fieldPath);
+        return ReadPointerCore<T, AliasPointer<T>>(
+            raw => new AliasPointer<T>(raw),
+            PointerResolutionKind.Alias,
+            fieldPath);
     }
 
     public ZonePointer<T> CreatePointer<T>(
@@ -274,7 +394,49 @@ internal ref struct XFileReadContext
         PointerResolutionKind resolutionKind = PointerResolutionKind.Unknown,
         string? fieldPath = null)
     {
-        var pointer = new ZonePointer<T>(raw);
+        return CreatePointerCore<T, ZonePointer<T>>(
+            raw,
+            value => new ZonePointer<T>(value),
+            register,
+            resolutionKind,
+            fieldPath);
+    }
+
+    public DirectPointer<T> CreateDirectPointer<T>(
+        int raw,
+        bool register = true,
+        string? fieldPath = null)
+    {
+        return CreatePointerCore<T, DirectPointer<T>>(
+            raw,
+            value => new DirectPointer<T>(value),
+            register,
+            PointerResolutionKind.Direct,
+            fieldPath);
+    }
+
+    public AliasPointer<T> CreateAliasPointer<T>(
+        int raw,
+        bool register = true,
+        string? fieldPath = null)
+    {
+        return CreatePointerCore<T, AliasPointer<T>>(
+            raw,
+            value => new AliasPointer<T>(value),
+            register,
+            PointerResolutionKind.Alias,
+            fieldPath);
+    }
+
+    private TPointer CreatePointerCore<T, TPointer>(
+        int raw,
+        Func<int, TPointer> createPointer,
+        bool register,
+        PointerResolutionKind resolutionKind,
+        string? fieldPath = null)
+        where TPointer : ZonePointer<T>
+    {
+        var pointer = createPointer(raw);
         if (register)
             RegisterPointer(
                 pointer,
@@ -350,8 +512,13 @@ internal ref struct XFileReadContext
                     pointer.SetResult(default);
                     break;
                 case PointerKind.Inline:
-                case PointerKind.Insert:
                     AddInlineResolver(pointer, resolver);
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        AddInlineResolver(pointer, resolver);
+                    else
+                        pointer.SetResult(default);
                     break;
                 case PointerKind.Offset:
                     pointer.SetResult(default);
@@ -380,8 +547,13 @@ internal ref struct XFileReadContext
                     pointer.SetResult(default);
                     break;
                 case PointerKind.Inline:
-                case PointerKind.Insert:
                     AddInlineResolver(pointer, resolver, streamAlignment: alignment);
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        AddInlineResolver(pointer, resolver, streamAlignment: alignment);
+                    else
+                        pointer.SetResult(default);
                     break;
                 case PointerKind.Offset:
                     pointer.SetResult(default);
@@ -410,8 +582,13 @@ internal ref struct XFileReadContext
                     pointer.SetResult(default);
                     break;
                 case PointerKind.Inline:
-                case PointerKind.Insert:
                     AddInlineResolver(pointer, resolver);
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        AddInlineResolver(pointer, resolver);
+                    else
+                        pointer.SetResult(default);
                     break;
             }
         }
@@ -453,8 +630,13 @@ internal ref struct XFileReadContext
                     pointer.SetResult(default);
                     break;
                 case PointerKind.Inline:
-                case PointerKind.Insert:
                     _deferredResolvers.Add(new QueuedXFilePointerResolver<T>(pointer, resolver, materializationBlock));
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        _deferredResolvers.Add(new QueuedXFilePointerResolver<T>(pointer, resolver, materializationBlock));
+                    else
+                        pointer.SetResult(default);
                     break;
             }
         }
@@ -479,8 +661,13 @@ internal ref struct XFileReadContext
                     pointer.SetResult(default);
                     break;
                 case PointerKind.Inline:
-                case PointerKind.Insert:
                     _deferredResolvers.Add(new QueuedXFilePointerResolver<T>(pointer, resolver));
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        _deferredResolvers.Add(new QueuedXFilePointerResolver<T>(pointer, resolver));
+                    else
+                        pointer.SetResult(default);
                     break;
                 case PointerKind.Offset:
                     pointer.SetResult(default);
@@ -509,8 +696,82 @@ internal ref struct XFileReadContext
                     pointer.SetResult(default);
                     break;
                 case PointerKind.Inline:
-                case PointerKind.Insert:
                     AddInlineResolver(pointer, resolver, block);
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        AddInlineResolver(pointer, resolver, block);
+                    else
+                        pointer.SetResult(default);
+                    break;
+                case PointerKind.Offset:
+                    pointer.SetResult(default);
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is not InvalidDataException { InnerException: not null })
+        {
+            throw PointerFailure(pointer, typeof(T).Name, ex);
+        }
+    }
+
+    internal void ResolvePointerNowInBlock<T>(
+        ZonePointer<T> pointer,
+        XFILE_BLOCK block,
+        XFilePointerResolver<T> resolver)
+    {
+        PushStreamBlock(block);
+        try
+        {
+            ResolveInlinePointerNow(pointer, resolver);
+        }
+        finally
+        {
+            PopStreamBlock();
+        }
+    }
+
+    internal void ResolvePointerAlignedNowInBlock<T>(
+        ZonePointer<T> pointer,
+        XFILE_BLOCK block,
+        XFileStreamAlignment alignment,
+        XFilePointerResolver<T> resolver)
+    {
+        PushStreamBlock(block);
+        try
+        {
+            ResolveInlinePointerAlignedNow(pointer, alignment, resolver);
+        }
+        finally
+        {
+            PopStreamBlock();
+        }
+    }
+
+    public void ResolvePointerAlignedInBlock<T>(
+        ZonePointer<T> pointer,
+        XFILE_BLOCK block,
+        XFileStreamAlignment alignment,
+        XFilePointerResolver<T> resolver)
+    {
+        if (pointer.IsResolved)
+            return;
+
+        try
+        {
+            switch (pointer.Kind)
+            {
+                case PointerKind.Null:
+                    pointer.SetResult(default);
+                    break;
+                case PointerKind.Inline:
+                    AddInlineResolver(pointer, resolver, block, alignment);
+                    break;
+                case PointerKind.Insert:
+                    if (CanMaterializeInlinePointer(pointer))
+                        AddInlineResolver(pointer, resolver, block, alignment);
+                    else
+                        pointer.SetResult(default);
                     break;
                 case PointerKind.Offset:
                     pointer.SetResult(default);
@@ -539,8 +800,13 @@ internal ref struct XFileReadContext
                 pointer.SetResult(default);
                 return;
             case PointerKind.Inline:
-            case PointerKind.Insert:
                 break;
+            case PointerKind.Insert:
+                if (CanMaterializeInlinePointer(pointer))
+                    break;
+
+                pointer.SetResult(default);
+                return;
         }
 
         var start = Position;
@@ -562,6 +828,36 @@ internal ref struct XFileReadContext
         }
     }
 
+    internal void ResolveInlinePointerAlignedNow<T>(
+        ZonePointer<T> pointer,
+        XFileStreamAlignment alignment,
+        XFilePointerResolver<T> resolver)
+    {
+        if (pointer.IsResolved)
+            return;
+
+        switch (pointer.Kind)
+        {
+            case PointerKind.Null:
+                pointer.SetResult(default);
+                return;
+            case PointerKind.Offset:
+                pointer.SetResult(default);
+                return;
+            case PointerKind.Inline:
+                break;
+            case PointerKind.Insert:
+                if (CanMaterializeInlinePointer(pointer))
+                    break;
+
+                pointer.SetResult(default);
+                return;
+        }
+
+        AlignStreamAndPosition(alignment);
+        ResolveInlinePointerNow(pointer, resolver);
+    }
+
     public T ReadPointerValue<T>(
         ZonePointer<T> pointer,
         XFileValueReader<T> reader)
@@ -572,7 +868,9 @@ internal ref struct XFileReadContext
         Memory.ResolvePointer(pointer, Position);
         ResolvePointerStreamAddress(pointer, streamStart);
 
-        if (pointer.Kind != PointerKind.Offset)
+        if (pointer.Kind != PointerKind.Null
+            && pointer.Kind != PointerKind.Offset
+            && CanMaterializeInlinePointer(pointer))
         {
             try
             {
@@ -595,38 +893,66 @@ internal ref struct XFileReadContext
     {
         var resolvedCount = 0;
 
-        while (_inlineResolvers.Count > 0 || _deferredResolvers.Count > 0)
+        while (HasPendingInlineResolvers || _deferredResolvers.Count > 0)
         {
             if (++resolvedCount > 1_000_000)
             {
                 throw new InvalidDataException(
-                    $"Stopped resolving inline zone pointers after {resolvedCount:N0} entries at zone offset 0x{Position:X8} ({Position:N0}); remaining queued pointers: {_inlineResolvers.Count:N0}, deferred pointers: {_deferredResolvers.Count:N0}.");
+                    $"Stopped resolving inline zone pointers after {resolvedCount:N0} entries at zone offset 0x{Position:X8} ({Position:N0}); remaining queued pointers: {PendingInlineResolverCount:N0}, deferred pointers: {_deferredResolvers.Count:N0}.");
             }
 
-            if (_inlineResolvers.Count == 0)
+            if (!HasPendingInlineResolvers)
             {
+                _inlineResolvers.Clear();
+                _inlineResolverHead = 0;
                 _inlineResolvers.AddRange(_deferredResolvers);
                 _deferredResolvers.Clear();
             }
 
-            var resolver = _inlineResolvers[0];
-            _inlineResolvers.RemoveAt(0);
+            var resolver = _inlineResolvers[_inlineResolverHead++];
 
-            var olderSiblingCount = _inlineResolvers.Count;
+            var start = Position;
+            var streamStart = GetActiveStreamAddress();
+            var olderSiblingCount = _inlineResolvers.Count - _inlineResolverHead;
+            var olderInlineTail = _inlineResolvers.Count;
             var olderDeferredCount = _deferredResolvers.Count;
+            XFileReadTrace.TraceResolver(
+                "begin",
+                resolver,
+                start,
+                streamStart,
+                CurrentAssetIndex,
+                CurrentAssetType,
+                _inlineResolverHead - 1,
+                olderSiblingCount,
+                _deferredResolvers.Count,
+                0);
             resolver.Resolve(ref this);
 
-            var nestedCount = _inlineResolvers.Count - olderSiblingCount;
+            var nestedCount = _inlineResolvers.Count - olderInlineTail;
             var nestedDeferredCount = _deferredResolvers.Count - olderDeferredCount;
-            var deferredInsertIndex = 0;
+            XFileReadTrace.TraceResolver(
+                "end",
+                resolver,
+                start,
+                streamStart,
+                CurrentAssetIndex,
+                CurrentAssetType,
+                _inlineResolverHead - 1,
+                olderSiblingCount,
+                _deferredResolvers.Count,
+                Position - start);
+            var deferredInsertIndex = _inlineResolverHead;
             if (nestedCount > 0 && olderSiblingCount > 0)
             {
-                var nestedResolvers = _inlineResolvers.GetRange(olderSiblingCount, nestedCount);
-                _inlineResolvers.RemoveRange(olderSiblingCount, nestedCount);
+                var nestedResolvers = _inlineResolvers.GetRange(olderInlineTail, nestedCount);
+                _inlineResolvers.RemoveRange(olderInlineTail, nestedCount);
 
-                _inlineResolvers.InsertRange(0, nestedResolvers);
-                deferredInsertIndex = nestedResolvers.Count;
+                _inlineResolvers.InsertRange(_inlineResolverHead, nestedResolvers);
             }
+
+            if (nestedCount > 0)
+                deferredInsertIndex += nestedCount;
 
             if (nestedDeferredCount > 0)
             {
@@ -636,54 +962,95 @@ internal ref struct XFileReadContext
                 _inlineResolvers.InsertRange(deferredInsertIndex, nestedDeferredResolvers);
             }
         }
+
+        _inlineResolvers.Clear();
+        _inlineResolverHead = 0;
     }
 
-    public void ResolveOffsetPointers()
+    internal XFileResolverScope CaptureResolverScope()
     {
-        if (_offsetPointers.Count > 0 && _materializedSpans.Count > 0)
+        return new XFileResolverScope(_inlineResolvers.Count, _deferredResolvers.Count);
+    }
+
+    internal void ResolveResolverScopeNow(XFileResolverScope scope)
+    {
+        var scopedResolvers = ExtractResolverRange(_inlineResolvers, scope.InlineCount);
+        scopedResolvers.AddRange(ExtractResolverRange(_deferredResolvers, scope.DeferredCount));
+
+        var resolverIndex = 0;
+        while (resolverIndex < scopedResolvers.Count)
         {
-            _materializedSpans.Sort((left, right) =>
+            if (++resolverIndex > 1_000_000)
             {
-                var blockComparison = left.StreamBlockIndex.CompareTo(right.StreamBlockIndex);
-                if (blockComparison != 0)
-                    return blockComparison;
-
-                var startComparison = left.StreamOffset.CompareTo(right.StreamOffset);
-                return startComparison != 0
-                    ? startComparison
-                    : left.Length.CompareTo(right.Length);
-            });
-
-            var unresolvedCount = 0;
-            foreach (var offsetPointer in _offsetPointers)
-            {
-                var bestSpan = FindBestMaterializedSpan(
-                    offsetPointer.StreamBlockIndex,
-                    offsetPointer.TargetOffset,
-                    offsetPointer.ValueType,
-                    offsetPointer.PointerFieldOffset);
-                if (bestSpan is null)
-                {
-                    unresolvedCount++;
-                    continue;
-                }
-
-                offsetPointer.Pointer.SetTargetSpan(
-                    bestSpan.Value.Start,
-                    bestSpan.Value.Length,
-                    bestSpan.Value.StreamBlockIndex,
-                    bestSpan.Value.StreamOffset);
-                ResolveOffsetStringPointer(offsetPointer.Pointer, bestSpan.Value, offsetPointer.TargetOffset);
+                throw new InvalidDataException(
+                    $"Stopped resolving scoped inline zone pointers at zone offset 0x{Position:X8} ({Position:N0}); remaining scoped pointers: {scopedResolvers.Count - resolverIndex:N0}.");
             }
 
-            if (unresolvedCount > 0 && _streamBlocks is null)
-            {
-                _warnings?.Add(
-                    $"Unable to match {unresolvedCount:N0} offset pointer target(s) to materialized zone data spans.");
-            }
+            var resolver = scopedResolvers[resolverIndex - 1];
+            var start = Position;
+            var streamStart = GetActiveStreamAddress();
+            var olderSiblingCount = scopedResolvers.Count - resolverIndex;
+            var olderInlineTail = _inlineResolvers.Count;
+            var olderDeferredCount = _deferredResolvers.Count;
+
+            XFileReadTrace.TraceResolver(
+                "begin",
+                resolver,
+                start,
+                streamStart,
+                CurrentAssetIndex,
+                CurrentAssetType,
+                resolverIndex - 1,
+                olderSiblingCount,
+                _deferredResolvers.Count,
+                0);
+
+            resolver.Resolve(ref this);
+
+            var nestedResolvers = ExtractResolverRange(_inlineResolvers, olderInlineTail);
+            var nestedDeferredResolvers = ExtractResolverRange(_deferredResolvers, olderDeferredCount);
+            if (nestedDeferredResolvers.Count > 0)
+                nestedResolvers.AddRange(nestedDeferredResolvers);
+
+            XFileReadTrace.TraceResolver(
+                "end",
+                resolver,
+                start,
+                streamStart,
+                CurrentAssetIndex,
+                CurrentAssetType,
+                resolverIndex - 1,
+                olderSiblingCount,
+                _deferredResolvers.Count,
+                Position - start);
+
+            if (nestedResolvers.Count > 0)
+                scopedResolvers.InsertRange(resolverIndex, nestedResolvers);
         }
+    }
+
+    public void FinalizeOffsetPointerBindings()
+    {
+        BindRemainingOffsetPointersToContainingSpans();
+
+        if (_unresolvedOffsetPointerCount > 0 && _streamBlocks is null)
+            _warnings?.Add(
+                $"Unable to match {_unresolvedOffsetPointerCount:N0} offset pointer target(s) to materialized zone data spans.");
 
         ApplyStringTableLogicalValues();
+    }
+
+    private static List<IQueuedXFilePointerResolver> ExtractResolverRange(
+        List<IQueuedXFilePointerResolver> resolvers,
+        int start)
+    {
+        if (start < 0 || start >= resolvers.Count)
+            return [];
+
+        var count = resolvers.Count - start;
+        var values = resolvers.GetRange(start, count);
+        resolvers.RemoveRange(start, count);
+        return values;
     }
 
     internal void RegisterStringTableCells(StringTableCell[] cells)
@@ -697,8 +1064,28 @@ internal ref struct XFileReadContext
         if (_deferredResolvers.Count == 0)
             return;
 
-        _inlineResolvers.InsertRange(0, _deferredResolvers);
+        if (!HasPendingInlineResolvers)
+        {
+            _inlineResolvers.Clear();
+            _inlineResolverHead = 0;
+        }
+
+        _inlineResolvers.InsertRange(_inlineResolverHead, _deferredResolvers);
         _deferredResolvers.Clear();
+    }
+
+    private bool HasPendingInlineResolvers => _inlineResolverHead < _inlineResolvers.Count;
+
+    private int PendingInlineResolverCount => Math.Max(0, _inlineResolvers.Count - _inlineResolverHead);
+
+    private static bool CanMaterializeInlinePointer<T>(ZonePointer<T> pointer)
+    {
+        return pointer.Kind switch
+        {
+            PointerKind.Inline => true,
+            PointerKind.Insert => typeof(T) != typeof(string),
+            _ => false,
+        };
     }
 
     private void AddInlineResolver<T>(
@@ -735,6 +1122,11 @@ internal ref struct XFileReadContext
             streamStart.Offset,
             valueType,
             pointer));
+
+        var span = _materializedSpans[^1];
+        AddMaterializedSpanToIndex(span.StreamBlockIndex, span);
+        AddMaterializedSpanToIndex(-1, span);
+        BindPendingOffsetPointers(span);
     }
 
     internal void PrepareInlinePointerMaterialization(Pointer pointer)
@@ -769,6 +1161,7 @@ internal ref struct XFileReadContext
             XFileWriteRules.PointerSize,
             pointerFieldStreamAddress.BlockIndex,
             pointerFieldStreamAddress.Offset);
+        XFileReadValidator.ValidatePointerShape(this, pointer, valueType);
 
         if (pointer.Kind != PointerKind.Offset)
             return;
@@ -782,7 +1175,7 @@ internal ref struct XFileReadContext
         if (_streamBlocks is not null)
         {
             pointer.SetTargetOffset(pointer.Offset);
-            _offsetPointers.Add(new OffsetPointerTarget(
+            RegisterOffsetPointerTarget(new OffsetPointerTarget(
                 pointer,
                 valueType,
                 pointer.StreamBlockIndex,
@@ -795,7 +1188,7 @@ internal ref struct XFileReadContext
             && _streamLayout.TryGetZoneOffset(pointer, out var targetOffset))
         {
             pointer.SetTargetOffset(targetOffset);
-            _offsetPointers.Add(new OffsetPointerTarget(
+            RegisterOffsetPointerTarget(new OffsetPointerTarget(
                 pointer,
                 valueType,
                 StreamBlockIndex: -1,
@@ -804,37 +1197,143 @@ internal ref struct XFileReadContext
         }
     }
 
-    private MaterializedPointerSpan? FindBestMaterializedSpan(
-        int streamBlockIndex,
-        int targetOffset,
-        Type valueType,
-        int pointerFieldOffset)
+    private void AddMaterializedSpanToIndex(int streamBlockIndex, MaterializedPointerSpan span)
     {
-        MaterializedPointerSpan? bestCompatibleSpan = null;
-        MaterializedPointerSpan? bestContainingSpan = null;
-        foreach (var span in _materializedSpans)
+        if (!_materializedSpanIndexes.TryGetValue(streamBlockIndex, out var index))
         {
-            if (streamBlockIndex >= 0 && span.StreamBlockIndex != streamBlockIndex)
-                continue;
-
-            if (!span.ContainsStreamOffset(targetOffset))
-                continue;
-
-            if (IsCompatiblePointerTarget(valueType, span.ValueType))
-            {
-                if (bestCompatibleSpan is null || span.Length < bestCompatibleSpan.Value.Length)
-                    bestCompatibleSpan = span;
-                continue;
-            }
-
-            if (!CanUseContainingPointerSpan(span.ValueType))
-                continue;
-
-            if (bestContainingSpan is null || span.Length < bestContainingSpan.Value.Length)
-                bestContainingSpan = span;
+            index = new MaterializedSpanBlockIndex();
+            _materializedSpanIndexes.Add(streamBlockIndex, index);
         }
 
-        return bestCompatibleSpan ?? bestContainingSpan;
+        index.Add(span);
+    }
+
+    private void RegisterOffsetPointerTarget(OffsetPointerTarget target)
+    {
+        if (TryBindOffsetPointer(target, allowContainingSpan: false))
+            return;
+
+        var address = new OffsetPointerAddress(target.StreamBlockIndex, target.TargetOffset);
+        if (!_pendingOffsetPointers.TryGetValue(address, out var pointers))
+        {
+            pointers = new List<OffsetPointerTarget>();
+            _pendingOffsetPointers.Add(address, pointers);
+        }
+
+        pointers.Add(target);
+
+        if (!_pendingOffsetKeysByBlock.TryGetValue(target.StreamBlockIndex, out var keys))
+        {
+            keys = new SortedSet<int>();
+            _pendingOffsetKeysByBlock.Add(target.StreamBlockIndex, keys);
+        }
+
+        keys.Add(target.TargetOffset);
+        _unresolvedOffsetPointerCount++;
+    }
+
+    private bool TryBindOffsetPointer(OffsetPointerTarget target, bool allowContainingSpan)
+    {
+        var indexKey = target.StreamBlockIndex >= 0 ? target.StreamBlockIndex : -1;
+        if (!_materializedSpanIndexes.TryGetValue(indexKey, out var index))
+            return false;
+
+        var span = index.FindBest(target.TargetOffset, target.ValueType, allowContainingSpan);
+        if (span is null)
+            return false;
+
+        BindOffsetPointer(target, span.Value);
+        return true;
+    }
+
+    private void BindPendingOffsetPointers(MaterializedPointerSpan span)
+    {
+        if (!_pendingOffsetKeysByBlock.TryGetValue(span.StreamBlockIndex, out var pendingOffsets)
+            || pendingOffsets.Count == 0)
+        {
+            return;
+        }
+
+        var start = span.StreamOffset;
+        var end = span.StreamOffset + span.Length - 1;
+        var matchingOffsets = pendingOffsets.GetViewBetween(start, end).ToArray();
+        foreach (var targetOffset in matchingOffsets)
+        {
+            var address = new OffsetPointerAddress(span.StreamBlockIndex, targetOffset);
+            if (!_pendingOffsetPointers.TryGetValue(address, out var pointers))
+                continue;
+
+            for (var i = pointers.Count - 1; i >= 0; i--)
+            {
+                var target = pointers[i];
+                if (!IsCompatiblePointerTarget(target.ValueType, span.ValueType))
+                    continue;
+
+                BindOffsetPointer(target, span);
+                pointers.RemoveAt(i);
+                _unresolvedOffsetPointerCount--;
+            }
+
+            if (pointers.Count != 0)
+                continue;
+
+            _pendingOffsetPointers.Remove(address);
+            pendingOffsets.Remove(targetOffset);
+        }
+    }
+
+    private void BindRemainingOffsetPointersToContainingSpans()
+    {
+        if (_pendingOffsetPointers.Count == 0)
+            return;
+
+        foreach (var item in _pendingOffsetPointers.ToArray())
+        {
+            var pointers = item.Value;
+            for (var i = pointers.Count - 1; i >= 0; i--)
+            {
+                var target = pointers[i];
+                if (!TryBindOffsetPointer(target, allowContainingSpan: true))
+                    continue;
+
+                pointers.RemoveAt(i);
+                _unresolvedOffsetPointerCount--;
+            }
+
+            if (pointers.Count != 0)
+                continue;
+
+            _pendingOffsetPointers.Remove(item.Key);
+            if (!_pendingOffsetKeysByBlock.TryGetValue(item.Key.StreamBlockIndex, out var offsets))
+                continue;
+
+            offsets.Remove(item.Key.TargetOffset);
+            if (offsets.Count == 0)
+                _pendingOffsetKeysByBlock.Remove(item.Key.StreamBlockIndex);
+        }
+    }
+
+    private void BindOffsetPointer(OffsetPointerTarget target, MaterializedPointerSpan span)
+    {
+        target.Pointer.SetTargetSpan(
+            span.Start,
+            span.Length,
+            span.StreamBlockIndex,
+            span.StreamOffset);
+        ResolveOffsetStringPointer(
+            target.Pointer,
+            span,
+            target.TargetOffset);
+    }
+
+    private static bool IsBetterSpan(MaterializedPointerSpan span, MaterializedPointerSpan? currentBest)
+    {
+        return currentBest is null
+            || span.Length < currentBest.Value.Length
+            || (span.Length == currentBest.Value.Length
+                && (span.StreamOffset < currentBest.Value.StreamOffset
+                    || (span.StreamOffset == currentBest.Value.StreamOffset
+                        && span.Start < currentBest.Value.Start)));
     }
 
     private static bool IsCompatiblePointerTarget(Type pointerType, Type spanType)
@@ -864,7 +1363,14 @@ internal ref struct XFileReadContext
         if (delta < 0 || delta >= span.Length)
             return;
 
-        stringPointer.SetResult(ReadCStringAt(span.Start + delta, span.Start, span.Length));
+        var key = new OffsetStringLookupKey(span.Start, span.Length, delta);
+        if (!_offsetStringCache.TryGetValue(key, out var value))
+        {
+            value = ReadCStringAt(span.Start + delta, span.Start, span.Length);
+            _offsetStringCache.Add(key, value);
+        }
+
+        stringPointer.SetResult(value);
     }
 
     private void ApplyStringTableLogicalValues()
@@ -909,6 +1415,22 @@ internal ref struct XFileReadContext
         _streamBlocks?.Align((int)alignment);
     }
 
+    public void AlignStreamAndPosition(XFileStreamAlignment alignment)
+    {
+        if (_streamBlocks is null)
+        {
+            AlignPosition((int)alignment);
+            return;
+        }
+
+        var padding = _streamBlocks.AlignAndGetPadding((int)alignment);
+        if (padding == 0)
+            return;
+
+        EnsureAvailable(padding, $"Stream alignment padding ({alignment})");
+        Position += padding;
+    }
+
     public void PushStreamBlock(XFILE_BLOCK block)
     {
         _streamBlocks?.PushStreamBlock(block);
@@ -929,6 +1451,18 @@ internal ref struct XFileReadContext
     {
         return _streamBlocks?.ActiveAddress
             ?? new XFileBlockAddress(0, Position);
+    }
+
+    internal bool TryGetStreamBlockSize(int streamBlockIndex, out int blockSize)
+    {
+        if (_streamBlocks is not null)
+            return _streamBlocks.TryGetBlockSize(streamBlockIndex, out blockSize);
+
+        if (_streamLayout is not null)
+            return _streamLayout.TryGetBlockSize(streamBlockIndex, out blockSize);
+
+        blockSize = 0;
+        return false;
     }
 
     private XFileBlockAddress GetPreviousPointerFieldStreamAddress()
@@ -982,6 +1516,122 @@ internal ref struct XFileReadContext
         public bool Contains(int value) => value >= Start && value < Start + Length;
         public bool ContainsStreamOffset(int value) => value >= StreamOffset && value < StreamOffset + Length;
     }
+
+    private sealed class MaterializedSpanBlockIndex
+    {
+        private readonly List<MaterializedPointerSpan> _spans = new();
+        private int[] _prefixMaxEnds = [];
+        private bool _isSorted = true;
+
+        public void Add(MaterializedPointerSpan span)
+        {
+            if (_spans.Count > 0 && CompareSpans(_spans[^1], span) > 0)
+                _isSorted = false;
+
+            _spans.Add(span);
+            _prefixMaxEnds = [];
+        }
+
+        public MaterializedPointerSpan? FindBest(int targetOffset, Type valueType, bool allowContainingSpan)
+        {
+            EnsureIndexed();
+
+            var index = FindLastSpanStartingBeforeOrAt(targetOffset);
+            if (index < 0)
+                return null;
+
+            MaterializedPointerSpan? bestCompatibleSpan = null;
+            MaterializedPointerSpan? bestContainingSpan = null;
+            for (var i = index; i >= 0; i--)
+            {
+                if (_prefixMaxEnds[i] <= targetOffset)
+                    break;
+
+                var span = _spans[i];
+                if (!span.ContainsStreamOffset(targetOffset))
+                    continue;
+
+                if (IsCompatiblePointerTarget(valueType, span.ValueType))
+                {
+                    if (IsBetterSpan(span, bestCompatibleSpan))
+                        bestCompatibleSpan = span;
+                    continue;
+                }
+
+                if (!allowContainingSpan || !CanUseContainingPointerSpan(span.ValueType))
+                    continue;
+
+                if (IsBetterSpan(span, bestContainingSpan))
+                    bestContainingSpan = span;
+            }
+
+            return bestCompatibleSpan ?? bestContainingSpan;
+        }
+
+        private void EnsureIndexed()
+        {
+            if (_prefixMaxEnds.Length == _spans.Count)
+                return;
+
+            if (!_isSorted)
+            {
+                _spans.Sort(CompareSpans);
+                _isSorted = true;
+            }
+
+            _prefixMaxEnds = new int[_spans.Count];
+            var maxEnd = 0;
+            for (var i = 0; i < _spans.Count; i++)
+            {
+                maxEnd = Math.Max(maxEnd, _spans[i].StreamOffset + _spans[i].Length);
+                _prefixMaxEnds[i] = maxEnd;
+            }
+        }
+
+        private int FindLastSpanStartingBeforeOrAt(int targetOffset)
+        {
+            var result = -1;
+            var low = 0;
+            var high = _spans.Count - 1;
+
+            while (low <= high)
+            {
+                var mid = low + ((high - low) / 2);
+                if (_spans[mid].StreamOffset <= targetOffset)
+                {
+                    result = mid;
+                    low = mid + 1;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+
+            return result;
+        }
+
+        private static int CompareSpans(MaterializedPointerSpan left, MaterializedPointerSpan right)
+        {
+            var startComparison = left.StreamOffset.CompareTo(right.StreamOffset);
+            if (startComparison != 0)
+                return startComparison;
+
+            var lengthComparison = left.Length.CompareTo(right.Length);
+            return lengthComparison != 0
+                ? lengthComparison
+                : left.Start.CompareTo(right.Start);
+        }
+    }
+
+    private readonly record struct OffsetPointerAddress(
+        int StreamBlockIndex,
+        int TargetOffset);
+
+    private readonly record struct OffsetStringLookupKey(
+        int SpanStart,
+        int SpanLength,
+        int Delta);
 
     private readonly record struct OffsetPointerTarget(
         Pointer Pointer,

@@ -13,12 +13,34 @@ internal static class XModelReader
     private const int LodInfoCount = 4;
     private const int LodInfoSize = 40;
     private const int BoundsSize = 24;
+    private const int XModelCollSurfSize = 0x24;
 
     public static ZonePointer<XModel> ReadXModelPointer(ref XFileReadContext context)
     {
-        var pointer = context.ReadAliasPointer<XModel>("XModelAssetRef");
-        context.ResolvePointerInBlock(pointer, XFILE_BLOCK.TEMP, ReadXModelPointerValue);
+        var pointer = ReadXModelPointerField(ref context);
+        ResolveXModelPointer(ref context, pointer);
         return pointer;
+    }
+
+    public static ZonePointer<XModel> ReadXModelPointerField(
+        ref XFileReadContext context,
+        string fieldPath = "XModelAssetRef")
+    {
+        return context.ReadAliasPointer<XModel>(fieldPath);
+    }
+
+    public static void ResolveXModelPointer(
+        ref XFileReadContext context,
+        ZonePointer<XModel> pointer)
+    {
+        context.ResolvePointerInBlock(pointer, XFILE_BLOCK.TEMP, ReadXModelPointerValue);
+    }
+
+    public static void ResolveXModelPointerNow(
+        ref XFileReadContext context,
+        ZonePointer<XModel> pointer)
+    {
+        context.ResolvePointerNowInBlock(pointer, XFILE_BLOCK.TEMP, ReadXModelPointerValue);
     }
 
     public static ZonePointer<ZonePointer<XModel>[]> ReadXModelPointerArrayPointer(
@@ -85,13 +107,10 @@ internal static class XModelReader
         var boneInfo = context.ReadDirectPointer<XBoneInfo[]>("XModel.BoneInfo");
         var radius = context.ReadFloat();
         var bounds = ReadBounds(ref context);
+        var invHighMipRadius = context.ReadDirectPointer<ushort[]>("XModel.InvHighMipRadius");
         var memUsage = context.ReadInt32();
-        var bad = context.ReadBool();
-        var badPadding0 = context.ReadByte();
-        var badPadding1 = context.ReadByte();
-        var badPadding2 = context.ReadByte();
-        var physPreset = PhysicsReader.ReadPhysPresetPointer(ref context);
-        var physCollmap = PhysicsReader.ReadPhysCollmapPointer(ref context);
+        var physPreset = PhysicsReader.ReadPhysPresetPointerField(ref context);
+        var physCollmap = PhysicsReader.ReadPhysCollmapPointerField(ref context);
 
         context.PushStreamBlock(XFILE_BLOCK.LARGE);
         try
@@ -104,8 +123,12 @@ internal static class XModelReader
             ResolvePartClassificationArray(ref context, partClassification, numBones);
             ResolveDObjAnimMatArray(ref context, baseMat, numBones);
             ResolveMaterialHandleArray(ref context, materialHandles, numSurfs);
+            ResolveXModelLodInfoModelSurfs(ref context, lodInfo);
             ResolveXModelCollSurfArray(ref context, collSurfs, numCollSurfs);
             ResolveXBoneInfoArray(ref context, boneInfo, numBones);
+            ResolveInlineUShortArray(ref context, invHighMipRadius, numSurfs);
+            PhysicsReader.ResolvePhysPresetPointerNow(ref context, physPreset);
+            PhysicsReader.ResolvePhysCollmapPointerNow(ref context, physCollmap);
         }
         finally
         {
@@ -140,11 +163,8 @@ internal static class XModelReader
             BoneInfo = boneInfo,
             Radius = radius,
             Bounds = bounds,
+            InvHighMipRadius = invHighMipRadius,
             MemUsage = memUsage,
-            Bad = bad,
-            BadPadding0 = badPadding0,
-            BadPadding1 = badPadding1,
-            BadPadding2 = badPadding2,
             PhysPreset = physPreset,
             PhysCollmap = physCollmap,
         };
@@ -338,12 +358,7 @@ internal static class XModelReader
                     {
                         values[i] = new XModelCollSurf
                         {
-                            CollTris = valueContext.ReadDirectPointer<XModelCollTri[]>("XModelCollSurf.CollTris"),
-                            NumCollTris = valueContext.ReadInt32(),
-                            Bounds = ReadBounds(ref valueContext),
-                            BoneIdx = valueContext.ReadInt32(),
-                            Contents = valueContext.ReadInt32(),
-                            SurfFlags = valueContext.ReadInt32(),
+                            RawBytes = valueContext.ReadBytes(XModelCollSurfSize),
                         };
                     }
 
@@ -432,16 +447,16 @@ internal static class XModelReader
                 p.SetResult(values);
 
                 foreach (var value in values)
-                {
-                    pointerContext.ResolvePointerInBlock(
-                        value,
-                        XFILE_BLOCK.TEMP,
-                        (ref XFileReadContext materialContext, ZonePointer<FastFile.Models.Assets.Material.Material> materialPointer) =>
-                        {
-                            materialPointer.SetResult(materialContext.ReadPointerValue(materialPointer, MaterialReader.Read));
-                        });
-                }
+                    MaterialReader.ResolveMaterialPointerNow(ref pointerContext, value);
             });
+    }
+
+    private static void ResolveXModelLodInfoModelSurfs(
+        ref XFileReadContext context,
+        XModelLodInfo[] lodInfos)
+    {
+        foreach (var lodInfo in lodInfos)
+            XModelSurfsReader.ResolveXModelSurfsPointerNow(ref context, lodInfo.ModelSurfs);
     }
 
     private static int[] ReadInt32Array(ref XFileReadContext context, int count)

@@ -17,10 +17,47 @@ internal static class EbootPointerRules
             ["Material.TextureTable"] = PointerResolutionKind.Direct,
             ["Material.ConstantTable"] = PointerResolutionKind.Direct,
             ["Material.StateBitTable"] = PointerResolutionKind.Direct,
+            ["Material.UshortArray"] = PointerResolutionKind.Direct,
+            ["Material.UnknownXStringArray"] = PointerResolutionKind.Direct,
             ["Material.Info.Name"] = PointerResolutionKind.Direct,
             ["MaterialAssetRef"] = PointerResolutionKind.Alias,
+            ["Techset.Techniques"] = PointerResolutionKind.Direct,
+            ["MaterialPass.VertexDecl"] = PointerResolutionKind.Direct,
+            ["MaterialPass.VertexShader"] = PointerResolutionKind.Alias,
+            ["MaterialPass.PixelShader"] = PointerResolutionKind.Alias,
+            ["MaterialPass.Args"] = PointerResolutionKind.Direct,
+            ["MaterialShaderArgument.LiteralConst"] = PointerResolutionKind.Direct,
+            ["MaterialPixelShader.Program.Data"] = PointerResolutionKind.Direct,
+            ["MaterialVertexShader.Program.Data"] = PointerResolutionKind.Direct,
             ["MaterialTextureDef.Image"] = PointerResolutionKind.Alias,
+            ["MaterialTextureDef.Water"] = PointerResolutionKind.Direct,
             ["GfxImageAssetRef"] = PointerResolutionKind.Alias,
+            ["GfxImage.LoadDef"] = PointerResolutionKind.Direct,
+            ["GfxImage.Name"] = PointerResolutionKind.Direct,
+            ["SndAliasList.AliasName"] = PointerResolutionKind.Direct,
+            ["SndAliasList.Head"] = PointerResolutionKind.Direct,
+            ["SndAlias.AliasName"] = PointerResolutionKind.Direct,
+            ["SndAlias.Subtitle"] = PointerResolutionKind.Direct,
+            ["SndAlias.SecondaryAliasName"] = PointerResolutionKind.Direct,
+            ["SndAlias.ChainAliasName"] = PointerResolutionKind.Direct,
+            ["SndAlias.MixerGroup"] = PointerResolutionKind.Direct,
+            ["SndAlias.SoundFile"] = PointerResolutionKind.Alias,
+            ["SndAlias.VolumeFalloffCurve"] = PointerResolutionKind.Alias,
+            ["SndAlias.SpeakerMap"] = PointerResolutionKind.Direct,
+            ["SoundFile.LoadedSound"] = PointerResolutionKind.Alias,
+            ["StreamFileName.Dir"] = PointerResolutionKind.Direct,
+            ["StreamFileName.Name"] = PointerResolutionKind.Direct,
+            ["SndCurve.Filename"] = PointerResolutionKind.Direct,
+            ["SndCurveAssetRef"] = PointerResolutionKind.Alias,
+            ["LoadedSound.Name"] = PointerResolutionKind.Direct,
+            ["LoadedSound.SeekTable"] = PointerResolutionKind.Direct,
+            ["LoadedSound.PhysicalData"] = PointerResolutionKind.Direct,
+            ["LoadedSoundAssetRef"] = PointerResolutionKind.Alias,
+            ["SpeakerMap.Name"] = PointerResolutionKind.Direct,
+            ["Font.Name"] = PointerResolutionKind.Direct,
+            ["Font.Material"] = PointerResolutionKind.Alias,
+            ["Font.GlowMaterial"] = PointerResolutionKind.Alias,
+            ["Font.Glyphs"] = PointerResolutionKind.Direct,
             ["MenuList.Name"] = PointerResolutionKind.Direct,
             ["MenuList.Menus"] = PointerResolutionKind.Direct,
             ["MenuList.Menus.Element"] = PointerResolutionKind.Alias,
@@ -48,6 +85,7 @@ internal static class EbootPointerRules
             ["Weapon.FloatArray"] = PointerResolutionKind.Direct,
             ["Weapon.Vec2Array"] = PointerResolutionKind.Direct,
             ["Weapon.XStringArray"] = PointerResolutionKind.Direct,
+            ["Weapon.SoundAlias"] = PointerResolutionKind.Direct,
             ["Weapon.Material"] = PointerResolutionKind.Alias,
             ["Weapon.XModel"] = PointerResolutionKind.Alias,
             ["Weapon.Fx"] = PointerResolutionKind.Alias,
@@ -73,6 +111,17 @@ internal static class EbootPointerRules
             ["StringList.Strings.Element"] = PointerResolutionKind.Direct,
             ["XModelAssetRef"] = PointerResolutionKind.Alias,
             ["XModelAssetRefArray"] = PointerResolutionKind.Direct,
+            ["XModelLodInfo.ModelSurfs"] = PointerResolutionKind.Alias,
+            ["XModelLodInfo.Surfs"] = PointerResolutionKind.Direct,
+            ["XModelSurfs.Surfs"] = PointerResolutionKind.Direct,
+            ["XSurface.TriIndices"] = PointerResolutionKind.Direct,
+            ["XSurface.VertexInfo.VertsBlend"] = PointerResolutionKind.Direct,
+            ["XSurface.Verts0"] = PointerResolutionKind.Direct,
+            ["XSurface.Verts1"] = PointerResolutionKind.Direct,
+            ["XSurface.VertList"] = PointerResolutionKind.Direct,
+            ["XRigidVertList.CollisionTree"] = PointerResolutionKind.Direct,
+            ["XSurfaceCollisionTree.Nodes"] = PointerResolutionKind.Direct,
+            ["XSurfaceCollisionTree.Leafs"] = PointerResolutionKind.Direct,
             ["FxEffectAssetRef"] = PointerResolutionKind.Alias,
             ["PhysPresetAssetRef"] = PointerResolutionKind.Alias,
             ["PhysCollmapAssetRef"] = PointerResolutionKind.Alias,
@@ -87,6 +136,8 @@ internal static class EbootPointerRules
         out string normalizedFieldPath)
     {
         normalizedFieldPath = Normalize(fieldPath);
+        if (pointer.DeclaredResolutionKind != PointerResolutionKind.Unknown)
+            return pointer.DeclaredResolutionKind;
 
         if (ProofedRules.TryGetValue(normalizedFieldPath, out var proofedKind))
             return proofedKind;
@@ -124,6 +175,39 @@ internal static class EbootPointerRules
         if (value.StartsWith("MenuList.Menus[", StringComparison.Ordinal))
             return "MenuList.Menus.Element";
 
+        if (value.StartsWith("Techset.Techniques[", StringComparison.Ordinal))
+            return "Techset.Techniques";
+
+        if (value.StartsWith("MaterialPass[", StringComparison.Ordinal)
+            && value.EndsWith("].VertexDecl", StringComparison.Ordinal))
+        {
+            return "MaterialPass.VertexDecl";
+        }
+
+        if (value.StartsWith("MaterialPass[", StringComparison.Ordinal)
+            && value.EndsWith("].VertexShader", StringComparison.Ordinal))
+        {
+            return "MaterialPass.VertexShader";
+        }
+
+        if (value.StartsWith("MaterialPass[", StringComparison.Ordinal)
+            && value.EndsWith("].PixelShader", StringComparison.Ordinal))
+        {
+            return "MaterialPass.PixelShader";
+        }
+
+        if (value.StartsWith("MaterialPass[", StringComparison.Ordinal)
+            && value.EndsWith("].Args", StringComparison.Ordinal))
+        {
+            return "MaterialPass.Args";
+        }
+
+        if (value.StartsWith("MaterialShaderArgument[", StringComparison.Ordinal)
+            && value.EndsWith("].LiteralConst", StringComparison.Ordinal))
+        {
+            return "MaterialShaderArgument.LiteralConst";
+        }
+
         if (value.StartsWith("WeaponDef.NoteTrackMaps[", StringComparison.Ordinal))
             return "WeaponDef.NoteTrackMaps";
 
@@ -138,6 +222,19 @@ internal static class EbootPointerRules
 
         if (value.StartsWith("WeaponDef.BounceSound[", StringComparison.Ordinal))
             return "WeaponDef.BounceSound.Element";
+
+        if (value.StartsWith("WeaponDef.SoundAliases", StringComparison.Ordinal)
+            || value.StartsWith("WeaponDef.ProjectileSoundAliases", StringComparison.Ordinal)
+            || value.StartsWith("WeaponDef.TurretBarrelSpinUpSnd", StringComparison.Ordinal)
+            || value.StartsWith("WeaponDef.TurretBarrelSpinDownSnd", StringComparison.Ordinal)
+            || value == "WeaponDef.ShellEjectSound"
+            || value == "WeaponDef.TurretOverheatSound"
+            || value == "WeaponDef.TurretBarrelSpinMaxSnd"
+            || value == "WeaponDef.MissileConeSoundAlias"
+            || value == "WeaponDef.MissileConeSoundAliasAtBase")
+        {
+            return "Weapon.SoundAlias";
+        }
 
         if (value.StartsWith("WeaponDef.GunXModel[", StringComparison.Ordinal))
             return "WeaponDef.GunXModel.Element";
