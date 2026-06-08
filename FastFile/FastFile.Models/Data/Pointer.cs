@@ -16,6 +16,8 @@ public class Pointer
     public int TargetSpanLength { get; private set; } = -1;
     public int TargetSpanStreamBlockIndex { get; private set; } = -1;
     public int TargetSpanStreamOffset { get; private set; } = -1;
+    public int ResolvedStreamBlockIndex { get; private set; } = -1;
+    public int ResolvedStreamOffset { get; private set; } = -1;
     public PointerResolutionKind ResolutionKind { get; private set; }
     public string FieldPath { get; private set; } = string.Empty;
     public int PointerFieldSourceOffset { get; private set; } = -1;
@@ -28,6 +30,10 @@ public class Pointer
     public bool HasTargetOffset => TargetOffset >= 0;
     public bool HasTargetSpan => TargetSpanOffset >= 0 && TargetSpanLength >= 0;
     public bool HasTargetStreamSpan => TargetSpanStreamBlockIndex >= 0 && TargetSpanStreamOffset >= 0;
+    public bool HasResolvedAddress => ResolvedStreamBlockIndex >= 0 && ResolvedStreamOffset >= 0;
+    public XFileAddress ResolvedAddress => HasResolvedAddress
+        ? new XFileAddress(ResolvedStreamBlockIndex, ResolvedStreamOffset)
+        : XFileAddress.Null;
     public bool HasPointerFieldSourceSpan =>
         PointerFieldSourceOffset >= 0
         && PointerFieldSourceLength > 0
@@ -35,9 +41,7 @@ public class Pointer
         && PointerFieldStreamOffset >= 0;
     public bool HasAliasCellStreamAddress => AliasCellStreamBlockIndex >= 0 && AliasCellStreamOffset >= 0;
     public bool IsInlineData => Kind is PointerKind.Inline or PointerKind.Insert;
-    public bool CanMaterializeInline =>
-        Kind is PointerKind.Inline
-        || (Kind is PointerKind.Insert && ResolutionKind != PointerResolutionKind.Direct);
+    public bool IsInsertPointer => Kind is PointerKind.Insert;
     public virtual PointerResolutionKind DeclaredResolutionKind => PointerResolutionKind.Unknown;
 
     public Pointer(int raw)
@@ -56,6 +60,17 @@ public class Pointer
     {
         StreamBlockIndex = streamBlockIndex;
         Offset = offset;
+    }
+
+    public void SetResolvedAddress(int streamBlockIndex, int offset)
+    {
+        ResolvedStreamBlockIndex = streamBlockIndex;
+        ResolvedStreamOffset = offset;
+    }
+
+    public void SetResolvedAddress(XFileAddress address)
+    {
+        SetResolvedAddress(address.BlockIndex, address.Offset);
     }
 
     public void SetSourceSpan(int offset, int length)

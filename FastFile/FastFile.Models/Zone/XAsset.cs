@@ -6,5 +6,6 @@ namespace FastFile.Models.Zone;
 public class XAsset
 {
     public XAssetType Type { get; set; }
-    public ZonePointer<BaseAsset> XAssetPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<BaseAsset> XAssetPtr { get; set; }
 };

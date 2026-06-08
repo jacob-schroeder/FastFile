@@ -161,16 +161,15 @@ public partial class MainWindow : Window
         AddLog("INFO", "Zone unpacked");
         AddWarnings("FastFileReader", ffReader.Warnings);
         
-        var zoneReader = new XFileReader(zone, assetReadProgress);
+        var zoneReader = new XFileReader(zone);
         AddLog("INFO", "Parsing XFile header");
         var zoneHeader = zoneReader.ParseHeader();
         AddLog("INFO", "XFile header parsed");
 
         AddLog("INFO", "Parsing asset list");
-        var assetList = zoneReader.ParseXAssetList();
+        var assetList = zoneReader.Load_XAssetList();
 
         AddLog("INFO", "Asset list parsed");
-        AddWarnings("XFileReader", zoneReader.Warnings);
 
         _buffer = buffer;
         _fastFileHeader = fastFileHeader;
@@ -307,90 +306,7 @@ public partial class MainWindow : Window
 
     private async Task SaveFastFileAsync()
     {
-        if (_document is null) return;
-        if (_assetList is null) return;
-        if (_zoneHeader is null) return;
-
-        if (StorageProvider is null)
-        {
-            AddLog("ERROR", "Save failed: storage provider is unavailable");
-            UpdateLogView();
-            return;
-        }
-
-        try
-        {
-            SaveMenuItem.IsEnabled = false;
-
-            var saveFile = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Save FastFile",
-                SuggestedFileName = GetSuggestedFastFileName(),
-                DefaultExtension = "ff",
-                ShowOverwritePrompt = true,
-                FileTypeChoices =
-                [
-                    new FilePickerFileType("FastFile")
-                    {
-                        Patterns = ["*.ff"]
-                    }
-                ]
-            });
-
-            if (saveFile is null)
-            {
-                AddLog("INFO", "Save cancelled");
-                return;
-            }
-
-            AddLog("INFO", "Writing XFile data");
-            var xfileWriter = new XFileWriter(_zoneHeader, _assetList);
-            var writtenXFile = xfileWriter.Write();
-            var writtenZone = writtenXFile.LinearZoneBuffer;
-            var writtenZoneHeader = writtenXFile.Header;
-
-            AddLog("INFO", "Zone written");
-
-            AddLog("INFO", "Packing fastfile");
-            var fastFileWriter = new FastFileWriter(_fastFileHeader ?? _document.Header, writtenZone);
-            var writtenFastFile = fastFileWriter.Write();
-            var writtenFastFileHeader = fastFileWriter.Header;
-
-            AddLog("INFO", "Fastfile packed");
-
-            await using (var fileStream = await saveFile.OpenWriteAsync())
-            {
-                if (fileStream.CanSeek)
-                    fileStream.SetLength(0);
-
-                await fileStream.WriteAsync(writtenFastFile);
-                await fileStream.FlushAsync();
-            }
-
-            _fastFileHeader = writtenFastFileHeader;
-            _zoneHeader = writtenZoneHeader;
-            _buffer = writtenFastFile;
-            _document = FastFileDocument.FromParsed(writtenFastFile, writtenFastFileHeader, writtenZoneHeader, _assetList, writtenZone);
-            _currentFileName = saveFile.Name;
-            _currentFilePath = saveFile.TryGetLocalPath();
-
-            UpdateFastFileHeaderView();
-            UpdateZoneTabView();
-            UpdateAssetsTabView();
-            UpdateDocumentState();
-
-            AddLog("INFO", $"Saved {saveFile.Name}");
-            FastFileTabView.SetStatus($"Saved: {saveFile.Name}\nAssets: {_assetList.AssetCount:N0}");
-        }
-        catch (Exception ex)
-        {
-            AddLog("ERROR", $"Save failed: {ex.Message}");
-        }
-        finally
-        {
-            UpdateDocumentState();
-            UpdateLogView();
-        }
+        throw new NotImplementedException();
     }
 
     private string GetSuggestedFastFileName()

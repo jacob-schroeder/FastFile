@@ -13,7 +13,8 @@ public abstract class EbootAssetRoot(XAssetType type) : BaseAsset(type)
     public abstract int? EbootRootSize { get; }
     public abstract bool IsHandledByEbootDispatch { get; }
     public byte[] RawRoot { get; set; } = [];
-    public ZonePointer<string>? NamePtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string>? NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name) ? Type.ToString() : Name;
@@ -39,25 +40,38 @@ public sealed class XAnimParts() : EbootAssetRoot(XAssetType.XAnim)
     public byte BoneNameCount => RootBytes10To1F.Length > 0x0c ? RootBytes10To1F[0x0c] : (byte)0;
     public byte NotifyCount => RootBytes10To1F.Length > 0x0d ? RootBytes10To1F[0x0d] : (byte)0;
 
-    public ZonePointer<byte[]>? NamesPtr { get; set; }
-    public ZonePointer<byte[]>? DataBytePtr { get; set; }
-    public ZonePointer<byte[]>? DataShortPtr { get; set; }
-    public ZonePointer<byte[]>? DataIntPtr { get; set; }
-    public ZonePointer<byte[]>? RandomDataShortPtr { get; set; }
-    public ZonePointer<byte[]>? RandomDataBytePtr { get; set; }
-    public ZonePointer<byte[]>? RandomDataIntPtr { get; set; }
-    public ZonePointer<byte[]>? IndicesPtr { get; set; }
-    public ZonePointer<byte[]>? NotifyPtr { get; set; }
-    public ZonePointer<XAnimDeltaPart>? DeltaPartPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? NamesPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? DataBytePtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? DataShortPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? DataIntPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? RandomDataShortPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? RandomDataBytePtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? RandomDataIntPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? IndicesPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<byte[]>? NotifyPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<XAnimDeltaPart>? DeltaPartPtr { get; set; }
 }
 
 public sealed class XAnimDeltaPart
 {
     public int Offset { get; set; }
     public byte[] Raw { get; set; } = new byte[0x0c];
-    public ZonePointer<XAnimDeltaTrans>? TransPtr { get; set; }
-    public ZonePointer<XAnimDeltaQuat>? QuatPtr { get; set; }
-    public ZonePointer<XAnimDeltaQuat>? Quat2Ptr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct)]
+    public DirectPointer<XAnimDeltaTrans>? TransPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct)]
+    public DirectPointer<XAnimDeltaQuat>? QuatPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct)]
+    public DirectPointer<XAnimDeltaQuat>? Quat2Ptr { get; set; }
 }
 
 public sealed class XAnimDeltaTrans
@@ -67,7 +81,8 @@ public sealed class XAnimDeltaTrans
     public byte[] Frame0 { get; set; } = [];
     public byte[] FrameTable { get; set; } = [];
     public byte[] FrameIndices { get; set; } = [];
-    public ZonePointer<byte[]>? FrameDataPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct)]
+    public DirectPointer<byte[]>? FrameDataPtr { get; set; }
     public ushort Size { get; set; }
     public bool IsSmall { get; set; }
 }
@@ -79,7 +94,8 @@ public sealed class XAnimDeltaQuat
     public byte[] Frame0 { get; set; } = [];
     public byte[] FrameTable { get; set; } = [];
     public byte[] FrameIndices { get; set; } = [];
-    public ZonePointer<byte[]>? FrameDataPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct)]
+    public DirectPointer<byte[]>? FrameDataPtr { get; set; }
     public ushort Size { get; set; }
 }
 
@@ -270,13 +286,16 @@ public sealed class FxImpactTable() : EbootAssetRoot(XAssetType.ImpactFx)
     public const int RootSize = 0x08;
     public override int? EbootRootSize => RootSize;
     public override bool IsHandledByEbootDispatch => true;
-    public ZonePointer<FxImpactEntry[]> Table { get; set; } = new(0);
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(EntryCount))]
+    public DirectPointer<FxImpactEntry[]> Table { get; set; } = new(0);
+
+    public const int EntryCount = 15;
 }
 
 public sealed class FxImpactEntry
 {
-    public ZonePointer<FxEffectDef>[] NonFlesh { get; set; } = new ZonePointer<FxEffectDef>[31];
-    public ZonePointer<FxEffectDef>[] Flesh { get; set; } = new ZonePointer<FxEffectDef>[4];
+    public AliasPointer<FxEffectDef>[] NonFlesh { get; set; } = new AliasPointer<FxEffectDef>[31];
+    public AliasPointer<FxEffectDef>[] Flesh { get; set; } = new AliasPointer<FxEffectDef>[4];
 }
 
 public sealed class AiTypeAsset() : EbootAssetRoot(XAssetType.AiType)

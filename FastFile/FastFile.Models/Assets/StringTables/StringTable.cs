@@ -5,13 +5,15 @@ namespace FastFile.Models.Assets.StringTables;
 
 public class StringTable() : BaseAsset(XAssetType.StringTable)
 {
-    public ZonePointer<string> NamePtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
 
     public int ColumnCount { get; set; }
     public int RowCount { get; set; }
 
-    public ZonePointer<StringTableCell[]> StringsPtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<StringTableCell[]> StringsPtr { get; set; }
     public StringTableCell[] Strings => StringsPtr is { IsResolved: true, Result: not null }
         ? StringsPtr.Result
         : [];

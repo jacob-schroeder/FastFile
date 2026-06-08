@@ -12,12 +12,4 @@ internal static class Memory
         return new ZonePointer<T>(raw);
     }
 
-    public static void ResolvePointer(Pointer ptr, int position)
-    {
-        if (ptr.Kind == PointerKind.Null)
-            return;
-
-        if (ptr.IsInlineData)
-            ptr.SetOffset(position);
-    }
 }

@@ -39,7 +39,7 @@ public partial class RawfileAssetView : UserControl
         _asset.CompressedLen = compressed.Length;
 
         if (_asset.BufferPtr is null)
-            _asset.BufferPtr = new ZonePointer<byte[]>(-1);
+            _asset.BufferPtr = new DirectPointer<byte[]>(-1);
 
         _asset.BufferPtr.SetResult(compressed);
     }

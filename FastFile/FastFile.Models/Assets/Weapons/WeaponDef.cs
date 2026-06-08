@@ -4,6 +4,7 @@ using FastFile.Models.Assets.Tracers;
 using FastFile.Models.Assets.XModels;
 using FastFile.Models.Data;
 using FastFile.Models.Utils;
+using FastFile.Models.Zone;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
 namespace FastFile.Models.Assets.Weapons;
@@ -11,70 +12,95 @@ namespace FastFile.Models.Assets.Weapons;
 public sealed class WeaponDef
 {
     public int Offset { get; set; }
-    public ZonePointer<string> InternalNamePtr { get; set; } = null!;
 
-    public ZonePointer<ZonePointer<XModel>[]> gunXModel { get; set; } = null!; // Count = 16
-    public ZonePointer<XModel> handXModel { get; set; } = null!;
-    public ZonePointer<ZonePointer<string>[]> szXAnimsR { get; set; } = null!; // Count = 37
-    public ZonePointer<ZonePointer<string>[]> szXAnimsL { get; set; } = null!; // Count = 37
-    public ZonePointer<string> ModeNamePtr { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> InternalNamePtr { get; set; } = null!;
 
-    public ZonePointer<ushort[]>[] NoteTrackMaps { get; set; } = new ZonePointer<ushort[]>[4];
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(GunModelCount))]
+    public DirectPointer<ZonePointer<XModel>[]> gunXModel { get; set; } = null!; // Count = 16
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<XModel> handXModel { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(WeaponAnimCount))]
+    public DirectPointer<ZonePointer<string>[]> szXAnimsR { get; set; } = null!; // Count = 37
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(WeaponAnimCount))]
+    public DirectPointer<ZonePointer<string>[]> szXAnimsL { get; set; } = null!; // Count = 37
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> ModeNamePtr { get; set; } = null!;
+
+    public DirectPointer<ushort[]>[] NoteTrackMaps { get; set; } = new DirectPointer<ushort[]>[4];
     public int[] PlayerAnimTypeThroughStance { get; set; } = new int[8];
-    public ZonePointer<FxEffectDef>[] FlashEffects { get; set; } = new ZonePointer<FxEffectDef>[2];
-    public ZonePointer<string>[] SoundAliases { get; set; } = new ZonePointer<string>[47];
-    public ZonePointer<ZonePointer<string>[]> BounceSound { get; set; } = null!;
-    public ZonePointer<FxEffectDef>[] EffectPointersA { get; set; } = new ZonePointer<FxEffectDef>[4];
-    public ZonePointer<MaterialAsset>[] MaterialPointersA { get; set; } = new ZonePointer<MaterialAsset>[2];
+    public AliasPointer<FxEffectDef>[] FlashEffects { get; set; } = new AliasPointer<FxEffectDef>[2];
+    public DirectPointer<string>[] SoundAliases { get; set; } = new DirectPointer<string>[WeaponSoundAliasCount];
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(SurfaceCount))]
+    public DirectPointer<ZonePointer<string>[]> BounceSound { get; set; } = null!;
+    public AliasPointer<FxEffectDef>[] EffectPointersA { get; set; } = new AliasPointer<FxEffectDef>[4];
+    public AliasPointer<MaterialAsset>[] MaterialPointersA { get; set; } = new AliasPointer<MaterialAsset>[2];
     public int[] ReticleFields { get; set; } = new int[4];
     public int[] ViewMovementRotationFields { get; set; } = new int[30];
     public int[] PositionalMovementRotationFields { get; set; } = new int[10];
 
-    public ZonePointer<ZonePointer<XModel>[]> WorldGunXModel { get; set; } = null!;
-    public ZonePointer<XModel>[] WorldModelPointers { get; set; } = new ZonePointer<XModel>[4];
-    public ZonePointer<MaterialAsset> AmmoCounterIcon { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(GunModelCount))]
+    public DirectPointer<ZonePointer<XModel>[]> WorldGunXModel { get; set; } = null!;
+    public AliasPointer<XModel>[] WorldModelPointers { get; set; } = new AliasPointer<XModel>[4];
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<MaterialAsset> AmmoCounterIcon { get; set; } = null!;
     public int AmmoCounterIconRatio { get; set; }
-    public ZonePointer<MaterialAsset> CompassIcon { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<MaterialAsset> CompassIcon { get; set; } = null!;
     public int CompassIconRatio { get; set; }
-    public ZonePointer<MaterialAsset> OverlayMaterial { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<MaterialAsset> OverlayMaterial { get; set; } = null!;
     public int[] OverlayFieldsA { get; set; } = new int[3];
-    public ZonePointer<string> OverlayReticle { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> OverlayReticle { get; set; } = null!;
     public int OverlayReticleField { get; set; }
-    public ZonePointer<string> OverlayInterface { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> OverlayInterface { get; set; } = null!;
     public int[] OverlayFieldsB { get; set; } = new int[3];
-    public ZonePointer<string> ModeNameAlt { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> ModeNameAlt { get; set; } = null!;
     public int[] ModeFields { get; set; } = new int[6];
     public int[] WeaponTimingFields { get; set; } = new int[40];
     public int[] AimMovementTuningFields { get; set; } = new int[10];
 
-    public ZonePointer<MaterialAsset>[] OverlayMaterials { get; set; } = new ZonePointer<MaterialAsset>[4];
+    public AliasPointer<MaterialAsset>[] OverlayMaterials { get; set; } = new AliasPointer<MaterialAsset>[4];
     public int[] OverlayDimensionFields { get; set; } = new int[6];
     public int[] BobSpreadIdleSwayAdsViewErrorFields { get; set; } = new int[38];
-    public ZonePointer<PhysCollmap> PhysCollmap { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<PhysCollmap> PhysCollmap { get; set; } = null!;
     public int[] PhysicsFieldsA { get; set; } = new int[2];
     public int[] PhysicsFieldsB { get; set; } = new int[5];
     public int[] PhysicsFieldsC { get; set; } = new int[7];
     public int[] PhysicsFieldsD { get; set; } = new int[7];
-    public ZonePointer<XModel> ProjectileModel { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<XModel> ProjectileModel { get; set; } = null!;
     public int ProjectileModelField { get; set; }
-    public ZonePointer<FxEffectDef>[] ProjectileEffects { get; set; } = new ZonePointer<FxEffectDef>[2];
-    public ZonePointer<string>[] ProjectileSoundAliases { get; set; } = new ZonePointer<string>[2];
+    public AliasPointer<FxEffectDef>[] ProjectileEffects { get; set; } = new AliasPointer<FxEffectDef>[2];
+    public DirectPointer<string>[] ProjectileSoundAliases { get; set; } = new DirectPointer<string>[2];
     public int[] ProjectileFieldsA { get; set; } = new int[3];
-    public ZonePointer<float[]> ParallelBounce { get; set; } = null!;
-    public ZonePointer<float[]> PerpendicularBounce { get; set; } = null!;
-    public ZonePointer<FxEffectDef>[] ImpactEffects { get; set; } = new ZonePointer<FxEffectDef>[2];
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(SurfaceCount))]
+    public DirectPointer<float[]> ParallelBounce { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(SurfaceCount))]
+    public DirectPointer<float[]> PerpendicularBounce { get; set; } = null!;
+    public AliasPointer<FxEffectDef>[] ImpactEffects { get; set; } = new AliasPointer<FxEffectDef>[2];
     public int[] ImpactFieldsA { get; set; } = new int[3];
     public int ImpactFieldB { get; set; }
     public int[] ImpactFieldsC { get; set; } = new int[2];
-    public ZonePointer<FxEffectDef> ViewShellEjectEffect { get; set; } = null!;
-    public ZonePointer<string> ShellEjectSound { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<FxEffectDef> ViewShellEjectEffect { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> ShellEjectSound { get; set; } = null!;
     public int[] ShellEjectFields { get; set; } = new int[3];
     public int[] AdsHipGunKickAiDistanceFields { get; set; } = new int[35];
 
-    public ZonePointer<string> AccuracyGraphName0 { get; set; } = null!;
-    public ZonePointer<string> AccuracyGraphName1 { get; set; } = null!;
-    public ZonePointer<Vec2[]> accuracyGraphKnots { get; set; } = null!;
-    public ZonePointer<Vec2[]> originalAccuracyGraphKnots { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> AccuracyGraphName0 { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> AccuracyGraphName1 { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(accuracyGraphKnotCount))]
+    public DirectPointer<Vec2[]> accuracyGraphKnots { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(originalAccuracyGraphKnotCount))]
+    public DirectPointer<Vec2[]> originalAccuracyGraphKnots { get; set; } = null!;
     public ushort accuracyGraphKnotCount { get; set; }
     public ushort originalAccuracyGraphKnotCount { get; set; }
     public int AccuracyGraphField { get; set; }
@@ -93,29 +119,42 @@ public sealed class WeaponDef
     public float MaxRange { get; set; }
     public float AnimHorizontalRotateInc { get; set; }
     public float PlayerPositionDist { get; set; }
-    public ZonePointer<string> UseHintString { get; set; } = null!;
-    public ZonePointer<string> DropHintString { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> UseHintString { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> DropHintString { get; set; } = null!;
     public int[] HintFieldsA { get; set; } = new int[2];
     public int[] HintFieldsB { get; set; } = new int[5];
-    public ZonePointer<string> ScriptName { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> ScriptName { get; set; } = null!;
     public int[] ScriptFieldsA { get; set; } = new int[2];
     public int[] ScriptFieldsB { get; set; } = new int[6];
     public int HitLocationField { get; set; }
-    public ZonePointer<float[]> LocationDamageMultipliers { get; set; } = null!;
-    public ZonePointer<string> FireRumble { get; set; } = null!;
-    public ZonePointer<string> MeleeImpactRumble { get; set; } = null!;
-    public ZonePointer<TracerDef> Tracer { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(HitLocationCount))]
+    public DirectPointer<float[]> LocationDamageMultipliers { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> FireRumble { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> MeleeImpactRumble { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<TracerDef> Tracer { get; set; } = null!;
 
     public int[] TracerFields { get; set; } = new int[6];
-    public ZonePointer<string> TurretOverheatSound { get; set; } = null!;
-    public ZonePointer<FxEffectDef> TurretOverheatEffect { get; set; } = null!;
-    public ZonePointer<string> TurretBarrelSpinRumble { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> TurretOverheatSound { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<FxEffectDef> TurretOverheatEffect { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> TurretBarrelSpinRumble { get; set; } = null!;
     public int[] TurretFields { get; set; } = new int[3];
-    public ZonePointer<string> TurretBarrelSpinMaxSnd { get; set; } = null!;
-    public ZonePointer<string>[] TurretBarrelSpinUpSnd { get; set; } = new ZonePointer<string>[4];
-    public ZonePointer<string>[] TurretBarrelSpinDownSnd { get; set; } = new ZonePointer<string>[4];
-    public ZonePointer<string> MissileConeSoundAlias { get; set; } = null!;
-    public ZonePointer<string> MissileConeSoundAliasAtBase { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> TurretBarrelSpinMaxSnd { get; set; } = null!;
+    public DirectPointer<string>[] TurretBarrelSpinUpSnd { get; set; } = new DirectPointer<string>[4];
+    public DirectPointer<string>[] TurretBarrelSpinDownSnd { get; set; } = new DirectPointer<string>[4];
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> MissileConeSoundAlias { get; set; } = null!;
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> MissileConeSoundAliasAtBase { get; set; } = null!;
     public float MissileConeSoundRadiusAtTop { get; set; }
     public float MissileConeSoundRadiusAtBase { get; set; }
     public float MissileConeSoundHeight { get; set; }
@@ -139,6 +178,12 @@ public sealed class WeaponDef
     public string InternalName => InternalNamePtr is { IsResolved: true }
         ? InternalNamePtr.Result ?? string.Empty
         : string.Empty;
+
+    public const int GunModelCount = 16;
+    public const int WeaponAnimCount = 37;
+    public const int SurfaceCount = 31;
+    public const int HitLocationCount = 20;
+    public const int WeaponSoundAliasCount = 47;
 }
 
 public sealed class WeaponBooleanFlags

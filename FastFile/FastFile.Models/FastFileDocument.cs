@@ -62,10 +62,10 @@ public sealed class FastFileDocument
 
     private static XAssetList CreateEmptyAssetList()
     {
-        var scriptStringsPtr = new ZonePointer<ZonePointer<string?>[]>(0);
+        var scriptStringsPtr = new DirectPointer<ZonePointer<string?>[]>(0);
         scriptStringsPtr.SetResult([]);
 
-        var assetsPtr = new ZonePointer<XAsset[]>(0);
+        var assetsPtr = new DirectPointer<XAsset[]>(0);
         assetsPtr.SetResult([]);
 
         return new XAssetList

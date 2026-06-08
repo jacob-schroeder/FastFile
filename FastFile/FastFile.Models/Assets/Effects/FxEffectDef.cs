@@ -8,7 +8,8 @@ namespace FastFile.Models.Assets.Effects;
 
 public class FxEffectDef() : BaseAsset(XAssetType.Fx)
 {
-    public ZonePointer<string> NamePtr { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public int Flags { get; set; }
     public int TotalSize { get; set; }
@@ -16,7 +17,8 @@ public class FxEffectDef() : BaseAsset(XAssetType.Fx)
     public int ElemDefCountLooping { get; set; }
     public int ElemDefCountOneShot { get; set; }
     public int ElemDefCountEmission { get; set; }
-    public ZonePointer<FxElemDef[]> ElemDefs { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxElemDef[]> ElemDefs { get; set; }
 
     public override string? GetDisplayName => Name;
 }
@@ -44,16 +46,23 @@ public sealed class FxElemDef
     public byte VisualCount { get; set; }
     public byte VelIntervalCount { get; set; }
     public byte VisStateIntervalCount { get; set; }
-    public ZonePointer<FxElemVelStateSample[]> VelSamples { get; set; }
-    public ZonePointer<FxElemVisStateSample[]> VisSamples { get; set; }
-    public ZonePointer<FxElemVisual[]> Visuals { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxElemVelStateSample[]> VelSamples { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxElemVisStateSample[]> VisSamples { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxElemVisual[]> Visuals { get; set; }
     public Bounds CollBounds { get; set; }
-    public ZonePointer<FxEffectDefRef> EffectOnImpact { get; set; }
-    public ZonePointer<FxEffectDefRef> EffectOnDeath { get; set; }
-    public ZonePointer<FxEffectDefRef> EffectEmitted { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxEffectDefRef> EffectOnImpact { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxEffectDefRef> EffectOnDeath { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxEffectDefRef> EffectEmitted { get; set; }
     public FxFloatRange EmitDist { get; set; }
     public FxFloatRange EmitDistVariance { get; set; }
-    public ZonePointer<FxElemExtendedDef> Extended { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxElemExtendedDef> Extended { get; set; }
     public byte SortOrder { get; set; }
     public byte LightingFrac { get; set; }
     public byte UseItemClip { get; set; }
@@ -134,18 +143,25 @@ public sealed class FxElemVisStateSample
 public sealed class FxEffectDefRef
 {
     public ZonePointer<FxEffectDef> Handle { get; set; }
-    public ZonePointer<string> Name { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> Name { get; set; }
 }
 
 public sealed class FxElemVisual
 {
-    public ZonePointer<MaterialAsset> Material { get; set; }
-    public ZonePointer<XModelAsset> Model { get; set; }
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<MaterialAsset> Material { get; set; }
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<XModelAsset> Model { get; set; }
     public FxEffectDefRef EffectDef { get; set; }
-    public ZonePointer<string> SoundName { get; set; }
-    public ZonePointer<FxUnknownVisual> Anonymous { get; set; }
-    public ZonePointer<MaterialAsset> DecalMaterial0 { get; set; }
-    public ZonePointer<MaterialAsset> DecalMaterial1 { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<string> SoundName { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
+    public DirectPointer<FxUnknownVisual> Anonymous { get; set; }
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<MaterialAsset> DecalMaterial0 { get; set; }
+    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
+    public AliasPointer<MaterialAsset> DecalMaterial1 { get; set; }
 }
 
 public sealed class FxUnknownVisual
@@ -169,9 +185,11 @@ public sealed class FxTrailDef
     public float InvSplitArcDist { get; set; }
     public float InvSplitTime { get; set; }
     public int VertCount { get; set; }
-    public ZonePointer<FxTrailVertex[]> Verts { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(VertCount))]
+    public DirectPointer<FxTrailVertex[]> Verts { get; set; }
     public int IndCount { get; set; }
-    public ZonePointer<ushort[]> Inds { get; set; }
+    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(IndCount))]
+    public DirectPointer<ushort[]> Inds { get; set; }
 }
 
 public sealed class FxSparkFountainDef
