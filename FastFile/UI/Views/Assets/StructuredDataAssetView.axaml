@@ -1,0 +1,277 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:UI.Models"
+             x:Class="UI.Views.Assets.StructuredDataAssetView">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.structuredDataTitle">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataMeta">
+            <Setter Property="Foreground" Value="#C7C9D1" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataSectionTitle">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataKey">
+            <Setter Property="Foreground" Value="#9DA1AA" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataValue">
+            <Setter Property="Foreground" Value="#E5E7EB" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataSecondary">
+            <Setter Property="Foreground" Value="#AEB2BB" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="Border.structuredDataPanel">
+            <Setter Property="Background" Value="#252629" />
+            <Setter Property="BorderBrush" Value="#3C3F44" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+
+        <Style Selector="Border.structuredDataHeader">
+            <Setter Property="Background" Value="#2B2D30" />
+            <Setter Property="BorderBrush" Value="#3C3F44" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+
+        <Style Selector="Border.structuredDataValueRow">
+            <Setter Property="BorderBrush" Value="#34373D" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
+
+        <Style Selector="Border.structuredDataDefCard">
+            <Setter Property="Background" Value="#24272D" />
+            <Setter Property="BorderBrush" Value="#3C3F44" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataDefTitle">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataDefLine">
+            <Setter Property="Foreground" Value="#D7DCE5" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.structuredDataDefSectionHeader">
+            <Setter Property="Foreground" Value="#C3C8D2" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,4,0,2" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*"
+          Background="#1E1F22">
+        <Border Padding="14,12"
+                Background="#252629"
+                BorderBrush="#3C3F44"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <StackPanel Spacing="3">
+                    <TextBlock x:Name="StructuredDataNameTextBlock"
+                               Classes="structuredDataTitle" />
+                    <TextBlock x:Name="StructuredDataSummaryTextBlock"
+                               Classes="structuredDataMeta" />
+                </StackPanel>
+
+                <TextBlock x:Name="StructuredDataDefCountTextBlock"
+                           Grid.Column="1"
+                           Classes="structuredDataMeta"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid Margin="14"
+                  RowDefinitions="Auto,Auto"
+                  RowSpacing="12">
+                <Border Classes="structuredDataPanel">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Classes="structuredDataHeader">
+                            <TextBlock Classes="structuredDataSectionTitle"
+                                       Text="Structured Data Set Summary" />
+                        </Border>
+
+                        <ItemsControl x:Name="StructuredDataSummaryItemsControl"
+                                      Grid.Row="1">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:KeyValueListItem">
+                                    <Border Classes="structuredDataValueRow">
+                                        <Grid ColumnDefinitions="Auto,*"
+                                              ColumnSpacing="12">
+                                            <TextBlock Classes="structuredDataKey"
+                                                       Text="{Binding Key}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Classes="structuredDataValue"
+                                                       Text="{Binding Value}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Classes="structuredDataPanel">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border Classes="structuredDataHeader">
+                            <TextBlock Classes="structuredDataSectionTitle"
+                                       Text="Definitions" />
+                        </Border>
+
+                        <Grid RowDefinitions="Auto,Auto"
+                              Grid.Row="1">
+                            <ItemsControl x:Name="StructuredDataDefsItemsControl">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:StructuredDataDefDisplayItem">
+                                        <Border Classes="structuredDataDefCard">
+                                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                                  RowSpacing="10">
+                                                <Grid ColumnDefinitions="*,Auto"
+                                                      ColumnSpacing="10">
+                                                    <TextBlock Classes="structuredDataDefTitle"
+                                                               Text="{Binding Name}" />
+                                                    <TextBlock Classes="structuredDataMeta"
+                                                               Text="{Binding VersionAndChecksum}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="120,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="structuredDataKey"
+                                                               Text="Root Type" />
+                                                    <TextBlock Classes="structuredDataValue"
+                                                               Text="{Binding RootType}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="120,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="structuredDataKey"
+                                                               Text="Root Size" />
+                                                    <TextBlock Classes="structuredDataValue"
+                                                               Text="{Binding Size}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="120,*,120,*,120,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="structuredDataSecondary"
+                                                               Text="Enums" />
+                                                    <TextBlock Classes="structuredDataDefLine"
+                                                               Text="{Binding EnumCountText}" />
+                                                    <TextBlock Classes="structuredDataSecondary"
+                                                               Text="Structs" />
+                                                    <TextBlock Classes="structuredDataDefLine"
+                                                               Text="{Binding StructCountText}" />
+                                                    <TextBlock Classes="structuredDataSecondary"
+                                                               Text="Indexed Arrays" />
+                                                    <TextBlock Classes="structuredDataDefLine"
+                                                               Text="{Binding IndexedArrayCountText}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="120,*,120,*"
+                                                      ColumnSpacing="12">
+                                                    <TextBlock Classes="structuredDataSecondary"
+                                                               Text="Enumed Arrays" />
+                                                    <TextBlock Classes="structuredDataDefLine"
+                                                               Text="{Binding EnumedArrayCountText}" />
+                                                </Grid>
+
+                                                <StackPanel Spacing="8">
+                                                    <TextBlock Classes="structuredDataDefSectionHeader"
+                                                               Text="{Binding EnumSectionTitle}" />
+                                                    <ItemsControl ItemsSource="{Binding EnumLines}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Classes="structuredDataDefLine"
+                                                                           Text="{Binding}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Classes="structuredDataDefSectionHeader"
+                                                               Text="{Binding StructSectionTitle}" />
+                                                    <ItemsControl ItemsSource="{Binding StructLines}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Classes="structuredDataDefLine"
+                                                                           Text="{Binding}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Classes="structuredDataDefSectionHeader"
+                                                               Text="{Binding IndexedArraySectionTitle}" />
+                                                    <ItemsControl ItemsSource="{Binding IndexedArrayLines}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Classes="structuredDataDefLine"
+                                                                           Text="{Binding}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Classes="structuredDataDefSectionHeader"
+                                                               Text="{Binding EnumedArraySectionTitle}" />
+                                                    <ItemsControl ItemsSource="{Binding EnumedArrayLines}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Classes="structuredDataDefLine"
+                                                                           Text="{Binding}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock x:Name="StructuredDataDefsEmptyTextBlock"
+                                       Classes="structuredDataSecondary"
+                                       Grid.Row="1"
+                                       HorizontalAlignment="Center"
+                                       Text="No definitions are available."
+                                       Margin="0,14"
+                                       IsVisible="False" />
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

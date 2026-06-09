@@ -156,10 +156,10 @@ public class Pointer
             return;
         }
 
-        var encoded = unchecked(raw - 1);
+        var decoded = unchecked(raw - 1);
         Kind = PointerKind.Offset;
-        StreamBlockIndex = (encoded >> 28) & StreamBlockMask;
-        Offset = encoded & StreamOffsetMask;
+        StreamBlockIndex = (decoded >> 28) & StreamBlockMask;
+        Offset = decoded & StreamOffsetMask;
     }
 
     public static int EncodeOffset(int streamBlockIndex, int offset)

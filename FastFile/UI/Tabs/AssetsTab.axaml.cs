@@ -2,6 +2,8 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using FastFile.Models.Assets.Localize;
 using FastFile.Models.Assets.Material;
+using FastFile.Models.Assets.StructuredData;
+using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
 using FastFile.Models.Assets.RawFiles;
@@ -12,6 +14,8 @@ using System.Linq;
 using UI.Models;
 using UI.Views.Assets;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
+using StructuredDataDefSet = FastFile.Models.Assets.StructuredData.StructuredDataDefSet;
+using TechsetAsset = FastFile.Models.Assets.TechniqueSet.MaterialTechniqueSet;
 
 namespace UI.Tabs;
 
@@ -254,6 +258,9 @@ public partial class AssetsTab : UserControl
             XAssetType.StringTable when asset.Asset is StringTable stringTable => new StringTableAssetView(stringTable),
             XAssetType.Material when asset.Asset is MaterialAsset material => new MaterialAssetView(material),
             XAssetType.Image when asset.Asset is GfxImage image => new ImageAssetView(image),
+            XAssetType.StructuredDataDef when asset.Asset is StructuredDataDefSet structuredDataDefSet => new StructuredDataAssetView(structuredDataDefSet),
+            XAssetType.Weapon when asset.Asset is FastFile.Models.Assets.Weapons.WeaponVariantDef weapon => new WeaponAssetView(weapon),
+            XAssetType.Techset when asset.Asset is TechsetAsset techset => new TechsetAssetView(techset),
             XAssetType.Techset => new TechsetAssetView(),
             XAssetType.RawFile when asset.Asset is RawFile rawFile => new RawfileAssetView(rawFile),
             _ => new DefaultAssetView()

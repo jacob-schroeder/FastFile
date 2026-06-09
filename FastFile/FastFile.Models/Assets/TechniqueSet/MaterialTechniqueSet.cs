@@ -13,7 +13,6 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
     private const int MAX_TECHNIQUES = 48;
     #endif
     
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     
@@ -21,7 +20,6 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
     public bool HasBeenUploaded { get; set; }
     public byte[] Unused { get; set; } = new byte[2];
 
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<MaterialTechnique>[] Techniques { get; set; } = new DirectPointer<MaterialTechnique>[MAX_TECHNIQUES];
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
@@ -32,7 +30,6 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
 public class MaterialTechnique
 {
     public int Offset { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; } = new(0);
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public ushort Flags { get; set; }
@@ -43,11 +40,8 @@ public class MaterialTechnique
 public class MaterialPass
 {
     public int Offset { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<MaterialVertexDeclaration> VertexDecl { get; set; } = new(0);
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<MaterialVertexShader> VertexShader { get; set; } = new(0);
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<MaterialPixelShader> PixelShader { get; set; } = new(0);
     public byte PerPrimArgCount { get; set; }
     public byte PerObjArgCount { get; set; }
@@ -55,7 +49,6 @@ public class MaterialPass
     public byte CustomSamplerFlags { get; set; }
     public byte PrecompiledIndex { get; set; }
     public byte[] Padding { get; set; } = new byte[3];
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(ArgCount))]
     public DirectPointer<MaterialShaderArgument[]> Args { get; set; } = new(0);
     public int ArgCount => PerPrimArgCount + PerObjArgCount + StableArgCount;
 }
@@ -82,7 +75,6 @@ public enum MaterialShaderArgumentType : ushort
 public class MaterialArgumentDef
 {
     public int Raw { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<float[]> LiteralConst { get; set; } = new(0);
     public MaterialArgumentCodeConst CodeConst { get; set; } = new();
     public uint CodeSampler { get; set; }
@@ -104,7 +96,6 @@ public class MaterialVertexDeclaration
 
 public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
 {
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; } = new(0);
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public MaterialVertexShaderProgram Program { get; set; } = new();
@@ -116,7 +107,6 @@ public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
 
 public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
 {
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; } = new(0);
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public MaterialPixelShaderProgram Program { get; set; } = new();
@@ -129,7 +119,6 @@ public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
 public class MaterialVertexShaderProgram
 {
     public int Offset { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.TEMP)]
     public DirectPointer<byte[]> Data { get; set; } = new(0);
     public int DataSize { get; set; }
 }
@@ -137,7 +126,6 @@ public class MaterialVertexShaderProgram
 public class MaterialPixelShaderProgram
 {
     public int Offset { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.TEMP)]
     public DirectPointer<byte[]> Data { get; set; } = new(0);
     public int DataSize { get; set; }
     public byte[] RootSuffix { get; set; } = new byte[0x0C];

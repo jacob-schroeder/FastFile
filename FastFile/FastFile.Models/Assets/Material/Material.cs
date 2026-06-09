@@ -28,18 +28,12 @@ public class Material() : BaseAsset(XAssetType.Material)
     public byte MaterialPadding { get; set; }
     public ushort[] Ushorts { get; set; } = new ushort[TECHNIQUE_COUNT];
     public byte[] UshortPadding { get; set; } = new byte[2];
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<ushort[]> UshortArray { get; set; }
 #endif
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<MaterialTechniqueSet> TechniqueSet { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(TextureCount))]
     public DirectPointer<MaterialTextureDef[]> TextureTable { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(ConstantCount))]
     public DirectPointer<MaterialConstantDef[]> ConstantTable { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(StateBitsCount))]
     public DirectPointer<GfxStateBits[]> StateBitTable { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(UnknownXStringCount))]
     public DirectPointer<ZonePointer<string>[]> UnknownXStringArray { get; set; }
 
     public override string? GetDisplayName => Info?.Name ?? string.Empty;
@@ -57,7 +51,6 @@ public class GfxStateBits
 #if XBOX
     public int[] LoadBits { get; set; } = new int[2];
 #elif PS3
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.TEMP)]
     public DirectPointer<int[]> LoadBits { get; set; }
     public int Unknown { get; set; }
 #endif
@@ -71,11 +64,8 @@ public class WaterWritable
 public class Water
 {
     public WaterWritable Writable { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<float[]> H0X { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<float[]> H0Y { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<float[]> WTerm { get; set; }
     public int M { get; set; }
     public int N { get; set; }
@@ -86,7 +76,6 @@ public class Water
     public float[] Winddir { get; set; } = new float[2];
     public float Amplitude { get; set; }
     public float[] CodeConstant { get; set; } = new float[4];
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<GfxImage> Image { get; set; }
 }
 
@@ -138,7 +127,6 @@ public class GfxDrawSurf
 
 public class MaterialInfo
 {
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public byte GameFlags { get; set; }
@@ -157,7 +145,6 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
     public const int EBOOT_NAME_POINTER_OFFSET = 0x4C;
 
     public byte[] EbootRootPrefix { get; set; } = new byte[EBOOT_LOAD_DEF_POINTER_OFFSET];
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<GfxImageLoadDef> LoadDef { get; set; } = new(0);
     public byte[] EbootRootSuffix { get; set; } = new byte[EBOOT_NAME_POINTER_OFFSET - EBOOT_LOAD_DEF_POINTER_OFFSET - 4];
     public byte MapType { get; set; }
@@ -168,7 +155,6 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
     public byte NoPicmip { get; set; }
     public byte Track { get; set; }
     public int[] CardMemory { get; set; } = new int[2];
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; } = new(0);
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public ushort Width { get; set; }

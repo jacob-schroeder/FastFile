@@ -15,7 +15,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\FastFile.Models\FastFile.Models.csproj" />
+      <ProjectReference Include="../FastFile.Models/FastFile.Models.csproj" />
     </ItemGroup>
 
     <ItemGroup>

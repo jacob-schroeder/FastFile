@@ -7,7 +7,6 @@ public class StringTableCell
 {
     private string? _logicalStringOverride;
 
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> StringPtr { get; set; }
     public string PointerString => StringPtr is { IsResolved: true } ? StringPtr.Result ?? string.Empty : string.Empty;
     public string String => _logicalStringOverride ?? PointerString;

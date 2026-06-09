@@ -88,11 +88,14 @@ public partial class MainWindow : Window
 
     private async void OpenMenuItem_Click(object? sender, RoutedEventArgs e)
     {
-        await Dispatcher.UIThread.InvokeAsync(OpenFastFileAsync, DispatcherPriority.Background);
+        await OpenFastFileAsync();
     }
 
     private async Task OpenFastFileAsync()
     {
+        bool loadStarted = false;
+        var loadingStatusVersion = -1;
+
         try
         {
             if (StorageProvider is null)
@@ -114,9 +117,11 @@ public partial class MainWindow : Window
 
             ResetLog();
             AddLog("INFO", $"Opening {file.Name}");
+            UpdateLogView();
             var filePath = file.TryGetLocalPath();
             UpdateOpenFileStatus($"Opening {file.Name}", filePath ?? file.Name);
             BeginLoadingStatus("Reading file");
+            loadStarted = true;
 
             await using var fileStream = await file.OpenReadAsync();
             using var memoryStream = new MemoryStream();
@@ -125,57 +130,75 @@ public partial class MainWindow : Window
             var buffer = memoryStream.ToArray();
 
             BeginLoadingStatus("Loading zone");
-            await Task.Run(() => ParseFastFile(buffer, QueueAssetReadProgress));
+            AddLog("INFO", "Parsing header, zone, and assets");
+            UpdateLogView();
+            loadingStatusVersion = Volatile.Read(ref _loadingStatusVersion);
+            var parseResult = await Task.Run(() => ParseFastFile(buffer, QueueAssetReadProgress));
+
             _currentFileName = file.Name;
             _currentFilePath = filePath;
+            _buffer = parseResult.Buffer;
+            _fastFileHeader = parseResult.Header;
+            _zoneHeader = parseResult.ZoneHeader;
+            _assetList = parseResult.AssetList;
+            _document = FastFileDocument.FromParsed(
+                parseResult.Buffer,
+                parseResult.Header,
+                parseResult.ZoneHeader,
+                parseResult.AssetList,
+                parseResult.Zone);
+            AddWarnings("FastFileReader", parseResult.Warnings);
+
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
             UpdateAssetsTabView();
             UpdateDocumentState();
 
-            CompleteLoadingStatus();
             FastFileTabView.SetStatus($"Opened: {file.Name}\nAssets: {_assetList?.AssetCount ?? 0}");
             AddLog("INFO", "File load complete");
             UpdateLogView();
         }
         catch (Exception ex)
         {
-            ClearLoadingStatus();
             UpdateOpenFileStatus();
             FastFileTabView.SetStatus($"Unable to open file.\n{ex.Message}");
             AddLog("ERROR", ex.Message);
             UpdateLogView();
         }
+        finally
+        {
+            if (loadStarted && loadingStatusVersion == Volatile.Read(ref _loadingStatusVersion))
+                CompleteLoadingStatus();
+        }
     }
 
-    private void ParseFastFile(byte[] buffer, Action<int, int>? assetReadProgress)
+    private sealed record ParseResult(
+        byte[] Buffer,
+        DB_Header Header,
+        XFile ZoneHeader,
+        XAssetList AssetList,
+        byte[] Zone,
+        IReadOnlyList<string> Warnings);
+
+    private ParseResult ParseFastFile(byte[] buffer, Action<int, int>? assetReadProgress)
     {
         var ffReader = new FastFileReader(buffer, buffer.Length);
-        AddLog("INFO", "Parsing fastfile header");
         var fastFileHeader = ffReader.ParseHeader();
-        AddLog("INFO", "Fastfile header parsed");
 
-        AddLog("INFO", "Unpacking zone data");
         var zone = ffReader.UnpackZone();
-        
-        AddLog("INFO", "Zone unpacked");
-        AddWarnings("FastFileReader", ffReader.Warnings);
-        
-        var zoneReader = new XFileReader(zone);
-        AddLog("INFO", "Parsing XFile header");
-        var zoneHeader = zoneReader.ParseHeader();
-        AddLog("INFO", "XFile header parsed");
 
-        AddLog("INFO", "Parsing asset list");
+        var zoneReader = new XFileReader(zone, assetReadProgress);
+        var zoneHeader = zoneReader.ParseHeader();
+
         var assetList = zoneReader.Load_XAssetList();
 
-        AddLog("INFO", "Asset list parsed");
-
-        _buffer = buffer;
-        _fastFileHeader = fastFileHeader;
-        _zoneHeader = zoneHeader;
-        _assetList = assetList;
-        _document = FastFileDocument.FromParsed(buffer, fastFileHeader, zoneHeader, assetList, zone);
+        return new ParseResult(
+            buffer,
+            fastFileHeader,
+            zoneHeader,
+            assetList,
+            zone,
+            [..ffReader.Warnings]);
     }
 
     private void BeginLoadingStatus(string message)
@@ -201,7 +224,7 @@ public partial class MainWindow : Window
         var percent = GetAssetReadPercent(assetsRead, assetCount);
         lock (_loadProgressGate)
         {
-            if (percent != 100 && percent <= _lastQueuedAssetLoadPercent)
+            if (percent <= _lastQueuedAssetLoadPercent)
                 return;
 
             _lastQueuedAssetLoadPercent = percent;
@@ -223,7 +246,7 @@ public partial class MainWindow : Window
 
         var percent = GetAssetReadPercent(assetsRead, assetCount);
         var displayedPercent = Math.Max((int)Math.Round(LoadingProgressBar.Value), percent);
-        LoadingStatusTextBlock.Text = "Loading assets";
+        LoadingStatusTextBlock.Text = "Loading zone";
         LoadingProgressBar.IsIndeterminate = false;
         LoadingProgressBar.Value = displayedPercent;
         LoadingPercentTextBlock.Text = $"{displayedPercent}%";

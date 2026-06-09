@@ -8,7 +8,6 @@ namespace FastFile.Models.Assets.Effects;
 
 public class FxEffectDef() : BaseAsset(XAssetType.Fx)
 {
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public int Flags { get; set; }
@@ -17,7 +16,6 @@ public class FxEffectDef() : BaseAsset(XAssetType.Fx)
     public int ElemDefCountLooping { get; set; }
     public int ElemDefCountOneShot { get; set; }
     public int ElemDefCountEmission { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxElemDef[]> ElemDefs { get; set; }
 
     public override string? GetDisplayName => Name;
@@ -46,22 +44,15 @@ public sealed class FxElemDef
     public byte VisualCount { get; set; }
     public byte VelIntervalCount { get; set; }
     public byte VisStateIntervalCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxElemVelStateSample[]> VelSamples { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxElemVisStateSample[]> VisSamples { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxElemVisual[]> Visuals { get; set; }
     public Bounds CollBounds { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxEffectDefRef> EffectOnImpact { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxEffectDefRef> EffectOnDeath { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxEffectDefRef> EffectEmitted { get; set; }
     public FxFloatRange EmitDist { get; set; }
     public FxFloatRange EmitDistVariance { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxElemExtendedDef> Extended { get; set; }
     public byte SortOrder { get; set; }
     public byte LightingFrac { get; set; }
@@ -143,24 +134,17 @@ public sealed class FxElemVisStateSample
 public sealed class FxEffectDefRef
 {
     public ZonePointer<FxEffectDef> Handle { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> Name { get; set; }
 }
 
 public sealed class FxElemVisual
 {
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<MaterialAsset> Material { get; set; }
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<XModelAsset> Model { get; set; }
     public FxEffectDefRef EffectDef { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> SoundName { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<FxUnknownVisual> Anonymous { get; set; }
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<MaterialAsset> DecalMaterial0 { get; set; }
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<MaterialAsset> DecalMaterial1 { get; set; }
 }
 
@@ -185,10 +169,8 @@ public sealed class FxTrailDef
     public float InvSplitArcDist { get; set; }
     public float InvSplitTime { get; set; }
     public int VertCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(VertCount))]
     public DirectPointer<FxTrailVertex[]> Verts { get; set; }
     public int IndCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(IndCount))]
     public DirectPointer<ushort[]> Inds { get; set; }
 }
 

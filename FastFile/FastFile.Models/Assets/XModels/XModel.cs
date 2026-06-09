@@ -8,7 +8,6 @@ namespace FastFile.Models.Assets.XModels;
 
 public class XModel() : BaseAsset(XAssetType.XModel)
 {
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<string> NamePtr { get; set; }
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
     public byte NumBones { get; set; }
@@ -17,34 +16,24 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     public byte LodRampType { get; set; }
     public float Scale { get; set; }
     public int[] NoScalePartBits { get; set; } = new int[6];
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumBones))]
     public DirectPointer<ushort[]> BoneNames { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<XModelParent[]> ParentList { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<XModelQuat[]> Quats { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE)]
     public DirectPointer<Vec3[]> Trans { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumBones))]
     public DirectPointer<XModelPartClassification[]> PartClassification { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumBones))]
     public DirectPointer<DObjAnimMat[]> BaseMat { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumSurfs))]
     public DirectPointer<ZonePointer<MaterialAsset>[]> MaterialHandles { get; set; }
     public XModelLodInfo[] LodInfo { get; set; } = new XModelLodInfo[4];
     public byte MaxLoadedLod { get; set; }
     public byte NumLods { get; set; }
     public byte CollLod { get; set; }
     public byte Flags { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumCollSurfs))]
     public DirectPointer<XModelCollSurf[]> CollSurfs { get; set; }
     public int NumCollSurfs { get; set; }
     public int Contents { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumBones))]
     public DirectPointer<XBoneInfo[]> BoneInfo { get; set; }
     public float Radius { get; set; }
     public Bounds Bounds { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumSurfs))]
     public DirectPointer<ushort[]> InvHighMipRadius { get; set; }
     public int MemUsage { get; set; }
     public AliasPointer<PhysPreset> PhysPreset { get; set; }
@@ -83,10 +72,8 @@ public sealed class XModelLodInfo
     public float Dist { get; set; }
     public ushort NumSurfs { get; set; }
     public ushort SurfIndex { get; set; }
-    [XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
     public AliasPointer<XModelSurfs> ModelSurfs { get; set; }
     public int[] PartBits { get; set; } = new int[6];
-    [XFilePointer(PointerResolutionKind.Direct, Block = XFILE_BLOCK.LARGE, CountMember = nameof(NumSurfs))]
     public DirectPointer<XSurface[]> Surfs { get; set; }
 }
 
@@ -99,17 +86,13 @@ public sealed class XSurface
     public byte Unknown03 { get; set; }
     public ushort VertCount { get; set; }
     public ushort TriCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<ushort[]> TriIndices { get; set; }
     public XSurfaceVertexInfo VertInfo { get; set; } = new();
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<byte[]> Verts0 { get; set; }
     public XSurfaceGpuBuffer Vb0 { get; set; } = new();
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<byte[]> Verts1 { get; set; }
     public XSurfaceGpuBuffer Vb1 { get; set; } = new();
     public int VertListCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(VertListCount))]
     public DirectPointer<XRigidVertList[]> VertList { get; set; }
     public XSurfaceGpuBuffer IndexBuffer { get; set; } = new();
     public int[] PartBits { get; set; } = new int[5];
@@ -118,7 +101,6 @@ public sealed class XSurface
 public sealed class XSurfaceVertexInfo
 {
     public short[] VertCount { get; set; } = new short[4];
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<ushort[]> VertsBlend { get; set; }
 }
 
@@ -134,7 +116,6 @@ public sealed class XRigidVertList
     public ushort VertCount { get; set; }
     public ushort TriOffset { get; set; }
     public ushort TriCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct)]
     public DirectPointer<XSurfaceCollisionTree> CollisionTree { get; set; }
 }
 
@@ -143,10 +124,8 @@ public sealed class XSurfaceCollisionTree
     public Vec3 Trans { get; set; }
     public Vec3 Scale { get; set; }
     public uint NodeCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(NodeCount))]
     public DirectPointer<XSurfaceCollisionNode[]> Nodes { get; set; }
     public uint LeafCount { get; set; }
-    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(LeafCount))]
     public DirectPointer<XSurfaceCollisionLeaf[]> Leafs { get; set; }
 }
 
@@ -166,7 +145,6 @@ public sealed class XSurfaceCollisionLeaf
 public sealed class XModelCollSurf
 {
     public byte[] RawBytes { get; set; } = [];
-    [XFilePointer(PointerResolutionKind.Direct, CountMember = nameof(NumCollTris))]
     public DirectPointer<XModelCollTri[]> CollTris { get; set; }
     public int NumCollTris { get; set; }
     public Bounds Bounds { get; set; }
