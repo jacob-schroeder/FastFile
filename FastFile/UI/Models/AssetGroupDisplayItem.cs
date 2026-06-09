@@ -10,7 +10,7 @@ public sealed class AssetGroupDisplayItem
 
     public DisplayItem[] Assets { get; set; } = [];
 
-    public bool IsExpanded { get; set; } = true;
+    public bool IsExpanded { get; set; } = false;
 
     public bool IsCollapsed => !IsExpanded;
 }
