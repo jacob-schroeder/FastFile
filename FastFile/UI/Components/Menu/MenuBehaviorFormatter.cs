@@ -485,7 +485,7 @@ internal static class MenuBehaviorFormatter
         };
     }
 
-    private static string FormatExpressionString(XPointer<string>? pointer)
+    private static string FormatExpressionString(XPointer<string?>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {

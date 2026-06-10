@@ -1,8 +1,10 @@
 using FastFile.Models.Zone;
 using FastFile.Models.Data;
+using FastFile.Models.Zone.Attributes;
 
 namespace FastFile.Models.Assets.TechniqueSet;
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x9C)]
 public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
 {
     #if PS3
@@ -13,13 +15,18 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
     private const int MAX_TECHNIQUES = 48;
     #endif
     
-    public XPointer<string> NamePtr { get; set; } // Direct
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
+    public XPointer<string?> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
-    
-    public MaterialWorldVertexFormat WorldVertexFormat { get; set; }
-    public bool HasBeenUploaded { get; set; }
-    public byte[] Unused { get; set; } = new byte[2];
 
+    [XField(Offset = 0x04, Count = 4)]
+    public byte[] HeaderBytes { get; set; } = new byte[4];
+    public MaterialWorldVertexFormat WorldVertexFormat => (MaterialWorldVertexFormat)HeaderBytes[0];
+    public bool HasBeenUploaded => HeaderBytes[1] != 0;
+
+    [XField(Offset = 0x08)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
     public XPointer<MaterialTechnique>[] Techniques { get; set; } = 
         new XPointer<MaterialTechnique>[MAX_TECHNIQUES]; // Direct
 
@@ -28,28 +35,64 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
         : Name;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 public class MaterialTechnique
 {
     public int Offset { get; set; }
+
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public ushort Flags { get; set; }
+
+    [XField(Offset = 0x06)]
     public ushort PassCount { get; set; }
     public MaterialPass[] Passes { get; set; } = [];
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x18)]
 public class MaterialPass
 {
     public int Offset { get; set; }
+
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
     public XPointer<MaterialVertexDeclaration> VertexDecl { get; set; } // Direct
+
+    [XField(Offset = 0x04)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
     public XPointer<MaterialVertexShader> VertexShader { get; set; } // Alias
+
+    [XField(Offset = 0x08)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
     public XPointer<MaterialPixelShader> PixelShader { get; set; } // Alias
+
+    [XField(Offset = 0x0C)]
     public byte PerPrimArgCount { get; set; }
+
+    [XField(Offset = 0x0D)]
     public byte PerObjArgCount { get; set; }
+
+    [XField(Offset = 0x0E)]
     public byte StableArgCount { get; set; }
+
+    [XField(Offset = 0x0F)]
     public byte CustomSamplerFlags { get; set; }
+
+    [XField(Offset = 0x10)]
     public byte PrecompiledIndex { get; set; }
+
+    [XField(Offset = 0x11)]
     public byte[] Padding { get; set; } = new byte[3];
+
+    [XField(Offset = 0x14)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(ArgCount))]
     public XPointer<MaterialShaderArgument[]> Args { get; set; } // Direct
     public int ArgCount => PerPrimArgCount + PerObjArgCount + StableArgCount;
 }
@@ -95,10 +138,15 @@ public class MaterialVertexDeclaration
     public byte[] Raw { get; set; } = new byte[0x1C];
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public MaterialVertexShaderProgram Program { get; set; } = new();
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
@@ -106,10 +154,15 @@ public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
         : Name;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x18)]
 public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public MaterialPixelShaderProgram Program { get; set; } = new();
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
@@ -117,17 +170,37 @@ public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
         : Name;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 public class MaterialVertexShaderProgram
 {
     public int Offset { get; set; }
+
+    [XField(Offset = 0x00)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ByteArray,
+        CountMember = nameof(DataSize))]
     public XPointer<byte[]> Data { get; set; } // Direct
+
+    [XField(Offset = 0x04)]
     public int DataSize { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x14)]
 public class MaterialPixelShaderProgram
 {
     public int Offset { get; set; }
+
+    [XField(Offset = 0x00)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ByteArray,
+        CountMember = nameof(DataSize))]
     public XPointer<byte[]> Data { get; set; } // Direct
+
+    [XField(Offset = 0x04)]
     public int DataSize { get; set; }
+
+    [XField(Offset = 0x08)]
     public byte[] RootSuffix { get; set; } = new byte[0x0C];
 }

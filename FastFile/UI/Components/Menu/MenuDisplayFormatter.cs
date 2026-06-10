@@ -28,7 +28,7 @@ internal static class MenuDisplayFormatter
         };
     }
 
-    public static string FormatStringPointer(XPointer<string>? pointer, string? value, string emptyValue = "")
+    public static string FormatStringPointer<T>(XPointer<T>? pointer, string? value, string emptyValue = "")
     {
         if (pointer is { Kind: PointerKind.Null })
         {

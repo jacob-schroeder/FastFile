@@ -1,22 +1,46 @@
 using FastFile.Models.Data;
 using FastFile.Models.Utils;
 using FastFile.Models.Zone;
+using FastFile.Models.Zone.Attributes;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
 using XModelAsset = FastFile.Models.Assets.XModels.XModel;
 
 namespace FastFile.Models.Assets.Effects;
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x20)]
 public class FxEffectDef() : BaseAsset(XAssetType.Fx)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> NamePtr { get; set; } // Direct Pointer
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public int Flags { get; set; }
+
+    [XField(Offset = 0x08)]
     public int TotalSize { get; set; }
+
+    [XField(Offset = 0x0C)]
     public int MsecLoopingLife { get; set; }
+
+    [XField(Offset = 0x10)]
     public int ElemDefCountLooping { get; set; }
+
+    [XField(Offset = 0x14)]
     public int ElemDefCountOneShot { get; set; }
+
+    [XField(Offset = 0x18)]
     public int ElemDefCountEmission { get; set; }
+
+    [XField(Offset = 0x1C)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(ElemDefCount))]
     public XPointer<FxElemDef[]> ElemDefs { get; set; } // Direct Pointer
+
+    public int ElemDefCount => ElemDefCountLooping + ElemDefCountOneShot + ElemDefCountEmission;
 
     public override string? GetDisplayName => Name;
 }

@@ -1,5 +1,6 @@
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
+using FastFile.Models.Zone.Attributes;
 
 namespace FastFile.Models.Assets.SoundAliasList;
 
@@ -64,14 +65,35 @@ public class StreamedSound
     public uint TotalMsec { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x1C)]
 public class LoadedSound() : BaseAsset(XAssetType.LoadedSound)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public int PhysicalDataByteCount { get; set; }
+
+    [XField(Offset = 0x08)]
     public byte[] SoundInfoBytes { get; set; } = new byte[10];
+
+    [XField(Offset = 0x12)]
     public ushort SeekTableCount { get; set; }
+
+    [XField(Offset = 0x14)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ByteArray,
+        CountMember = nameof(SeekTableCount))]
     public XPointer<byte[]> SeekTablePtr { get; set; } // Direct
+
+    [XField(Offset = 0x18)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ByteArray,
+        CountMember = nameof(PhysicalDataByteCount))]
     public XPointer<byte[]> PhysicalDataPtr { get; set; } // Direct
 
     public override string? GetDisplayName => Name;
@@ -102,12 +124,21 @@ public class SoundFile
     public SoundFile[] TableRecords { get; set; } = [];
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x88)]
 public class SndCurve() : BaseAsset(XAssetType.SndCurve)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> FilenamePtr { get; set; } // Direct
     public string Filename => FilenamePtr is { IsResolved: true } ? FilenamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public ushort KnotCount { get; set; }
+
+    [XField(Offset = 0x06)]
     public byte[] AlignmentPadding { get; set; } = new byte[2];
+
+    [XField(Offset = 0x08)]
     public byte[] KnotBytes { get; set; } = new byte[16 * 2 * 4];
 
     public override string? GetDisplayName => Filename;
@@ -143,12 +174,21 @@ public class SndAlias
     public XPointer<SpeakerMap> SpeakerMap { get; set; } // Direct
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 public class SndAliasList() : BaseAsset(XAssetType.Sound)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> AliasNamePtr { get; set; } // Direct
     public string AliasName => AliasNamePtr is { IsResolved: true } ? AliasNamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
     public XPointer<SndAlias> Head { get; set; } // Direct
+
     public XPointer<SndAlias[]> AliasesPtr { get; set; } // Direct
+
+    [XField(Offset = 0x08)]
     public int Count { get; set; }
 
     public override string? GetDisplayName => AliasName;

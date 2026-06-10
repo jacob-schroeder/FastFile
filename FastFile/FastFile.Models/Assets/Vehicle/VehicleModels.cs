@@ -2,7 +2,7 @@ using FastFile.Models.Assets.Physics;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
 
-namespace FastFile.Models.Assets.Eboot;
+namespace FastFile.Models.Assets.Vehicle;
 
 public enum VehicleAxleType : int
 {

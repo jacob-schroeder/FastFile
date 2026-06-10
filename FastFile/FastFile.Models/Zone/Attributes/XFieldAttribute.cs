@@ -4,4 +4,5 @@ namespace FastFile.Models.Zone.Attributes;
 public sealed class XFieldAttribute : Attribute
 {
     public required int Offset { get; init; }
+    public int Count { get; init; }
 }

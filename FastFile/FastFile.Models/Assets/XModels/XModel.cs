@@ -2,42 +2,150 @@ using FastFile.Models.Data;
 using FastFile.Models.Assets.Physics;
 using FastFile.Models.Utils;
 using FastFile.Models.Zone;
+using FastFile.Models.Zone.Attributes;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
 namespace FastFile.Models.Assets.XModels;
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x120)]
 public class XModel() : BaseAsset(XAssetType.XModel)
 {
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+
+    [XField(Offset = 0x04)]
     public byte NumBones { get; set; }
+
+    [XField(Offset = 0x05)]
     public byte NumRootBones { get; set; }
+
+    [XField(Offset = 0x06)]
     public byte NumSurfs { get; set; }
+
+    [XField(Offset = 0x07)]
     public byte LodRampType { get; set; }
+
+    [XField(Offset = 0x08)]
     public float Scale { get; set; }
+
+    [XField(Offset = 0x0C)]
     public int[] NoScalePartBits { get; set; } = new int[6];
+
+    [XField(Offset = 0x24)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(BoneNameCount))]
     public XPointer<ushort[]> BoneNames { get; set; } // Direct
+
+    [XField(Offset = 0x28)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(ParentCount))]
     public XPointer<XModelParent[]> ParentList { get; set; } // Direct
+
+    [XField(Offset = 0x2C)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(PartCount))]
     public XPointer<XModelQuat[]> Quats { get; set; } // Direct
+
+    [XField(Offset = 0x30)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(PartCount))]
     public XPointer<Vec3[]> Trans { get; set; } // Direct
+
+    [XField(Offset = 0x34)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(BoneNameCount))]
     public XPointer<XModelPartClassification[]> PartClassification { get; set; } // Direct
+
+    [XField(Offset = 0x38)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(BoneNameCount))]
     public XPointer<DObjAnimMat[]> BaseMat { get; set; } // Direct
+
+    [XField(Offset = 0x3C)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.PointerArray,
+        ElementResolutionKind = PointerResolutionKind.Alias,
+        CountMember = nameof(MaterialHandleCount))]
     public XPointer<XPointer<MaterialAsset>[]> MaterialHandles { get; set; } // Direct -> ?
+
+    [XField(Offset = 0x40)]
     public XModelLodInfo[] LodInfo { get; set; } = new XModelLodInfo[4];
+
+    [XField(Offset = 0xE0)]
     public byte MaxLoadedLod { get; set; }
+
+    [XField(Offset = 0xE1)]
     public byte NumLods { get; set; }
+
+    [XField(Offset = 0xE2)]
     public byte CollLod { get; set; }
+
+    [XField(Offset = 0xE3)]
     public byte Flags { get; set; }
+
+    [XField(Offset = 0xE4)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(NumCollSurfs))]
     public XPointer<XModelCollSurf[]> CollSurfs { get; set; } // Direct
+
+    [XField(Offset = 0xE8)]
     public int NumCollSurfs { get; set; }
+
+    [XField(Offset = 0xEC)]
     public int Contents { get; set; }
+
+    [XField(Offset = 0xF0)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(BoneNameCount))]
     public XPointer<XBoneInfo[]> BoneInfo { get; set; } // Direct
+
+    [XField(Offset = 0xF4)]
     public float Radius { get; set; }
+
+    [XField(Offset = 0xF8)]
     public Bounds Bounds { get; set; }
+
+    [XField(Offset = 0x110)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(MaterialHandleCount))]
     public XPointer<ushort[]> InvHighMipRadius { get; set; } // Direct
+
+    [XField(Offset = 0x114)]
     public int MemUsage { get; set; }
+
+    [XField(Offset = 0x118)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
     public XPointer<PhysPreset> PhysPreset { get; set; } // Alias
+
+    [XField(Offset = 0x11C)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
     public XPointer<PhysCollmap> PhysCollmap { get; set; } // Alias
+
+    public int BoneNameCount => NumBones;
+    public int ParentCount => Math.Max(0, NumBones - NumRootBones);
+    public int PartCount => Math.Max(0, NumBones - NumRootBones);
+    public int MaterialHandleCount => NumSurfs;
 
     public override string? GetDisplayName => Name;
 }
@@ -67,78 +175,194 @@ public sealed class DObjAnimMat
     public float TransWeight { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x28)]
 public sealed class XModelLodInfo
 {
+    [XField(Offset = 0x00)]
     public float Dist { get; set; }
+
+    [XField(Offset = 0x04)]
     public ushort NumSurfs { get; set; }
+
+    [XField(Offset = 0x06)]
     public ushort SurfIndex { get; set; }
+
+    [XField(Offset = 0x08)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
     public XPointer<XModelSurfs> ModelSurfs { get; set; } // Alias
+
+    [XField(Offset = 0x0C)]
     public int[] PartBits { get; set; } = new int[6];
+
+    [XField(Offset = 0x24)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(NumSurfs))]
     public XPointer<XSurface[]> Surfs { get; set; } // Direct
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x54)]
 public sealed class XSurface
 {
     public int Offset { get; set; }
+
+    [XField(Offset = 0x00)]
     public byte TileMode { get; set; }
+
+    [XField(Offset = 0x01)]
     public byte Deformed { get; set; }
+
+    [XField(Offset = 0x02)]
     public byte StreamFlags { get; set; }
+
+    [XField(Offset = 0x03)]
     public byte Unknown03 { get; set; }
+
+    [XField(Offset = 0x04)]
     public ushort VertCount { get; set; }
+
+    [XField(Offset = 0x06)]
     public ushort TriCount { get; set; }
-    public XPointer<ushort[]> TriIndices { get; set; } // Direct
+
+    [XField(Offset = 0x08)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.None)]
+    public XPointer<ushort[]> TriIndices { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x0C)]
     public XSurfaceVertexInfo VertInfo { get; set; } = new();
-    public XPointer<byte[]> Verts0 { get; set; } // Direct
+
+    [XField(Offset = 0x18)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.None)]
+    public XPointer<byte[]> Verts0 { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x1C)]
     public XSurfaceGpuBuffer Vb0 { get; set; } = new();
-    public XPointer<byte[]> Verts1 { get; set; } // Direct
+
+    [XField(Offset = 0x24)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.None)]
+    public XPointer<byte[]> Verts1 { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x28)]
     public XSurfaceGpuBuffer Vb1 { get; set; } = new();
+
+    [XField(Offset = 0x30)]
     public int VertListCount { get; set; }
-    public XPointer<XRigidVertList[]> VertList { get; set; } // Direct
+
+    [XField(Offset = 0x34)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.None)]
+    public XPointer<XRigidVertList[]> VertList { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x38)]
     public XSurfaceGpuBuffer IndexBuffer { get; set; } = new();
+
+    [XField(Offset = 0x40)]
     public int[] PartBits { get; set; } = new int[5];
+
+    public int TriIndexCount => TriCount * 3;
+    public int VertexByteCount => VertCount * 0x10;
+    public bool TriIndicesInCurrentBlock => (StreamFlags & 0x04) != 0;
+    public bool Verts0InCurrentBlock => (StreamFlags & 0x01) != 0;
+    public bool Verts1InCurrentBlock => (StreamFlags & 0x02) != 0;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 public sealed class XSurfaceVertexInfo
 {
-    public short[] VertCount { get; set; } = new short[4];
-    public XPointer<ushort[]> VertsBlend { get; set; } // Direct
+    [XField(Offset = 0x00)]
+    public ushort[] VertCount { get; set; } = new ushort[4];
+
+    [XField(Offset = 0x08)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.None)]
+    public XPointer<ushort[]> VertsBlend { get; set; } = null!; // Direct
+
+    public int BlendVertCount =>
+        VertCount[0] +
+        (VertCount[1] * 5) +
+        (VertCount[2] * 3) +
+        (VertCount[3] * 7);
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 public sealed class XSurfaceGpuBuffer
 {
+    [XField(Offset = 0x00)]
     public int Word0 { get; set; }
+
+    [XField(Offset = 0x04)]
     public int Word1 { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 public sealed class XRigidVertList
 {
+    [XField(Offset = 0x00)]
     public ushort BoneOffset { get; set; }
+
+    [XField(Offset = 0x02)]
     public ushort VertCount { get; set; }
+
+    [XField(Offset = 0x04)]
     public ushort TriOffset { get; set; }
+
+    [XField(Offset = 0x06)]
     public ushort TriCount { get; set; }
-    public XPointer<XSurfaceCollisionTree> CollisionTree { get; set; } // Direct
+
+    [XField(Offset = 0x08)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
+    public XPointer<XSurfaceCollisionTree> CollisionTree { get; set; } = null!; // Direct
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x28)]
 public sealed class XSurfaceCollisionTree
 {
+    [XField(Offset = 0x00)]
     public Vec3 Trans { get; set; }
+
+    [XField(Offset = 0x0C)]
     public Vec3 Scale { get; set; }
+
+    [XField(Offset = 0x18)]
     public uint NodeCount { get; set; }
-    public XPointer<XSurfaceCollisionNode[]> Nodes { get; set; } // Direct
+
+    [XField(Offset = 0x1C)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(NodeCount))]
+    public XPointer<XSurfaceCollisionNode[]> Nodes { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x20)]
     public uint LeafCount { get; set; }
-    public XPointer<XSurfaceCollisionLeaf[]> Leafs { get; set; } // Direct
+
+    [XField(Offset = 0x24)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(LeafCount))]
+    public XPointer<XSurfaceCollisionLeaf[]> Leafs { get; set; } = null!; // Direct
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
 public sealed class XSurfaceCollisionNode
 {
+    [XField(Offset = 0x00)]
     public ushort[] Mins { get; set; } = new ushort[3];
+
+    [XField(Offset = 0x06)]
     public ushort[] Maxs { get; set; } = new ushort[3];
+
+    [XField(Offset = 0x0C)]
     public ushort ChildBeginIndex { get; set; }
+
+    [XField(Offset = 0x0E)]
     public ushort ChildCount { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x02)]
 public sealed class XSurfaceCollisionLeaf
 {
+    [XField(Offset = 0x00)]
     public ushort TriangleBeginIndex { get; set; }
 }
 

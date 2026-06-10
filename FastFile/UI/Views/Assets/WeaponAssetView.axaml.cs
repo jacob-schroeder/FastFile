@@ -53,9 +53,9 @@ public partial class WeaponAssetView : UserControl
             new("ADS Out Time", FormatInt(weapon.iAdsTransOutTime)),
             new("ADS View Kick Center Speed", FormatFloat(weapon.fAdsViewKickCenterSpeed)),
             new("ADS Hip View Kick Center Speed", FormatFloat(weapon.fHipViewKickCenterSpeed)),
-            new("Motion Tracker", weapon.motionTracker ? "Yes" : "No"),
-            new("Enhanced", weapon.enhanced ? "Yes" : "No"),
-            new("Dpad Icon Shows Ammo", weapon.dpadIconShowsAmmo ? "Yes" : "No"),
+            new("Motion Tracker", FormatFlagByte(weapon.motionTracker)),
+            new("Enhanced", FormatFlagByte(weapon.enhanced)),
+            new("Dpad Icon Shows Ammo", FormatFlagByte(weapon.dpadIconShowsAmmo)),
             new("Alt Weapon Index", FormatUInt(weapon.altWeaponIndex)),
             new("Alt Raise Time", FormatInt(weapon.iAltRaiseTime)),
             new("First Raise Time", FormatInt(weapon.iFirstRaiseTime)),
@@ -108,5 +108,12 @@ public partial class WeaponAssetView : UserControl
     private static string FormatFloat(float value)
     {
         return value.ToString("N3", CultureInfo.CurrentCulture);
+    }
+
+    private static string FormatFlagByte(byte value)
+    {
+        return value == 0
+            ? "No (0x00)"
+            : $"Yes (0x{value:X2})";
     }
 }

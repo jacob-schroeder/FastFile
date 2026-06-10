@@ -1,17 +1,25 @@
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
+using FastFile.Models.Zone.Attributes;
 
 namespace FastFile.Models.Assets.StringTables;
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 public class StringTableCell
 {
     private string? _logicalStringOverride;
 
+    [XField(Offset = 0x00)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.CString,
+        PayloadBlock = XFILE_BLOCK.LARGE)]
     public XPointer<string> StringPtr { get; set; } // Direct
     public string PointerString => StringPtr is { IsResolved: true } ? StringPtr.Value ?? string.Empty : string.Empty;
     public string String => _logicalStringOverride ?? PointerString;
     public bool HasLogicalStringOverride => _logicalStringOverride is not null;
 
+    [XField(Offset = 0x04)]
     public int Hash { get; set; }
 
     public void SetLogicalStringOverride(string value)

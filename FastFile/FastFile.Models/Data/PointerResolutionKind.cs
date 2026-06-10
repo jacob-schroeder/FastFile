@@ -4,5 +4,6 @@ public enum PointerResolutionKind
 {
     Unknown,
     Direct,
-    Alias
+    Alias,
+    CurrentStream
 }

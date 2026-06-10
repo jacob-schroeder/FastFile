@@ -34,12 +34,21 @@ public partial class XFileReader
 
     private void PushStreamBlock(XFILE_BLOCK block)
     {
-        _blockStack.Push(_activeBlock);
+        _blockStack.Push(new StreamBlockFrame(
+            _activeBlock.BlockType,
+            block,
+            _streamBlocks[(int)block].Position));
+
         _activeBlock = _streamBlocks[(int)block];
     }
 
     private void PopStreamBlock()
     {
-        _activeBlock = _blockStack.Pop();
+        var frame = _blockStack.Pop();
+
+        if (_activeBlock.BlockType == XFILE_BLOCK.TEMP)
+            _activeBlock.Seek(frame.PushedPosition);
+
+        _activeBlock = _streamBlocks[(int)frame.PreviousBlock];
     }
 }

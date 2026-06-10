@@ -1,6 +1,5 @@
 namespace FastFile.Models.Zone;
 
-#if PS3
 public enum XAssetType
 {
     PhysPreset = 0x00,
@@ -49,9 +48,3 @@ public enum XAssetType
     Vehicle = 0x28,
     AddonMapEnts = 0x29
 }
-#else
-public enum XAssetType
-{
-    
-}
-#endif
