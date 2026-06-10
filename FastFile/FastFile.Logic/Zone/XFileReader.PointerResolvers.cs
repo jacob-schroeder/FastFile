@@ -246,7 +246,7 @@ public partial class XFileReader
 
         if (!TryMaterializePointer(
                 ptr,
-                () => new XBlockAddress(attr.PayloadBlock, _streamBlocks[(int)attr.PayloadBlock].Position)))
+                () => _blocks.GetAddress(attr.PayloadBlock)))
         {
             ptr.Value = [];
             return;
@@ -295,7 +295,7 @@ public partial class XFileReader
                     ? XFILE_BLOCK.TEMP
                     : attr.PayloadBlock;
 
-                return new XBlockAddress(block, _streamBlocks[(int)block].Position);
+                return _blocks.GetAddress(block);
             };
 
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
@@ -598,10 +598,7 @@ public partial class XFileReader
 
     private XBlockAddress AllocatePointerPayload(XFILE_BLOCK block, int alignment)
     {
-        var streamBlock = _streamBlocks[(int)block];
-        streamBlock.Align(alignment);
-
-        return streamBlock.Address;
+        return _blocks.AllocatePointerPayload(block, alignment);
     }
 
     private static int GetArrayPayloadAlignment(Type elementType)
@@ -655,8 +652,8 @@ public partial class XFileReader
     private void TraceWeaponResolve(Type type, PropertyInfo prop, object value, string phase)
     {
         Console.Error.WriteLine(
-            $"{type.Name}.{prop.Name} {phase}: src=0x{_position:X} temp=0x{_streamBlocks[(int)XFILE_BLOCK.TEMP].Position:X} " +
-            $"large=0x{_streamBlocks[(int)XFILE_BLOCK.LARGE].Position:X} ptr={DescribePointerValue(value)}");
+            $"{type.Name}.{prop.Name} {phase}: src=0x{_position:X} temp=0x{_blocks.GetPosition(XFILE_BLOCK.TEMP):X} " +
+            $"large=0x{_blocks.GetPosition(XFILE_BLOCK.LARGE):X} ptr={DescribePointerValue(value)}");
     }
 
     private void TraceMenuResolve(string message)
@@ -665,8 +662,8 @@ public partial class XFileReader
             return;
 
         Console.Error.WriteLine(
-            $"{message}: src=0x{_position:X} temp=0x{_streamBlocks[(int)XFILE_BLOCK.TEMP].Position:X} " +
-            $"large=0x{_streamBlocks[(int)XFILE_BLOCK.LARGE].Position:X}");
+            $"{message}: src=0x{_position:X} temp=0x{_blocks.GetPosition(XFILE_BLOCK.TEMP):X} " +
+            $"large=0x{_blocks.GetPosition(XFILE_BLOCK.LARGE):X}");
     }
 
     private static string DescribePointerValue(object value)

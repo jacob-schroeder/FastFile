@@ -51,9 +51,7 @@ public partial class XFileReader : IXAssetReaderContext
     private int _position;
 
     private XFile _header = null!;
-    private XBlock[] _streamBlocks = [];
-    private readonly Stack<StreamBlockFrame> _blockStack = new();
-    private XBlock _activeBlock = null!;
+    private XBlockStream _blocks = null!;
 
     private XAssetList? _assetList;
     private readonly Dictionary<XBlockAddress, string?> _stringsByAddress = new();
@@ -68,11 +66,6 @@ public partial class XFileReader : IXAssetReaderContext
     private readonly Action<int, int>? _assetReadProgress;
     private int _assetReadProgressTotal;
     private int _lastAssetReadProgressPercent = -1;
-
-    private readonly record struct StreamBlockFrame(
-        XFILE_BLOCK PreviousBlock,
-        XFILE_BLOCK PushedBlock,
-        int PushedPosition);
 
     public XFileReader(byte[] buffer, Action<int, int>? assetReadProgress = null)
     {
@@ -129,6 +122,61 @@ public partial class XFileReader : IXAssetReaderContext
     {
         WithStreamBlock(block, action);
     }
+
+    private void WithStreamBlock(XFILE_BLOCK block, Action action)
+    {
+        _blocks.WithBlock(block, action);
+    }
+
+    private T WithStreamBlock<T>(XFILE_BLOCK block, Func<T> func)
+    {
+        return _blocks.WithBlock(block, func);
+    }
+
+    private void SeekOrVerify(int expectedOffset)
+    {
+        _blocks.SeekOrVerify(expectedOffset);
+    }
+
+    private bool TryMaterializePointer<T>(
+        XPointer<T> ptr,
+        Func<XBlockAddress> inlineAddressFactory)
+    {
+        return _blocks.TryMaterializePointer(ptr, inlineAddressFactory);
+    }
+
+    private bool TryMaterializeCurrentStreamPointer<T>(
+        XPointer<T> ptr,
+        int alignment = 4)
+    {
+        return _blocks.TryMaterializeCurrentStreamPointer(ptr, alignment);
+    }
+
+    private XPointer<T> ReadDirectPointer<T>() =>
+        ReadPointer<T>(PointerResolutionKind.Direct);
+
+    private XPointer<T> ReadAliasPointer<T>() =>
+        ReadPointer<T>(PointerResolutionKind.Alias);
+
+    private XPointer<T> ReadPointer<T>(
+        PointerResolutionKind resolutionKind,
+        bool patchEmittedCell = true)
+    {
+        int raw = Span.ReadInt32(ref _position);
+
+        XBlockAddress? patchAddress = null;
+
+        int patchOffset = _blocks.ActivePosition;
+        _blocks.WriteInt32(raw);
+
+        if (patchEmittedCell)
+            patchAddress = new XBlockAddress(_blocks.ActiveBlockType, patchOffset);
+
+        var pointer = XPointerCodec.CreatePointer<T>(raw, resolutionKind, patchAddress);
+
+        ReportAssetReadProgress();
+        return pointer;
+    }
     
     public XFileReader DumpBlocks(string? directory = null)
     {
@@ -139,7 +187,7 @@ public partial class XFileReader : IXAssetReaderContext
         for (int i = 0; i < blockCount; i++)
         {
             string path = Path.Combine(directory, $"{(XFILE_BLOCK)i}.block");
-            var block = _streamBlocks[i].BlockSpan.ToArray();
+            var block = _blocks.GetBlockSpan((XFILE_BLOCK)i).ToArray();
             
             File.WriteAllBytes(path, block);
         }
@@ -172,8 +220,6 @@ public partial class XFileReader : IXAssetReaderContext
             BlockSize = new int[blockCount]
         };
 
-        _streamBlocks = new XBlock[blockCount];
-
         for (int i = 0; i < blockCount; i++)
         {
             int blockSize = Span.ReadInt32(ref _position);
@@ -182,12 +228,10 @@ public partial class XFileReader : IXAssetReaderContext
                 throw new InvalidDataException($"Invalid negative block size {blockSize} for block {(XFILE_BLOCK)i}.");
 
             _header.BlockSize[i] = blockSize;
-            _streamBlocks[i] = new XBlock((XFILE_BLOCK)i, blockSize);
         }
 
         _assetReadProgressTotal = checked(_header.Size + XFileHeaderSize);
-
-        _activeBlock = _streamBlocks[tempBlock];
+        _blocks = new XBlockStream(_header.BlockSize, (XFILE_BLOCK)tempBlock);
     }
 
     private void Load_XAssetList()
@@ -218,19 +262,7 @@ public partial class XFileReader : IXAssetReaderContext
 
     private void SealStreamBlocks()
     {
-        for (int i = 0; i < _streamBlocks.Length; i++)
-        {
-            var block = _streamBlocks[i];
-            var expectedSize = _header.BlockSize[i];
-
-            if (block.WrittenSpan.Length > expectedSize)
-            {
-                throw new InvalidDataException(
-                    $"{block.BlockType} stream length 0x{block.WrittenSpan.Length:X} exceeds header block size 0x{expectedSize:X}.");
-            }
-
-            block.PadToCapacity();
-        }
+        _blocks.Seal(_header.BlockSize);
     }
 
     private void MaterializeScriptStrings(XAssetList list)
@@ -241,7 +273,7 @@ public partial class XFileReader : IXAssetReaderContext
                 ptr,
                 () => new XBlockAddress(
                     XFILE_BLOCK.LARGE,
-                    _streamBlocks[(int)XFILE_BLOCK.LARGE].Position)))
+                    _blocks.GetPosition(XFILE_BLOCK.LARGE))))
         {
             ptr.Value = [];
             return;
@@ -271,7 +303,7 @@ public partial class XFileReader : IXAssetReaderContext
                 ptr,
                 () => new XBlockAddress(
                     XFILE_BLOCK.LARGE,
-                    _streamBlocks[(int)XFILE_BLOCK.LARGE].Position)))
+                    _blocks.GetPosition(XFILE_BLOCK.LARGE))))
         {
             ptr.Value = [];
             return;
@@ -324,8 +356,8 @@ public partial class XFileReader : IXAssetReaderContext
             {
                 Console.Error.WriteLine(
                     $"asset[{index}] {asset.Type} src=0x{startPosition:X}-0x{_position:X} " +
-                    $"root={ptr.Kind}/{ptr.Address} temp=0x{_streamBlocks[(int)XFILE_BLOCK.TEMP].Position:X} " +
-                    $"large=0x{_streamBlocks[(int)XFILE_BLOCK.LARGE].Position:X}");
+                    $"root={ptr.Kind}/{ptr.Address} temp=0x{_blocks.GetPosition(XFILE_BLOCK.TEMP):X} " +
+                    $"large=0x{_blocks.GetPosition(XFILE_BLOCK.LARGE):X}");
             }
         }
         catch (Exception ex)
@@ -397,7 +429,7 @@ public partial class XFileReader : IXAssetReaderContext
             assetPtr,
             () => new XBlockAddress(
                 XFILE_BLOCK.TEMP,
-                _streamBlocks[(int)XFILE_BLOCK.TEMP].Position));
+                _blocks.GetPosition(XFILE_BLOCK.TEMP)));
 
         return WithStreamBlock(assetPtr.Address!.Value.Block, () =>
         {
@@ -422,7 +454,7 @@ public partial class XFileReader : IXAssetReaderContext
 
     private void MaterializeCStringPointer(XPointer<string?> ptr)
     {
-        if (!TryMaterializePointer(ptr, () => _activeBlock.Address))
+        if (!TryMaterializePointer(ptr, () => _blocks.ActiveAddress))
         {
             ptr.Value = null;
             return;
@@ -465,7 +497,7 @@ public partial class XFileReader : IXAssetReaderContext
     private int ReadInt32()
     {
         int value = Span.ReadInt32(ref _position);
-        _activeBlock.WriteInt32(value);
+        _blocks.WriteInt32(value);
         ReportAssetReadProgress();
         return value;
     }
@@ -477,7 +509,7 @@ public partial class XFileReader : IXAssetReaderContext
 
         byte[] value = Span.Slice(_position, count).ToArray();
         _position += count;
-        _activeBlock.Write(value);
+        _blocks.Write(value);
         ReportAssetReadProgress();
         return value;
     }
@@ -485,7 +517,7 @@ public partial class XFileReader : IXAssetReaderContext
     private string ReadCString()
     {
         string value = Span.ReadCStringAt(ref _position);
-        _activeBlock.WriteCString(value);
+        _blocks.WriteCString(value);
         ReportAssetReadProgress();
         return value;
     }
@@ -510,14 +542,13 @@ public partial class XFileReader : IXAssetReaderContext
         if (_stringsByAddress.TryGetValue(address, out value))
             return true;
 
-        int blockIndex = (int)address.Block;
-        if (blockIndex < 0 || blockIndex >= _streamBlocks.Length)
+        if (!_blocks.ContainsBlock(address.Block))
         {
             value = null;
             return false;
         }
 
-        var span = _streamBlocks[blockIndex].WrittenSpan;
+        var span = _blocks.GetWrittenSpan(address.Block);
         if (address.Offset < 0 || address.Offset >= span.Length)
         {
             value = null;
@@ -604,7 +635,7 @@ public partial class XFileReader : IXAssetReaderContext
 
     public int[] GetWrittenBlockSizes()
     {
-        return [.._streamBlocks.Select(block => block.WrittenSpan.Length)];
+        return _blocks.GetWrittenBlockSizes();
     }
 
     #endregion

@@ -15,7 +15,7 @@ public partial class XFileReader
     {
         var type = obj.GetType();
         var structAttr = type.GetCustomAttribute<XStructAttribute>();
-        var rootOffset = _activeBlock.Position;
+        var rootOffset = _blocks.ActivePosition;
         var consumed = 0;
 
         SetOffsetIfPresent(obj, rootOffset);
@@ -40,11 +40,11 @@ public partial class XFileReader
             {
                 throw new InvalidDataException(
                     $"Failed to read {type.Name}.{prop.Name} at {rootOffset:X8}+0x{field.Offset:X} " +
-                    $"({ _activeBlock.BlockType } offset 0x{_activeBlock.Position:X}).",
+                    $"({ _blocks.ActiveBlockType } offset 0x{_blocks.ActivePosition:X}).",
                     ex);
             }
 
-            consumed = _activeBlock.Position - rootOffset;
+            consumed = _blocks.ActivePosition - rootOffset;
         }
 
         if (structAttr is null)
@@ -252,7 +252,7 @@ public partial class XFileReader
     private int ReadInt32ToActiveBlock(int blockOffset)
     {
         int value = Span.ReadInt32(ref _position);
-        _activeBlock.PatchInt32(blockOffset, value);
+        _blocks.PatchInt32(new XBlockAddress(_blocks.ActiveBlockType, blockOffset), value);
         ReportAssetReadProgress();
         return value;
     }
@@ -271,33 +271,17 @@ public partial class XFileReader
         int blockOffset,
         PointerResolutionKind resolutionKind)
     {
-        return new XPointer<T>
-        {
-            Raw = raw,
-            Kind = raw switch
-            {
-                0 => PointerKind.Null,
-                -1 => PointerKind.Inline,
-                -2 => PointerKind.Insert,
-                _ => PointerKind.Offset
-            },
-            ResolutionKind = resolutionKind,
-            PatchAddress = new XBlockAddress(_activeBlock.BlockType, blockOffset)
-        };
+        return XPointerCodec.CreatePointer<T>(
+            raw,
+            resolutionKind,
+            new XBlockAddress(_blocks.ActiveBlockType, blockOffset));
     }
 
     private static XPointer<T> ReinterpretPointer<T>(
         XPointer<object> ptr,
         PointerResolutionKind resolutionKind)
     {
-        return new XPointer<T>
-        {
-            Raw = ptr.Raw,
-            Kind = ptr.Kind,
-            ResolutionKind = resolutionKind,
-            PatchAddress = ptr.PatchAddress,
-            Address = ptr.Address
-        };
+        return XPointerCodec.ReinterpretPointer<T>(ptr, resolutionKind);
     }
 
     private static int GetXStructSize(Type type)
