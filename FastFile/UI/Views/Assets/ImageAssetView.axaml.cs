@@ -33,7 +33,7 @@ public partial class ImageAssetView : UserControl
 
     private static KeyValueListItem[] BuildDetails(GfxImage image, ImageDecodeResult decoded)
     {
-        var loadDef = image.LoadDef?.Result;
+        var loadDef = image.LoadDef?.Value;
 
         return
         [

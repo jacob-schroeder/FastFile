@@ -8,6 +8,7 @@ using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
 namespace FastFile.Models.Assets.Eboot;
 
+/*
 public abstract class EbootAssetRoot(XAssetType type) : BaseAsset(type)
 {
     public abstract int? EbootRootSize { get; }
@@ -408,3 +409,4 @@ public static class EbootXAssetDispatch
             [XAssetType.AddonMapEnts] = new(XAssetType.AddonMapEnts, AddonMapEnts.RootSize, true),
         };
 }
+*/

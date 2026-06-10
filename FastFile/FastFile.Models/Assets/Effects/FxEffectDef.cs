@@ -8,15 +8,15 @@ namespace FastFile.Models.Assets.Effects;
 
 public class FxEffectDef() : BaseAsset(XAssetType.Fx)
 {
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct Pointer
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public int Flags { get; set; }
     public int TotalSize { get; set; }
     public int MsecLoopingLife { get; set; }
     public int ElemDefCountLooping { get; set; }
     public int ElemDefCountOneShot { get; set; }
     public int ElemDefCountEmission { get; set; }
-    public DirectPointer<FxElemDef[]> ElemDefs { get; set; }
+    public XPointer<FxElemDef[]> ElemDefs { get; set; } // Direct Pointer
 
     public override string? GetDisplayName => Name;
 }
@@ -44,16 +44,16 @@ public sealed class FxElemDef
     public byte VisualCount { get; set; }
     public byte VelIntervalCount { get; set; }
     public byte VisStateIntervalCount { get; set; }
-    public DirectPointer<FxElemVelStateSample[]> VelSamples { get; set; }
-    public DirectPointer<FxElemVisStateSample[]> VisSamples { get; set; }
-    public DirectPointer<FxElemVisual[]> Visuals { get; set; }
+    public XPointer<FxElemVelStateSample[]> VelSamples { get; set; } // Direct Pointer
+    public XPointer<FxElemVisStateSample[]> VisSamples { get; set; } // Direct Pointer
+    public XPointer<FxElemVisual[]> Visuals { get; set; } // Direct Pointer
     public Bounds CollBounds { get; set; }
-    public DirectPointer<FxEffectDefRef> EffectOnImpact { get; set; }
-    public DirectPointer<FxEffectDefRef> EffectOnDeath { get; set; }
-    public DirectPointer<FxEffectDefRef> EffectEmitted { get; set; }
+    public XPointer<FxEffectDefRef> EffectOnImpact { get; set; } // Direct Pointer
+    public XPointer<FxEffectDefRef> EffectOnDeath { get; set; } // Direct Pointer
+    public XPointer<FxEffectDefRef> EffectEmitted { get; set; } // Direct Pointer
     public FxFloatRange EmitDist { get; set; }
     public FxFloatRange EmitDistVariance { get; set; }
-    public DirectPointer<FxElemExtendedDef> Extended { get; set; }
+    public XPointer<FxElemExtendedDef> Extended { get; set; } // Direct Pointer
     public byte SortOrder { get; set; }
     public byte LightingFrac { get; set; }
     public byte UseItemClip { get; set; }
@@ -133,19 +133,19 @@ public sealed class FxElemVisStateSample
 
 public sealed class FxEffectDefRef
 {
-    public ZonePointer<FxEffectDef> Handle { get; set; }
-    public DirectPointer<string> Name { get; set; }
+    public XPointer<FxEffectDef> Handle { get; set; } // Unknown
+    public XPointer<string> Name { get; set; } // Direct
 }
 
 public sealed class FxElemVisual
 {
-    public AliasPointer<MaterialAsset> Material { get; set; }
-    public AliasPointer<XModelAsset> Model { get; set; }
+    public XPointer<MaterialAsset> Material { get; set; } // Alias
+    public XPointer<XModelAsset> Model { get; set; } // Alias
     public FxEffectDefRef EffectDef { get; set; }
-    public DirectPointer<string> SoundName { get; set; }
-    public DirectPointer<FxUnknownVisual> Anonymous { get; set; }
-    public AliasPointer<MaterialAsset> DecalMaterial0 { get; set; }
-    public AliasPointer<MaterialAsset> DecalMaterial1 { get; set; }
+    public XPointer<string> SoundName { get; set; } // Direct
+    public XPointer<FxUnknownVisual> Anonymous { get; set; } // Direct
+    public XPointer<MaterialAsset> DecalMaterial0 { get; set; } // Alias
+    public XPointer<MaterialAsset> DecalMaterial1 { get; set; } // Alias
 }
 
 public sealed class FxUnknownVisual
@@ -169,9 +169,9 @@ public sealed class FxTrailDef
     public float InvSplitArcDist { get; set; }
     public float InvSplitTime { get; set; }
     public int VertCount { get; set; }
-    public DirectPointer<FxTrailVertex[]> Verts { get; set; }
+    public XPointer<FxTrailVertex[]> Verts { get; set; } // Direct 
     public int IndCount { get; set; }
-    public DirectPointer<ushort[]> Inds { get; set; }
+    public XPointer<ushort[]> Inds { get; set; } // Direct
 }
 
 public sealed class FxSparkFountainDef

@@ -8,13 +8,7 @@ namespace FastFile.Models.Assets.Material;
 
 public class Material() : BaseAsset(XAssetType.Material)
 {
-#if PS3
     public const int TECHNIQUE_COUNT = 37;
-#elif XBOX
-    public const int TECHNIQUE_COUNT = 33;
-#else
-    public const int TECHNIQUE_COUNT = 48;
-#endif
 
     public MaterialInfo Info { get; set; }
     public byte[] StateBitsEntry { get; set; } = new byte[TECHNIQUE_COUNT];
@@ -24,17 +18,15 @@ public class Material() : BaseAsset(XAssetType.Material)
     public byte StateFlags { get; set; }
     public byte CameraRegion { get; set; }
     public byte UnknownXStringCount { get; set; }
-#if PS3
     public byte MaterialPadding { get; set; }
     public ushort[] Ushorts { get; set; } = new ushort[TECHNIQUE_COUNT];
     public byte[] UshortPadding { get; set; } = new byte[2];
-    public DirectPointer<ushort[]> UshortArray { get; set; }
-#endif
-    public AliasPointer<MaterialTechniqueSet> TechniqueSet { get; set; }
-    public DirectPointer<MaterialTextureDef[]> TextureTable { get; set; }
-    public DirectPointer<MaterialConstantDef[]> ConstantTable { get; set; }
-    public DirectPointer<GfxStateBits[]> StateBitTable { get; set; }
-    public DirectPointer<ZonePointer<string>[]> UnknownXStringArray { get; set; }
+    public XPointer<ushort[]> UshortArray { get; set; } // Direct
+    public XPointer<MaterialTechniqueSet> TechniqueSet { get; set; } // Alias
+    public XPointer<MaterialTextureDef[]> TextureTable { get; set; } // Direct
+    public XPointer<MaterialConstantDef[]> ConstantTable { get; set; } // Direct
+    public XPointer<GfxStateBits[]> StateBitTable { get; set; } // Direct
+    public XPointer<XPointer<string>[]> UnknownXStringArray { get; set; } // Direct
 
     public override string? GetDisplayName => Info?.Name ?? string.Empty;
 }
@@ -48,12 +40,8 @@ public class MaterialConstantDef
 
 public class GfxStateBits
 {
-#if XBOX
-    public int[] LoadBits { get; set; } = new int[2];
-#elif PS3
-    public DirectPointer<int[]> LoadBits { get; set; }
+    public XPointer<int[]> LoadBits { get; set; } // Direct
     public int Unknown { get; set; }
-#endif
 }
 
 public class WaterWritable
@@ -64,9 +52,9 @@ public class WaterWritable
 public class Water
 {
     public WaterWritable Writable { get; set; }
-    public DirectPointer<float[]> H0X { get; set; }
-    public DirectPointer<float[]> H0Y { get; set; }
-    public DirectPointer<float[]> WTerm { get; set; }
+    public XPointer<float[]> H0X { get; set; } // Direct
+    public XPointer<float[]> H0Y { get; set; } // Direct
+    public XPointer<float[]> WTerm { get; set; } // Direct
     public int M { get; set; }
     public int N { get; set; }
     public float Lx { get; set; }
@@ -76,7 +64,7 @@ public class Water
     public float[] Winddir { get; set; } = new float[2];
     public float Amplitude { get; set; }
     public float[] CodeConstant { get; set; } = new float[4];
-    public AliasPointer<GfxImage> Image { get; set; }
+    public XPointer<GfxImage> Image { get; set; } // Alias
 }
 
 public enum MaterialTextureSemantic : byte
@@ -98,8 +86,8 @@ public enum MaterialTextureSemantic : byte
 public class MaterialTextureDefInfo
 {
     public int Raw { get; set; }
-    public AliasPointer<GfxImage> Image { get; set; }
-    public DirectPointer<Water> Water { get; set; }
+    public XPointer<GfxImage> Image { get; set; } // Alias
+    public XPointer<Water> Water { get; set; } // Direct
 }
 
 public class MaterialTextureDef
@@ -127,8 +115,8 @@ public class GfxDrawSurf
 
 public class MaterialInfo
 {
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public byte GameFlags { get; set; }
     public byte SortKey { get; set; }
     public byte TextureAtlasRowCount { get; set; }
@@ -145,7 +133,7 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
     public const int EBOOT_NAME_POINTER_OFFSET = 0x4C;
 
     public byte[] EbootRootPrefix { get; set; } = new byte[EBOOT_LOAD_DEF_POINTER_OFFSET];
-    public DirectPointer<GfxImageLoadDef> LoadDef { get; set; } = new(0);
+    public XPointer<GfxImageLoadDef> LoadDef { get; set; } // Direct
     public byte[] EbootRootSuffix { get; set; } = new byte[EBOOT_NAME_POINTER_OFFSET - EBOOT_LOAD_DEF_POINTER_OFFSET - 4];
     public byte MapType { get; set; }
     public byte Semantic { get; set; }
@@ -155,8 +143,8 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
     public byte NoPicmip { get; set; }
     public byte Track { get; set; }
     public int[] CardMemory { get; set; } = new int[2];
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public ushort Width { get; set; }
     public ushort Height { get; set; }
     public ushort Depth { get; set; }

@@ -8,8 +8,8 @@ namespace FastFile.Models.Assets.Menu;
 public class MenuDef() : BaseAsset(XAssetType.Menu)
 {
     public Window Window { get; set; }
-    public ZonePointer<string> FontPtr { get; set; }
-    public string Font => FontPtr is { IsResolved: true } ? FontPtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> FontPtr { get; set; } // Direct
+    public string Font => FontPtr is { IsResolved: true } ? FontPtr.Value ?? string.Empty : string.Empty;
 
     public int Fullscreen { get; set; }
     public int ItemCount { get; set; }
@@ -24,34 +24,28 @@ public class MenuDef() : BaseAsset(XAssetType.Menu)
     public float FadeAmount { get; set; }
     public float FadeInAmount { get; set; }
     public float BlurRadius { get; set; }
-    public ZonePointer<MenuEventHandlerSet> OnOpen { get; set; }
-    public ZonePointer<MenuEventHandlerSet> OnRequestClose { get; set; }
-    public ZonePointer<MenuEventHandlerSet> OnClose { get; set; }
-    public ZonePointer<MenuEventHandlerSet> OnEsc { get; set; }
-    public ZonePointer<ItemKeyHandler> ExecKeys { get; set; }
-    public ZonePointer<Statement> VisibleExp { get; set; }
-    public ZonePointer<string> AllowedBinding { get; set; }
-    public ZonePointer<string> SoundName { get; set; }
+    public XPointer<MenuEventHandlerSet> OnOpen { get; set; } // ?
+    public XPointer<MenuEventHandlerSet> OnRequestClose { get; set; } // ?
+    public XPointer<MenuEventHandlerSet> OnClose { get; set; } // ?
+    public XPointer<MenuEventHandlerSet> OnEsc { get; set; } // ?
+    public XPointer<ItemKeyHandler> ExecKeys { get; set; } // ?
+    public XPointer<Statement> VisibleExp { get; set; } // ?
+    public XPointer<string> AllowedBinding { get; set; } // Direct
+    public XPointer<string> SoundName { get; set; } // Direct
     public int ImageTrack { get; set; }
     public Vec4 FocusColor { get; set; }
-    public ZonePointer<Statement> RectXExp { get; set; }
-    public ZonePointer<Statement> RectYExp { get; set; }
-    public ZonePointer<Statement> RectHExp { get; set; }
-    public ZonePointer<Statement> RectWExp { get; set; }
-#if PC
-    public ZonePointer<Statement> OpenSoundExp { get; set; }
-    public ZonePointer<Statement> CloseSoundExp { get; set; }
-#endif
-    public ZonePointer<ZonePointer<ItemDef>[]> Items { get; set; }
-#if !PC
+    public XPointer<Statement> RectXExp { get; set; } // ?
+    public XPointer<Statement> RectYExp { get; set; } // ?
+    public XPointer<Statement> RectHExp { get; set; } // ?
+    public XPointer<Statement> RectWExp { get; set; } // ?
+    public XPointer<XPointer<ItemDef>[]> Items { get; set; } // ? -> ?
+    
     public MenuTransition[] ScaleTransition { get; set; } = new MenuTransition[4];
     public MenuTransition[] AlphaTransition { get; set; } = new MenuTransition[4];
     public MenuTransition[] XTransition { get; set; } = new MenuTransition[4];
     public MenuTransition[] YTransition { get; set; } = new MenuTransition[4];
-#else
-    public byte[] Unknown { get; set; } = new byte[112];
-#endif
-    public ZonePointer<ExpressionSupportingData> ExpressionData { get; set; }
+
+    public XPointer<ExpressionSupportingData> ExpressionData { get; set; } // ?
 
     public override string? GetDisplayName => Window?.Name ?? string.Empty;
 }

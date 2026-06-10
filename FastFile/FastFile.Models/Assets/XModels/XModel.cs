@@ -8,36 +8,36 @@ namespace FastFile.Models.Assets.XModels;
 
 public class XModel() : BaseAsset(XAssetType.XModel)
 {
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public byte NumBones { get; set; }
     public byte NumRootBones { get; set; }
     public byte NumSurfs { get; set; }
     public byte LodRampType { get; set; }
     public float Scale { get; set; }
     public int[] NoScalePartBits { get; set; } = new int[6];
-    public DirectPointer<ushort[]> BoneNames { get; set; }
-    public DirectPointer<XModelParent[]> ParentList { get; set; }
-    public DirectPointer<XModelQuat[]> Quats { get; set; }
-    public DirectPointer<Vec3[]> Trans { get; set; }
-    public DirectPointer<XModelPartClassification[]> PartClassification { get; set; }
-    public DirectPointer<DObjAnimMat[]> BaseMat { get; set; }
-    public DirectPointer<ZonePointer<MaterialAsset>[]> MaterialHandles { get; set; }
+    public XPointer<ushort[]> BoneNames { get; set; } // Direct
+    public XPointer<XModelParent[]> ParentList { get; set; } // Direct
+    public XPointer<XModelQuat[]> Quats { get; set; } // Direct
+    public XPointer<Vec3[]> Trans { get; set; } // Direct
+    public XPointer<XModelPartClassification[]> PartClassification { get; set; } // Direct
+    public XPointer<DObjAnimMat[]> BaseMat { get; set; } // Direct
+    public XPointer<XPointer<MaterialAsset>[]> MaterialHandles { get; set; } // Direct -> ?
     public XModelLodInfo[] LodInfo { get; set; } = new XModelLodInfo[4];
     public byte MaxLoadedLod { get; set; }
     public byte NumLods { get; set; }
     public byte CollLod { get; set; }
     public byte Flags { get; set; }
-    public DirectPointer<XModelCollSurf[]> CollSurfs { get; set; }
+    public XPointer<XModelCollSurf[]> CollSurfs { get; set; } // Direct
     public int NumCollSurfs { get; set; }
     public int Contents { get; set; }
-    public DirectPointer<XBoneInfo[]> BoneInfo { get; set; }
+    public XPointer<XBoneInfo[]> BoneInfo { get; set; } // Direct
     public float Radius { get; set; }
     public Bounds Bounds { get; set; }
-    public DirectPointer<ushort[]> InvHighMipRadius { get; set; }
+    public XPointer<ushort[]> InvHighMipRadius { get; set; } // Direct
     public int MemUsage { get; set; }
-    public AliasPointer<PhysPreset> PhysPreset { get; set; }
-    public AliasPointer<PhysCollmap> PhysCollmap { get; set; }
+    public XPointer<PhysPreset> PhysPreset { get; set; } // Alias
+    public XPointer<PhysCollmap> PhysCollmap { get; set; } // Alias
 
     public override string? GetDisplayName => Name;
 }
@@ -72,9 +72,9 @@ public sealed class XModelLodInfo
     public float Dist { get; set; }
     public ushort NumSurfs { get; set; }
     public ushort SurfIndex { get; set; }
-    public AliasPointer<XModelSurfs> ModelSurfs { get; set; }
+    public XPointer<XModelSurfs> ModelSurfs { get; set; } // Alias
     public int[] PartBits { get; set; } = new int[6];
-    public DirectPointer<XSurface[]> Surfs { get; set; }
+    public XPointer<XSurface[]> Surfs { get; set; } // Direct
 }
 
 public sealed class XSurface
@@ -86,14 +86,14 @@ public sealed class XSurface
     public byte Unknown03 { get; set; }
     public ushort VertCount { get; set; }
     public ushort TriCount { get; set; }
-    public DirectPointer<ushort[]> TriIndices { get; set; }
+    public XPointer<ushort[]> TriIndices { get; set; } // Direct
     public XSurfaceVertexInfo VertInfo { get; set; } = new();
-    public DirectPointer<byte[]> Verts0 { get; set; }
+    public XPointer<byte[]> Verts0 { get; set; } // Direct
     public XSurfaceGpuBuffer Vb0 { get; set; } = new();
-    public DirectPointer<byte[]> Verts1 { get; set; }
+    public XPointer<byte[]> Verts1 { get; set; } // Direct
     public XSurfaceGpuBuffer Vb1 { get; set; } = new();
     public int VertListCount { get; set; }
-    public DirectPointer<XRigidVertList[]> VertList { get; set; }
+    public XPointer<XRigidVertList[]> VertList { get; set; } // Direct
     public XSurfaceGpuBuffer IndexBuffer { get; set; } = new();
     public int[] PartBits { get; set; } = new int[5];
 }
@@ -101,7 +101,7 @@ public sealed class XSurface
 public sealed class XSurfaceVertexInfo
 {
     public short[] VertCount { get; set; } = new short[4];
-    public DirectPointer<ushort[]> VertsBlend { get; set; }
+    public XPointer<ushort[]> VertsBlend { get; set; } // Direct
 }
 
 public sealed class XSurfaceGpuBuffer
@@ -116,7 +116,7 @@ public sealed class XRigidVertList
     public ushort VertCount { get; set; }
     public ushort TriOffset { get; set; }
     public ushort TriCount { get; set; }
-    public DirectPointer<XSurfaceCollisionTree> CollisionTree { get; set; }
+    public XPointer<XSurfaceCollisionTree> CollisionTree { get; set; } // Direct
 }
 
 public sealed class XSurfaceCollisionTree
@@ -124,9 +124,9 @@ public sealed class XSurfaceCollisionTree
     public Vec3 Trans { get; set; }
     public Vec3 Scale { get; set; }
     public uint NodeCount { get; set; }
-    public DirectPointer<XSurfaceCollisionNode[]> Nodes { get; set; }
+    public XPointer<XSurfaceCollisionNode[]> Nodes { get; set; } // Direct
     public uint LeafCount { get; set; }
-    public DirectPointer<XSurfaceCollisionLeaf[]> Leafs { get; set; }
+    public XPointer<XSurfaceCollisionLeaf[]> Leafs { get; set; } // Direct
 }
 
 public sealed class XSurfaceCollisionNode
@@ -145,7 +145,7 @@ public sealed class XSurfaceCollisionLeaf
 public sealed class XModelCollSurf
 {
     public byte[] RawBytes { get; set; } = [];
-    public DirectPointer<XModelCollTri[]> CollTris { get; set; }
+    public XPointer<XModelCollTri[]> CollTris { get; set; } // Direct
     public int NumCollTris { get; set; }
     public Bounds Bounds { get; set; }
     public int BoneIdx { get; set; }

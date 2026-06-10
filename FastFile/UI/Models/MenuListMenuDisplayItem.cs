@@ -2,6 +2,7 @@ using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.Menu.Elements;
 using FastFile.Models.Data;
 using System.Globalization;
+using FastFile.Models.Zone;
 
 namespace UI.Models;
 
@@ -11,7 +12,7 @@ public sealed class MenuListMenuDisplayItem
     private const string NullPointerText = "[NULL]";
     private const string UnresolvedPointerText = "[UNRESOLVED]";
 
-    public MenuListMenuDisplayItem(int index, ZonePointer<MenuDef>? menuPointer)
+    public MenuListMenuDisplayItem(int index, XPointer<MenuDef>? menuPointer)
     {
         Index = index + 1;
 
@@ -23,13 +24,13 @@ public sealed class MenuListMenuDisplayItem
 
         Pointer = FormatPointer(menuPointer);
 
-        if (!menuPointer.IsResolved || menuPointer.Result is null)
+        if (!menuPointer.IsResolved || menuPointer.Value is null)
         {
             SetUnavailableValue(Pointer);
             return;
         }
 
-        var menu = menuPointer.Result;
+        var menu = menuPointer.Value;
         Menu = menu;
         Name = FormatStringPointer(menu.Window?.NamePtr, menu.Window?.Name, "(unnamed menu)");
         ItemCount = menu.ItemCount.ToString("N0", CultureInfo.CurrentCulture);
@@ -78,7 +79,7 @@ public sealed class MenuListMenuDisplayItem
         };
     }
 
-    private static string FormatStringPointer(ZonePointer<string>? pointer, string? value, string emptyValue)
+    private static string FormatStringPointer(XPointer<string>? pointer, string? value, string emptyValue)
     {
         if (!string.IsNullOrWhiteSpace(value))
             return value;

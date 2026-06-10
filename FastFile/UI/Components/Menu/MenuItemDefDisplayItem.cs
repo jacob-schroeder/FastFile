@@ -1,12 +1,13 @@
 using FastFile.Models.Assets.Menu.Elements;
 using FastFile.Models.Data;
 using System.Globalization;
+using FastFile.Models.Zone;
 
 namespace UI.Components.Menu;
 
 public sealed class MenuItemDefDisplayItem
 {
-    public MenuItemDefDisplayItem(int index, ZonePointer<ItemDef>? itemPointer)
+    public MenuItemDefDisplayItem(int index, XPointer<ItemDef>? itemPointer)
     {
         Index = index + 1;
 
@@ -18,24 +19,24 @@ public sealed class MenuItemDefDisplayItem
 
         Pointer = MenuDisplayFormatter.FormatPointer(itemPointer);
 
-        if (!itemPointer.IsResolved || itemPointer.Result is null)
+        if (!itemPointer.IsResolved || itemPointer.Value is null)
         {
             SetUnavailableValue(Pointer);
             return;
         }
 
-        Item = itemPointer.Result;
+        Item = itemPointer.Value;
         Name = MenuDisplayFormatter.FormatStringPointer(
             Item.Window?.NamePtr,
             Item.Window?.Name,
             "(unnamed item)");
-        Text = MenuDisplayFormatter.FormatStringPointer(Item.Text, Item.Text?.Result, string.Empty);
+        Text = MenuDisplayFormatter.FormatStringPointer(Item.Text, Item.Text?.Value, string.Empty);
         Type = $"{MenuEnumFormatter.FormatItemTypeCompact(Item.Type)} / {MenuEnumFormatter.FormatItemTypeCompact(Item.DataType)}";
         DataType = MenuEnumFormatter.FormatItemTypeCompact(Item.DataType);
         Rect = MenuDisplayFormatter.FormatRectangle(Item.Window?.Rect);
         ClientRect = MenuDisplayFormatter.FormatRectangle(Item.Window?.RectClient);
-        Dvar = MenuDisplayFormatter.FormatStringPointer(Item.Dvar, Item.Dvar?.Result, string.Empty);
-        EnableDvar = MenuDisplayFormatter.FormatStringPointer(Item.EnableDvar, Item.EnableDvar?.Result, string.Empty);
+        Dvar = MenuDisplayFormatter.FormatStringPointer(Item.Dvar, Item.Dvar?.Value, string.Empty);
+        EnableDvar = MenuDisplayFormatter.FormatStringPointer(Item.EnableDvar, Item.EnableDvar?.Value, string.Empty);
         FloatExpressions = Item.FloatExpressionCount.ToString("N0", CultureInfo.CurrentCulture);
         Pointer = MenuDisplayFormatter.FormatPointer(itemPointer);
     }

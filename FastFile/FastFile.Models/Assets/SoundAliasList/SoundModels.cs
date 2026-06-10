@@ -20,8 +20,8 @@ public class SpeakerMap
 {
     public byte IsDefault { get; set; }
     public byte[] Padding { get; set; } = new byte[3];
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public ChannelMap[][] ChannelMaps { get; set; } = [];
 }
 
@@ -42,8 +42,8 @@ public class StreamFileNamePacked
 
 public class StreamFileNameRaw
 {
-    public DirectPointer<string> Dir { get; set; }
-    public DirectPointer<string> Name { get; set; }
+    public XPointer<string> Dir { get; set; } // Direct
+    public XPointer<string> Name { get; set; } // Direct
 }
 
 public class StreamFileInfo
@@ -66,13 +66,13 @@ public class StreamedSound
 
 public class LoadedSound() : BaseAsset(XAssetType.LoadedSound)
 {
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public int PhysicalDataByteCount { get; set; }
     public byte[] SoundInfoBytes { get; set; } = new byte[10];
     public ushort SeekTableCount { get; set; }
-    public DirectPointer<byte[]> SeekTablePtr { get; set; } = new(0);
-    public DirectPointer<byte[]> PhysicalDataPtr { get; set; } = new(0);
+    public XPointer<byte[]> SeekTablePtr { get; set; } // Direct
+    public XPointer<byte[]> PhysicalDataPtr { get; set; } // Direct
 
     public override string? GetDisplayName => Name;
 }
@@ -80,7 +80,7 @@ public class LoadedSound() : BaseAsset(XAssetType.LoadedSound)
 public class PrimedSound
 {
     public StreamFileName Filename { get; set; } = new();
-    public ZonePointer<LoadedSound> LoadedPart { get; set; }
+    public XPointer<LoadedSound> LoadedPart { get; set; } // Unknown?
     public int DataOffset { get; set; }
     public int TotalSize { get; set; }
     public uint PrimedCrc { get; set; }
@@ -97,15 +97,15 @@ public class SoundFile
     public byte Exists { get; set; }
     public byte[] Padding { get; set; } = new byte[2];
     public SoundData Sound { get; set; } = new();
-    public AliasPointer<LoadedSound> LoadedSoundPtr { get; set; } = new(0);
+    public XPointer<LoadedSound> LoadedSoundPtr { get; set; } // Alias
     public StreamFileName StreamFileName { get; set; }
     public SoundFile[] TableRecords { get; set; } = [];
 }
 
 public class SndCurve() : BaseAsset(XAssetType.SndCurve)
 {
-    public DirectPointer<string> FilenamePtr { get; set; }
-    public string Filename => FilenamePtr is { IsResolved: true } ? FilenamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> FilenamePtr { get; set; } // Direct
+    public string Filename => FilenamePtr is { IsResolved: true } ? FilenamePtr.Value ?? string.Empty : string.Empty;
     public ushort KnotCount { get; set; }
     public byte[] AlignmentPadding { get; set; } = new byte[2];
     public byte[] KnotBytes { get; set; } = new byte[16 * 2 * 4];
@@ -115,13 +115,13 @@ public class SndCurve() : BaseAsset(XAssetType.SndCurve)
 
 public class SndAlias
 {
-    public DirectPointer<string> AliasNamePtr { get; set; }
-    public string AliasName => AliasNamePtr is { IsResolved: true } ? AliasNamePtr.Result ?? string.Empty : string.Empty;
-    public DirectPointer<string> Subtitle { get; set; }
-    public DirectPointer<string> SecondaryAliasName { get; set; }
-    public DirectPointer<string> ChainAliasName { get; set; }
-    public DirectPointer<string> MixerGroup { get; set; }
-    public AliasPointer<SoundFile> SoundFile { get; set; }
+    public XPointer<string> AliasNamePtr { get; set; } // Direct
+    public string AliasName => AliasNamePtr is { IsResolved: true } ? AliasNamePtr.Value ?? string.Empty : string.Empty;
+    public XPointer<string> Subtitle { get; set; } // Direct
+    public XPointer<string> SecondaryAliasName { get; set; } // Direct
+    public XPointer<string> ChainAliasName { get; set; } // Direct
+    public XPointer<string> MixerGroup { get; set; } // Direct
+    public XPointer<SoundFile> SoundFile { get; set; } // Alias
     public int Sequence { get; set; }
     public float VolMin { get; set; }
     public float VolMax { get; set; }
@@ -136,19 +136,19 @@ public class SndAlias
     public float LfePercentage { get; set; }
     public float CenterPercentage { get; set; }
     public int StartDelay { get; set; }
-    public AliasPointer<SndCurve> VolumeFalloffCurve { get; set; }
+    public XPointer<SndCurve> VolumeFalloffCurve { get; set; } // Alias
     public float EnvelopMin { get; set; }
     public float EnvelopMax { get; set; }
     public float EnvelopPercentage { get; set; }
-    public DirectPointer<SpeakerMap> SpeakerMap { get; set; }
+    public XPointer<SpeakerMap> SpeakerMap { get; set; } // Direct
 }
 
 public class SndAliasList() : BaseAsset(XAssetType.Sound)
 {
-    public DirectPointer<string> AliasNamePtr { get; set; }
-    public string AliasName => AliasNamePtr is { IsResolved: true } ? AliasNamePtr.Result ?? string.Empty : string.Empty;
-    public DirectPointer<SndAlias> Head { get; set; }
-    public DirectPointer<SndAlias[]> AliasesPtr { get; set; } = new(0);
+    public XPointer<string> AliasNamePtr { get; set; } // Direct
+    public string AliasName => AliasNamePtr is { IsResolved: true } ? AliasNamePtr.Value ?? string.Empty : string.Empty;
+    public XPointer<SndAlias> Head { get; set; } // Direct
+    public XPointer<SndAlias[]> AliasesPtr { get; set; } // Direct
     public int Count { get; set; }
 
     public override string? GetDisplayName => AliasName;

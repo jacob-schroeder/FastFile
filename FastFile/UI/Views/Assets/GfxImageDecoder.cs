@@ -24,24 +24,24 @@ internal static class GfxImageDecoder
             return new ImageDecodeResult(null, "Offset/streamed", "Pixel data is referenced by an offset pointer or streamed data slot.");
         }
 
-        if (!loadDef.IsResolved || loadDef.Result is null)
+        if (!loadDef.IsResolved || loadDef.Value is null)
         {
             return new ImageDecodeResult(null, "Unresolved", "Pixel data was not resolved by the image reader.");
         }
 
         if (image.Width == 0 || image.Height == 0)
         {
-            return new ImageDecodeResult(null, ImageFormatFormatter.Format(loadDef.Result.Format), "Image dimensions are empty.");
+            return new ImageDecodeResult(null, ImageFormatFormatter.Format(loadDef.Value.Format), "Image dimensions are empty.");
         }
 
-        var data = loadDef.Result.Data;
+        var data = loadDef.Value.Data;
         if (data.Length == 0)
         {
-            return new ImageDecodeResult(null, ImageFormatFormatter.Format(loadDef.Result.Format), "The load definition does not contain pixel bytes.");
+            return new ImageDecodeResult(null, ImageFormatFormatter.Format(loadDef.Value.Format), "The load definition does not contain pixel bytes.");
         }
 
-        var pixelFormat = ImageFormatFormatter.Resolve(loadDef.Result.Format);
-        var formatName = ImageFormatFormatter.Format(loadDef.Result.Format);
+        var pixelFormat = ImageFormatFormatter.Resolve(loadDef.Value.Format);
+        var formatName = ImageFormatFormatter.Format(loadDef.Value.Format);
         if (pixelFormat == ImagePixelFormat.Unknown)
         {
             return new ImageDecodeResult(null, formatName, "This texture format is not decoded yet.");
@@ -59,7 +59,7 @@ internal static class GfxImageDecoder
         }
 
         var pixels = new byte[width * height * 4];
-        DecodePixels(data.AsSpan(0, expectedSize), pixels, width, height, pixelFormat, loadDef.Result.Format);
+        DecodePixels(data.AsSpan(0, expectedSize), pixels, width, height, pixelFormat, loadDef.Value.Format);
         return new ImageDecodeResult(CreateBitmap(pixels, width, height), formatName, "Decoded from inline pixel data.");
     }
 

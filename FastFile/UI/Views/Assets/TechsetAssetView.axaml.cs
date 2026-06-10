@@ -4,6 +4,7 @@ using FastFile.Models.Data;
 using UI.Models;
 using System.Globalization;
 using System.Linq;
+using FastFile.Models.Zone;
 
 namespace UI.Views.Assets;
 
@@ -56,7 +57,7 @@ public partial class TechsetAssetView : UserControl
     }
 
     private static TechsetTechniqueDisplayItem? BuildTechniqueItem(
-        DirectPointer<MaterialTechnique>? pointer,
+        XPointer<MaterialTechnique>? pointer,
         int index)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
@@ -64,7 +65,7 @@ public partial class TechsetAssetView : UserControl
             return null;
         }
 
-        if (pointer is { IsResolved: true, Result: { } technique })
+        if (pointer is { IsResolved: true, Value: { } technique })
         {
             return new TechsetTechniqueDisplayItem(
                 slotText: $"Slot {index + 1}",

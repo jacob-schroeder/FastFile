@@ -2,17 +2,34 @@ using FastFile.Models.Data;
 
 namespace FastFile.Models.Zone;
 
-public sealed class XPointer<T>
+public static class XPointer
 {
-    public int Raw { get; init; }
+    //possible duplicate.. 
+    public static int EncodeOffset(int blockIndex, int offset)
+    {
+        return (blockIndex << 28) | (offset + 1);
+    }
+}
 
-    public PointerKind Kind { get; init; }
-
-    public XBlockAddress? Address { get; set; }
-    
-    public XBlockAddress? PatchAddress { get; set; }
-
+public sealed class XPointer<T> : Pointer
+{
     public T? Value { get; set; }
+}
 
-    public bool IsResolved => Address is not null || Kind == PointerKind.Null;
+public class Pointer
+{
+    public required int Raw { get; init; }
+
+    public required PointerKind Kind { get; init; }
+
+    public required PointerResolutionKind ResolutionKind { get; init; }
+
+    // Where the pointer field lives in the emitted block stream.
+    public XBlockAddress? PatchAddress { get; init; }
+
+    // Where the pointed-to data actually lands.
+    public XBlockAddress? Address { get; set; }
+
+    public bool IsNull => Kind == PointerKind.Null;
+    public bool IsResolved => IsNull || Address is not null;
 }

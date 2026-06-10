@@ -5,13 +5,13 @@ namespace FastFile.Models.Assets.StructuredData;
 
 public sealed class StructuredDataDefSet() : BaseAsset(XAssetType.StructuredDataDef)
 {
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
 
     public int DefCount { get; set; }
-    public DirectPointer<StructuredDataDef[]> DefsPtr { get; set; } = new(0);
-    public StructuredDataDef[] Defs => DefsPtr is { IsResolved: true, Result: not null }
-        ? DefsPtr.Result
+    public XPointer<StructuredDataDef[]> DefsPtr { get; set; } // Direct
+    public StructuredDataDef[] Defs => DefsPtr is { IsResolved: true, Value: not null }
+        ? DefsPtr.Value
         : [];
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
@@ -25,27 +25,27 @@ public sealed class StructuredDataDef
     public uint FormatChecksum { get; set; }
 
     public int EnumCount { get; set; }
-    public DirectPointer<StructuredDataEnum[]> EnumsPtr { get; set; } = new(0);
-    public StructuredDataEnum[] Enums => EnumsPtr is { IsResolved: true, Result: not null }
-        ? EnumsPtr.Result
+    public XPointer<StructuredDataEnum[]> EnumsPtr { get; set; } // Direct
+    public StructuredDataEnum[] Enums => EnumsPtr is { IsResolved: true, Value: not null }
+        ? EnumsPtr.Value
         : [];
 
     public int StructCount { get; set; }
-    public DirectPointer<StructuredDataStruct[]> StructsPtr { get; set; } = new(0);
-    public StructuredDataStruct[] Structs => StructsPtr is { IsResolved: true, Result: not null }
-        ? StructsPtr.Result
+    public XPointer<StructuredDataStruct[]> StructsPtr { get; set; } // Direct
+    public StructuredDataStruct[] Structs => StructsPtr is { IsResolved: true, Value: not null }
+        ? StructsPtr.Value
         : [];
 
     public int IndexedArrayCount { get; set; }
-    public DirectPointer<StructuredDataIndexedArray[]> IndexedArraysPtr { get; set; } = new(0);
-    public StructuredDataIndexedArray[] IndexedArrays => IndexedArraysPtr is { IsResolved: true, Result: not null }
-        ? IndexedArraysPtr.Result
+    public XPointer<StructuredDataIndexedArray[]> IndexedArraysPtr { get; set; } // Direct
+    public StructuredDataIndexedArray[] IndexedArrays => IndexedArraysPtr is { IsResolved: true, Value: not null }
+        ? IndexedArraysPtr.Value
         : [];
 
     public int EnumedArrayCount { get; set; }
-    public DirectPointer<StructuredDataEnumedArray[]> EnumedArraysPtr { get; set; } = new(0);
-    public StructuredDataEnumedArray[] EnumedArrays => EnumedArraysPtr is { IsResolved: true, Result: not null }
-        ? EnumedArraysPtr.Result
+    public XPointer<StructuredDataEnumedArray[]> EnumedArraysPtr { get; set; } // Direct
+    public StructuredDataEnumedArray[] EnumedArrays => EnumedArraysPtr is { IsResolved: true, Value: not null }
+        ? EnumedArraysPtr.Value
         : [];
 
     public StructuredDataType RootType { get; set; } = new();
@@ -56,16 +56,16 @@ public sealed class StructuredDataEnum
 {
     public int EntryCount { get; set; }
     public int ReservedEntryCount { get; set; }
-    public DirectPointer<StructuredDataEnumEntry[]> EntriesPtr { get; set; } = new(0);
-    public StructuredDataEnumEntry[] Entries => EntriesPtr is { IsResolved: true, Result: not null }
-        ? EntriesPtr.Result
+    public XPointer<StructuredDataEnumEntry[]> EntriesPtr { get; set; } // Direct
+    public StructuredDataEnumEntry[] Entries => EntriesPtr is { IsResolved: true, Value: not null }
+        ? EntriesPtr.Value
         : [];
 }
 
 public sealed class StructuredDataEnumEntry
 {
-    public DirectPointer<string> StringPtr { get; set; } = new(0);
-    public string String => StringPtr is { IsResolved: true } ? StringPtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> StringPtr { get; set; } // Direct
+    public string String => StringPtr is { IsResolved: true } ? StringPtr.Value ?? string.Empty : string.Empty;
 
     public ushort Index { get; set; }
     public ushort Padding { get; set; }
@@ -73,8 +73,8 @@ public sealed class StructuredDataEnumEntry
 
 public sealed class StructuredDataStructProperty
 {
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
 
     public StructuredDataType Type { get; set; } = new();
     public uint Offset { get; set; }
@@ -83,9 +83,9 @@ public sealed class StructuredDataStructProperty
 public sealed class StructuredDataStruct
 {
     public int PropertyCount { get; set; }
-    public DirectPointer<StructuredDataStructProperty[]> PropertiesPtr { get; set; } = new(0);
-    public StructuredDataStructProperty[] Properties => PropertiesPtr is { IsResolved: true, Result: not null }
-        ? PropertiesPtr.Result
+    public XPointer<StructuredDataStructProperty[]> PropertiesPtr { get; set; } // Direct
+    public StructuredDataStructProperty[] Properties => PropertiesPtr is { IsResolved: true, Value: not null }
+        ? PropertiesPtr.Value
         : [];
 
     public int Size { get; set; }

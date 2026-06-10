@@ -9,13 +9,13 @@ public sealed class FontAsset() : BaseAsset(XAssetType.Font)
     public const int RootSize = 0x18;
     public const int GlyphSize = 0x18;
 
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public int PixelHeight { get; set; }
     public int GlyphCount { get; set; }
-    public AliasPointer<MaterialAsset> Material { get; set; } = new(0);
-    public AliasPointer<MaterialAsset> GlowMaterial { get; set; } = new(0);
-    public DirectPointer<FontGlyph[]> Glyphs { get; set; } = new(0);
+    public XPointer<MaterialAsset> Material { get; set; } // Alias
+    public XPointer<MaterialAsset> GlowMaterial { get; set; } // Alias
+    public XPointer<FontGlyph[]> Glyphs { get; set; } // Direct
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name) ? Type.ToString() : Name;
 }

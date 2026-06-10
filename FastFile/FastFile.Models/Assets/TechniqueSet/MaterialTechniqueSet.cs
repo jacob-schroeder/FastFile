@@ -13,14 +13,15 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
     private const int MAX_TECHNIQUES = 48;
     #endif
     
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     
     public MaterialWorldVertexFormat WorldVertexFormat { get; set; }
     public bool HasBeenUploaded { get; set; }
     public byte[] Unused { get; set; } = new byte[2];
 
-    public DirectPointer<MaterialTechnique>[] Techniques { get; set; } = new DirectPointer<MaterialTechnique>[MAX_TECHNIQUES];
+    public XPointer<MaterialTechnique>[] Techniques { get; set; } = 
+        new XPointer<MaterialTechnique>[MAX_TECHNIQUES]; // Direct
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
         ? $"Techset 0x{Offset:X8}"
@@ -30,8 +31,8 @@ public class MaterialTechniqueSet() : BaseAsset(XAssetType.Techset)
 public class MaterialTechnique
 {
     public int Offset { get; set; }
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public ushort Flags { get; set; }
     public ushort PassCount { get; set; }
     public MaterialPass[] Passes { get; set; } = [];
@@ -40,16 +41,16 @@ public class MaterialTechnique
 public class MaterialPass
 {
     public int Offset { get; set; }
-    public DirectPointer<MaterialVertexDeclaration> VertexDecl { get; set; } = new(0);
-    public AliasPointer<MaterialVertexShader> VertexShader { get; set; } = new(0);
-    public AliasPointer<MaterialPixelShader> PixelShader { get; set; } = new(0);
+    public XPointer<MaterialVertexDeclaration> VertexDecl { get; set; } // Direct
+    public XPointer<MaterialVertexShader> VertexShader { get; set; } // Alias
+    public XPointer<MaterialPixelShader> PixelShader { get; set; } // Alias
     public byte PerPrimArgCount { get; set; }
     public byte PerObjArgCount { get; set; }
     public byte StableArgCount { get; set; }
     public byte CustomSamplerFlags { get; set; }
     public byte PrecompiledIndex { get; set; }
     public byte[] Padding { get; set; } = new byte[3];
-    public DirectPointer<MaterialShaderArgument[]> Args { get; set; } = new(0);
+    public XPointer<MaterialShaderArgument[]> Args { get; set; } // Direct
     public int ArgCount => PerPrimArgCount + PerObjArgCount + StableArgCount;
 }
 
@@ -75,7 +76,7 @@ public enum MaterialShaderArgumentType : ushort
 public class MaterialArgumentDef
 {
     public int Raw { get; set; }
-    public DirectPointer<float[]> LiteralConst { get; set; } = new(0);
+    public XPointer<float[]> LiteralConst { get; set; } // Direct
     public MaterialArgumentCodeConst CodeConst { get; set; } = new();
     public uint CodeSampler { get; set; }
     public uint NameHash { get; set; }
@@ -96,8 +97,8 @@ public class MaterialVertexDeclaration
 
 public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
 {
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public MaterialVertexShaderProgram Program { get; set; } = new();
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
@@ -107,8 +108,8 @@ public class MaterialVertexShader() : BaseAsset(XAssetType.VertexShader)
 
 public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
 {
-    public DirectPointer<string> NamePtr { get; set; } = new(0);
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public MaterialPixelShaderProgram Program { get; set; } = new();
 
     public override string? GetDisplayName => string.IsNullOrWhiteSpace(Name)
@@ -119,14 +120,14 @@ public class MaterialPixelShader() : BaseAsset(XAssetType.PixelShader)
 public class MaterialVertexShaderProgram
 {
     public int Offset { get; set; }
-    public DirectPointer<byte[]> Data { get; set; } = new(0);
+    public XPointer<byte[]> Data { get; set; } // Direct
     public int DataSize { get; set; }
 }
 
 public class MaterialPixelShaderProgram
 {
     public int Offset { get; set; }
-    public DirectPointer<byte[]> Data { get; set; } = new(0);
+    public XPointer<byte[]> Data { get; set; } // Direct
     public int DataSize { get; set; }
     public byte[] RootSuffix { get; set; } = new byte[0x0C];
 }

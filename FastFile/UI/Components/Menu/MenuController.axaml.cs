@@ -75,8 +75,8 @@ public partial class MenuController : UserControl
 
     private static MenuItemDefDisplayItem[] GetMenuItems(MenuDef menu)
     {
-        return menu.Items is { IsResolved: true, Result: not null }
-            ? menu.Items.Result
+        return menu.Items is { IsResolved: true, Value: not null }
+            ? menu.Items.Value
                 .Select((item, index) => new MenuItemDefDisplayItem(index, item))
                 .ToArray()
             : [];
@@ -92,8 +92,8 @@ public partial class MenuController : UserControl
             new("Item Count", menu.ItemCount.ToString("N0", CultureInfo.CurrentCulture)),
             new("Font Index", menu.FontIndex.ToString(CultureInfo.CurrentCulture)),
             new("Image Track", menu.ImageTrack.ToString(CultureInfo.CurrentCulture)),
-            new("Sound", MenuDisplayFormatter.FormatStringPointer(menu.SoundName, menu.SoundName?.Result, string.Empty)),
-            new("Allowed Binding", MenuDisplayFormatter.FormatStringPointer(menu.AllowedBinding, menu.AllowedBinding?.Result, string.Empty)),
+            new("Sound", MenuDisplayFormatter.FormatStringPointer(menu.SoundName, menu.SoundName?.Value, string.Empty)),
+            new("Allowed Binding", MenuDisplayFormatter.FormatStringPointer(menu.AllowedBinding, menu.AllowedBinding?.Value, string.Empty)),
             new("Fade Cycle", menu.FadeCycle.ToString(CultureInfo.CurrentCulture)),
             new("Fade Clamp", menu.FadeClamp.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Fade Amount", menu.FadeAmount.ToString("0.###", CultureInfo.CurrentCulture)),
@@ -129,7 +129,7 @@ public partial class MenuController : UserControl
             new(
                 "Background Material",
                 MenuDisplayFormatter.FormatAssetPointer(window.Background),
-                window.Background?.Result)
+                window.Background?.Value)
         ];
     }
 

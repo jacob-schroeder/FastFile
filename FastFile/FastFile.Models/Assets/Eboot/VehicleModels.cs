@@ -1,5 +1,6 @@
 using FastFile.Models.Assets.Physics;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 
 namespace FastFile.Models.Assets.Eboot;
 
@@ -108,9 +109,9 @@ public sealed class VehiclePhysDef
 
     public int Offset { get; set; }
     public int PhysicsEnabled { get; set; }
-    public DirectPointer<string> PhysPresetName { get; set; } = new(0);
-    public AliasPointer<PhysPreset> PhysPreset { get; set; } = new(0);
-    public DirectPointer<string> AccelGraphName { get; set; } = new(0);
+    public XPointer<string> PhysPresetName { get; set; } // Direct Pointer
+    public XPointer<PhysPreset> PhysPreset { get; set; } // Alias Pointer
+    public XPointer<string> AccelGraphName { get; set; } // Direct Pointer
     public VehicleAxleType SteeringAxle { get; set; }
     public VehicleAxleType PowerAxle { get; set; }
     public VehicleAxleType BrakingAxle { get; set; }

@@ -80,7 +80,7 @@ public partial class MenuItemDetailsController : UserControl
             new("Data Type", MenuEnumFormatter.FormatItemType(item.DataType)),
             new("Parent", MenuDisplayFormatter.FormatPointer(item.Parent)),
             new("Dvar", displayItem.Dvar),
-            new("Dvar Test", MenuDisplayFormatter.FormatStringPointer(item.DvarTest, item.DvarTest?.Result, string.Empty)),
+            new("Dvar Test", MenuDisplayFormatter.FormatStringPointer(item.DvarTest, item.DvarTest?.Value, string.Empty)),
             new("Enable Dvar", displayItem.EnableDvar),
             new("Dvar Flags", MenuEnumFormatter.FormatDvarFlags(item.DvarFlags)),
             new("Focus Sound", MenuDisplayFormatter.FormatAssetPointer(item.FocusSound)),
@@ -115,7 +115,7 @@ public partial class MenuItemDetailsController : UserControl
             new(
                 "Background Material",
                 MenuDisplayFormatter.FormatAssetPointer(window.Background),
-                window.Background?.Result)
+                window.Background?.Value)
         ];
     }
 
@@ -159,13 +159,13 @@ public partial class MenuItemDetailsController : UserControl
             new("Type Data", FormatTypeData(item.TypeData))
         };
 
-        var selectIcon = item.TypeData?.ListBox?.Result?.SelectIcon;
+        var selectIcon = item.TypeData?.ListBox?.Value?.SelectIcon;
         if (selectIcon is not null && selectIcon.Kind != PointerKind.Null)
         {
             rows.Add(new MenuMaterialReferenceDisplayItem(
                 "Select Icon Material",
                 MenuDisplayFormatter.FormatAssetPointer(selectIcon),
-                selectIcon.Result));
+                selectIcon.Value));
         }
 
         return rows.ToArray();

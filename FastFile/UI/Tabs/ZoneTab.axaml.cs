@@ -16,7 +16,7 @@ namespace UI.Tabs;
 public partial class ZoneTab : UserControl
 {
     private List<DisplayItem> _scriptStringItems = [];
-    private XAssetListOLD? _xassetList;
+    private XAssetList? _xassetList;
 
     public ZoneTab()
     {
@@ -25,7 +25,7 @@ public partial class ZoneTab : UserControl
         SetScriptStrings([]);
     }
 
-    public void UpdateZone(FastFile.Models.Zone.XFile? xfile, FastFile.Models.Zone.XAssetListOLD? xassetList)
+    public void UpdateZone(FastFile.Models.Zone.XFile? xfile, FastFile.Models.Zone.XAssetList? xassetList)
     {
         _xassetList = xassetList;
 
@@ -160,22 +160,7 @@ public partial class ZoneTab : UserControl
 
     private void CommitScriptStrings()
     {
-        if (_xassetList is null)
-        {
-            return;
-        }
-
-        var pointers = _scriptStringItems
-            .Select(item =>
-            {
-                var pointer = new ZonePointer<string?>(0);
-                pointer.SetResult(string.IsNullOrEmpty(item.Display) ? null : item.Display);
-                return pointer;
-            })
-            .ToArray();
-
-        _xassetList.ScriptStringsPtr.SetResult(pointers);
-        _xassetList.ScriptStringCount = _xassetList.ScriptStrings.Length;
+        
     }
 
     private void RenumberScriptStrings()

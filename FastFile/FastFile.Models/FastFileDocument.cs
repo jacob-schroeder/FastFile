@@ -12,7 +12,7 @@ public sealed class FastFileDocument
     public bool IsNew { get; init; }
     public DB_Header Header { get; init; } = null!;
     public XFile ZoneHeader { get; init; } = null!;
-    public XAssetListOLD AssetListOld { get; init; } = null!;
+    public XAssetList AssetList { get; init; } = null!;
     public byte[]? ZoneBuffer { get; init; }
 
     public static FastFileDocument CreateNew()
@@ -37,7 +37,7 @@ public sealed class FastFileDocument
                 ExternalSize = 0,
                 BlockSize = new int[(int)XFILE_BLOCK.MAX_XFILE_COUNT]
             },
-            AssetListOld = CreateEmptyAssetList(),
+            AssetList = CreateEmptyAssetList(),
             ZoneBuffer = []
         };
     }
@@ -46,7 +46,7 @@ public sealed class FastFileDocument
         byte[] buffer,
         DB_Header header,
         XFile zoneHeader,
-        XAssetListOLD assetListOld,
+        XAssetList assetList,
         byte[] zoneBuffer)
     {
         return new FastFileDocument
@@ -55,20 +55,32 @@ public sealed class FastFileDocument
             IsNew = false,
             Header = header,
             ZoneHeader = zoneHeader,
-            AssetListOld = assetListOld,
+            AssetList = assetList,
             ZoneBuffer = zoneBuffer
         };
     }
 
-    private static XAssetListOLD CreateEmptyAssetList()
+    private static XAssetList CreateEmptyAssetList()
     {
-        var scriptStringsPtr = new DirectPointer<ZonePointer<string?>[]>(0);
-        scriptStringsPtr.SetResult([]);
+        var scriptStringsPtr = new XPointer<XPointer<string?>[]>()
+        {
+            Raw = 0,
+            Kind = PointerKind.Null,
+            ResolutionKind = PointerResolutionKind.Unknown
+        };
+        scriptStringsPtr.Value = [];
 
-        var assetsPtr = new DirectPointer<XAsset[]>(0);
-        assetsPtr.SetResult([]);
+        var assetsPtr = new XPointer<XAsset[]>
+        {
+            Value =
+            [
+            ],
+            Raw = 0,
+            Kind = PointerKind.Null,
+            ResolutionKind = PointerResolutionKind.Unknown
+        };
 
-        return new XAssetListOLD
+        return new XAssetList
         {
             ScriptStringCount = 0,
             ScriptStringsPtr = scriptStringsPtr,

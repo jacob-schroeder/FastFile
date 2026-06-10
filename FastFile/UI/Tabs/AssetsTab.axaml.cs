@@ -31,7 +31,7 @@ public partial class AssetsTab : UserControl
         RefreshAssetDetailTabs();
     }
 
-    public void UpdateAssets(XAssetListOLD? assetList)
+    public void UpdateAssets(XAssetList? assetList)
     {
         _assetGroups = assetList?.Assets
             .Select((asset, index) => new
@@ -54,7 +54,7 @@ public partial class AssetsTab : UserControl
                         {
                             Id = item.Index,
                             Display = GetAssetDisplayName(item.Asset, item.Index),
-                            Asset = item.Asset.XAssetPtr.Result,
+                            Asset = item.Asset.XAssetPtr.Value,
                             AssetType = item.Asset.Type
                         };
                     })
@@ -152,7 +152,7 @@ public partial class AssetsTab : UserControl
 
     private static string GetAssetDisplayName(XAsset asset, int index)
     {
-        var resolvedAsset = asset.XAssetPtr.Result;
+        var resolvedAsset = asset.XAssetPtr.Value;
         var displayName = resolvedAsset?.GetDisplayName;
         if (!string.IsNullOrWhiteSpace(displayName))
         {

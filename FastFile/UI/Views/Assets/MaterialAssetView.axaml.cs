@@ -5,6 +5,7 @@ using FastFile.Models.Data;
 using FastFile.Models.Utils;
 using System.Globalization;
 using System.Linq;
+using FastFile.Models.Zone;
 using UI.Models;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
@@ -57,12 +58,12 @@ public partial class MaterialAssetView : UserControl
 
     private static MaterialTextureDisplayItem[] BuildTextureItems(MaterialAsset material)
     {
-        if (material.TextureTable is not { IsResolved: true, Result: not null })
+        if (material.TextureTable is not { IsResolved: true, Value: not null })
         {
             return [];
         }
 
-        return material.TextureTable.Result
+        return material.TextureTable.Value
             .Select((texture, index) => BuildTextureItem(texture, index))
             .ToArray();
     }
@@ -162,12 +163,12 @@ public partial class MaterialAssetView : UserControl
 
     private static MaterialConstantDisplayItem[] BuildConstantItems(MaterialAsset material)
     {
-        if (material.ConstantTable is not { IsResolved: true, Result: not null })
+        if (material.ConstantTable is not { IsResolved: true, Value: not null })
         {
             return [];
         }
 
-        return material.ConstantTable.Result
+        return material.ConstantTable.Value
             .Select(constant => new MaterialConstantDisplayItem
             {
                 Name = string.IsNullOrWhiteSpace(constant.Name) ? "(unnamed constant)" : constant.Name,
@@ -181,10 +182,10 @@ public partial class MaterialAssetView : UserControl
     {
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
         {
-            return texture.Info.Water?.Result?.Image?.Result;
+            return texture.Info.Water?.Value?.Image?.Value;
         }
 
-        return texture.Info.Image?.Result;
+        return texture.Info.Image?.Value;
     }
 
     private static string GetTexturePointerStatus(MaterialTextureDef texture)
@@ -197,7 +198,7 @@ public partial class MaterialAssetView : UserControl
         return AssetViewFormatters.FormatPointerRaw(texture.Info.Image);
     }
 
-    private static string FormatTechniqueSet(ZonePointer<MaterialTechniqueSet>? pointer)
+    private static string FormatTechniqueSet(XPointer<MaterialTechniqueSet>? pointer)
     {
         if (pointer is null)
         {
@@ -209,7 +210,7 @@ public partial class MaterialAssetView : UserControl
             return AssetViewFormatters.OffsetPointerText;
         }
 
-        if (pointer.Result is { } techniqueSet && !string.IsNullOrWhiteSpace(techniqueSet.GetDisplayName))
+        if (pointer.Value is { } techniqueSet && !string.IsNullOrWhiteSpace(techniqueSet.GetDisplayName))
         {
             return techniqueSet.GetDisplayName;
         }

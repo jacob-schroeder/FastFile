@@ -5,6 +5,7 @@ using FastFile.Models.Data;
 using FastFile.Models.Utils;
 using System;
 using System.Globalization;
+using FastFile.Models.Zone;
 
 namespace UI.Components.Menu;
 
@@ -27,7 +28,7 @@ internal static class MenuDisplayFormatter
         };
     }
 
-    public static string FormatStringPointer(ZonePointer<string>? pointer, string? value, string emptyValue = "")
+    public static string FormatStringPointer(XPointer<string>? pointer, string? value, string emptyValue = "")
     {
         if (pointer is { Kind: PointerKind.Null })
         {
@@ -44,7 +45,7 @@ internal static class MenuDisplayFormatter
             : value;
     }
 
-    public static string FormatAssetPointer<TAsset>(ZonePointer<TAsset>? pointer) where TAsset : BaseAsset
+    public static string FormatAssetPointer<TAsset>(XPointer<TAsset>? pointer) where TAsset : BaseAsset
     {
         if (pointer is null)
         {
@@ -56,7 +57,7 @@ internal static class MenuDisplayFormatter
             return NullPointerText;
         }
 
-        return pointer.Result is { } asset && !string.IsNullOrWhiteSpace(asset.GetDisplayName)
+        return pointer.Value is { } asset && !string.IsNullOrWhiteSpace(asset.GetDisplayName)
             ? asset.GetDisplayName
             : FormatPointer(pointer);
     }

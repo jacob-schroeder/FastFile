@@ -4,6 +4,7 @@ using FastFile.Logic.Compression;
 using FastFile.Models.Assets.RawFiles;
 using FastFile.Models.Data;
 using System.Text;
+using FastFile.Models.Zone;
 using UI.Views.Assets.Highlighting;
 
 namespace UI.Views.Assets;
@@ -39,9 +40,14 @@ public partial class RawfileAssetView : UserControl
         _asset.CompressedLen = compressed.Length;
 
         if (_asset.BufferPtr is null)
-            _asset.BufferPtr = new DirectPointer<byte[]>(-1);
+            _asset.BufferPtr = new XPointer<byte[]>
+            {
+                Raw = -1, 
+                Kind = PointerKind.Inline, 
+                ResolutionKind = PointerResolutionKind.Direct
+            };
 
-        _asset.BufferPtr.SetResult(compressed);
+        _asset.BufferPtr.Value = compressed;
     }
 
     private static string ReadFileText(RawFile asset)

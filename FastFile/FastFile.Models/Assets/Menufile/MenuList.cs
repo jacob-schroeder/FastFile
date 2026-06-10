@@ -6,9 +6,9 @@ namespace FastFile.Models.Assets.Menufile;
 
 public class MenuList() : BaseAsset(XAssetType.MenuFile)
 {
-    public DirectPointer<string> NamePtr { get; set; }
+    public XPointer<string> NamePtr { get; set; } // Direct
     public int MenuCount { get; set; }
-    public DirectPointer<AliasPointer<MenuDef>[]> Menus { get; set; }
+    public XPointer<XPointer<MenuDef>[]> Menus { get; set; } // Direct -> Alias ?
 
-    public override string? GetDisplayName => NamePtr is { IsResolved: true } ? NamePtr.Result : string.Empty;
+    public override string? GetDisplayName => NamePtr is { IsResolved: true } ? NamePtr.Value : string.Empty;
 }

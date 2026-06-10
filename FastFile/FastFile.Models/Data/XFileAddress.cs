@@ -1,3 +1,5 @@
+using FastFile.Models.Zone;
+
 namespace FastFile.Models.Data;
 
 public readonly record struct XFileAddress(int BlockIndex, int Offset)
@@ -6,5 +8,5 @@ public readonly record struct XFileAddress(int BlockIndex, int Offset)
 
     public bool IsNull => BlockIndex < 0 || Offset < 0;
 
-    public int Raw => IsNull ? 0 : Pointer.EncodeOffset(BlockIndex, Offset);
+    public int Raw => IsNull ? 0 : XPointer.EncodeOffset(BlockIndex, Offset);
 }

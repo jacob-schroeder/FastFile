@@ -7,8 +7,8 @@ public class StringTableCell
 {
     private string? _logicalStringOverride;
 
-    public DirectPointer<string> StringPtr { get; set; }
-    public string PointerString => StringPtr is { IsResolved: true } ? StringPtr.Result ?? string.Empty : string.Empty;
+    public XPointer<string> StringPtr { get; set; } // Direct
+    public string PointerString => StringPtr is { IsResolved: true } ? StringPtr.Value ?? string.Empty : string.Empty;
     public string String => _logicalStringOverride ?? PointerString;
     public bool HasLogicalStringOverride => _logicalStringOverride is not null;
 
@@ -22,8 +22,9 @@ public class StringTableCell
     public void SetString(string value)
     {
         _logicalStringOverride = null;
-        StringPtr.SetRaw(-1);
-        StringPtr.SetResult(value);
+        //I think this is incorrect
+        //StringPtr.SetRaw(-1);
+        StringPtr.Value = value;
         Hash = unchecked((int)CalculateHash(value));
     }
 

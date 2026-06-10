@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using FastFile.Models.Zone;
 
 namespace UI.Components.Menu;
 
@@ -88,7 +89,7 @@ internal static class MenuBehaviorFormatter
         return rows.ToArray();
     }
 
-    public static string FormatStatementPointer(ZonePointer<Statement>? pointer)
+    public static string FormatStatementPointer(XPointer<Statement>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -100,15 +101,15 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        return FormatStatement(pointer.Result);
+        return FormatStatement(pointer.Value);
     }
 
-    private static MenuInsightDisplayItem BuildEvent(string name, ZonePointer<MenuEventHandlerSet>? pointer)
+    private static MenuInsightDisplayItem BuildEvent(string name, XPointer<MenuEventHandlerSet>? pointer)
     {
         return new MenuInsightDisplayItem(
             name,
@@ -116,7 +117,7 @@ internal static class MenuBehaviorFormatter
             FormatEventHandlerSetPointer(pointer));
     }
 
-    private static MenuInsightDisplayItem BuildExecKeys(string name, ZonePointer<ItemKeyHandler>? pointer)
+    private static MenuInsightDisplayItem BuildExecKeys(string name, XPointer<ItemKeyHandler>? pointer)
     {
         return new MenuInsightDisplayItem(
             name,
@@ -124,7 +125,7 @@ internal static class MenuBehaviorFormatter
             FormatItemKeyHandlerPointer(pointer));
     }
 
-    private static MenuInsightDisplayItem BuildExpression(string name, ZonePointer<Statement>? pointer)
+    private static MenuInsightDisplayItem BuildExpression(string name, XPointer<Statement>? pointer)
     {
         return new MenuInsightDisplayItem(
             name,
@@ -136,7 +137,7 @@ internal static class MenuBehaviorFormatter
         List<MenuInsightDisplayItem> rows,
         string itemLabel,
         string expressionName,
-        ZonePointer<Statement>? pointer)
+        XPointer<Statement>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -152,7 +153,7 @@ internal static class MenuBehaviorFormatter
     private static void AddItemExpression(
         List<MenuInsightDisplayItem> rows,
         string expressionName,
-        ZonePointer<Statement>? pointer)
+        XPointer<Statement>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -168,7 +169,7 @@ internal static class MenuBehaviorFormatter
     private static void AddFloatExpressions(
         List<MenuInsightDisplayItem> rows,
         string itemLabel,
-        ZonePointer<ItemFloatExpression[]>? pointer)
+        XPointer<ItemFloatExpression[]>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -181,13 +182,13 @@ internal static class MenuBehaviorFormatter
             return;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             rows.Add(new MenuInsightDisplayItem($"{itemLabel} - Float Expressions", MenuDisplayFormatter.UnresolvedPointerText));
             return;
         }
 
-        foreach (var expression in pointer.Result)
+        foreach (var expression in pointer.Value)
         {
             rows.Add(new MenuInsightDisplayItem(
                 $"{itemLabel} - {CleanName(expression.Target.ToString())}",
@@ -198,7 +199,7 @@ internal static class MenuBehaviorFormatter
 
     private static void AddFloatExpressions(
         List<MenuInsightDisplayItem> rows,
-        ZonePointer<ItemFloatExpression[]>? pointer)
+        XPointer<ItemFloatExpression[]>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -211,13 +212,13 @@ internal static class MenuBehaviorFormatter
             return;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             rows.Add(new MenuInsightDisplayItem("Float Expressions", MenuDisplayFormatter.UnresolvedPointerText));
             return;
         }
 
-        foreach (var expression in pointer.Result)
+        foreach (var expression in pointer.Value)
         {
             rows.Add(new MenuInsightDisplayItem(
                 CleanName(expression.Target.ToString()),
@@ -226,7 +227,7 @@ internal static class MenuBehaviorFormatter
         }
     }
 
-    private static string FormatEventSummary(ZonePointer<MenuEventHandlerSet>? pointer)
+    private static string FormatEventSummary(XPointer<MenuEventHandlerSet>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -238,17 +239,17 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        return pointer.Result.EventHandlerCount == 1
+        return pointer.Value.EventHandlerCount == 1
             ? "1 handler"
-            : $"{pointer.Result.EventHandlerCount:N0} handlers";
+            : $"{pointer.Value.EventHandlerCount:N0} handlers";
     }
 
-    private static string FormatExecKeysSummary(ZonePointer<ItemKeyHandler>? pointer)
+    private static string FormatExecKeysSummary(XPointer<ItemKeyHandler>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -260,17 +261,17 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        var count = CountKeyHandlers(pointer.Result);
+        var count = CountKeyHandlers(pointer.Value);
         return count == 1 ? "1 key handler" : $"{count:N0} key handlers";
     }
 
     private static string FormatEventHandlerSetPointer(
-        ZonePointer<MenuEventHandlerSet>? pointer,
+        XPointer<MenuEventHandlerSet>? pointer,
         int depth = 0)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
@@ -283,18 +284,18 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        var set = pointer.Result;
-        if (set.EventHandlers is not { IsResolved: true, Result: not null })
+        var set = pointer.Value;
+        if (set.EventHandlers is not { IsResolved: true, Value: not null })
         {
             return FormatPointerStatus(set.EventHandlers);
         }
 
-        var handlers = set.EventHandlers.Result
+        var handlers = set.EventHandlers.Value
             .Select((handler, index) => FormatEventHandlerPointer(handler, index, depth))
             .Where(line => !string.IsNullOrWhiteSpace(line));
 
@@ -302,7 +303,7 @@ internal static class MenuBehaviorFormatter
     }
 
     private static string FormatEventHandlerPointer(
-        ZonePointer<MenuEventHandler>? pointer,
+        XPointer<MenuEventHandler>? pointer,
         int index,
         int depth)
     {
@@ -319,12 +320,12 @@ internal static class MenuBehaviorFormatter
             return $"{prefix}{MenuDisplayFormatter.OffsetPointerText}";
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return $"{prefix}{MenuDisplayFormatter.UnresolvedPointerText}";
         }
 
-        return prefix + FormatEventHandler(pointer.Result, depth);
+        return prefix + FormatEventHandler(pointer.Value, depth);
     }
 
     private static string FormatEventHandler(MenuEventHandler handler, int depth)
@@ -333,7 +334,7 @@ internal static class MenuBehaviorFormatter
         {
             0 => MenuDisplayFormatter.FormatStringPointer(
                 handler.EventData.UnconditionalScript,
-                handler.EventData.UnconditionalScript?.Result,
+                handler.EventData.UnconditionalScript?.Value,
                 string.Empty),
             1 => FormatConditionalScript(handler.EventData.ConditionalScript, depth),
             2 => $"else {{{Environment.NewLine}{FormatEventHandlerSetPointer(handler.EventData.ElseScript, depth + 1)}{Environment.NewLine}{new string(' ', depth * 2)}}}",
@@ -345,7 +346,7 @@ internal static class MenuBehaviorFormatter
         };
     }
 
-    private static string FormatConditionalScript(ZonePointer<ConditionalScript>? pointer, int depth)
+    private static string FormatConditionalScript(XPointer<ConditionalScript>? pointer, int depth)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -357,17 +358,17 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
         var indent = new string(' ', depth * 2);
-        var body = FormatEventHandlerSetPointer(pointer.Result.EventHandlerSet, depth + 1);
-        return $"if ({FormatStatementPointer(pointer.Result.EventExpression)}) {{{Environment.NewLine}{body}{Environment.NewLine}{indent}}}";
+        var body = FormatEventHandlerSetPointer(pointer.Value.EventHandlerSet, depth + 1);
+        return $"if ({FormatStatementPointer(pointer.Value.EventExpression)}) {{{Environment.NewLine}{body}{Environment.NewLine}{indent}}}";
     }
 
-    private static string FormatSetLocalVar(ZonePointer<SetLocalVarData>? pointer, string typeName)
+    private static string FormatSetLocalVar(XPointer<SetLocalVarData>? pointer, string typeName)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -379,19 +380,19 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
         var localVar = MenuDisplayFormatter.FormatStringPointer(
-            pointer.Result.LocalVarName,
-            pointer.Result.LocalVar,
+            pointer.Value.LocalVarName,
+            pointer.Value.LocalVar,
             "(unnamed local var)");
-        return $"set {typeName} {localVar} = {FormatStatementPointer(pointer.Result.Expression)}";
+        return $"set {typeName} {localVar} = {FormatStatementPointer(pointer.Value.Expression)}";
     }
 
-    private static string FormatItemKeyHandlerPointer(ZonePointer<ItemKeyHandler>? pointer)
+    private static string FormatItemKeyHandlerPointer(XPointer<ItemKeyHandler>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -403,18 +404,18 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
         var lines = new List<string>();
-        var current = pointer.Result;
+        var current = pointer.Value;
         var index = 1;
         while (current is not null)
         {
             lines.Add($"{index}. key {current.Key}: {FormatEventHandlerSetPointer(current.Action)}");
-            current = current.Next is { IsResolved: true } ? current.Next.Result : null;
+            current = current.Next is { IsResolved: true } ? current.Next.Value : null;
             index++;
         }
 
@@ -428,7 +429,7 @@ internal static class MenuBehaviorFormatter
         while (current is not null)
         {
             count++;
-            current = current.Next is { IsResolved: true } ? current.Next.Result : null;
+            current = current.Next is { IsResolved: true } ? current.Next.Value : null;
         }
 
         return count;
@@ -446,17 +447,17 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!statement.Entries.IsResolved || statement.Entries.Result is null)
+        if (!statement.Entries.IsResolved || statement.Entries.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        if (statement.Entries.Result.Length == 0)
+        if (statement.Entries.Value.Length == 0)
         {
             return "(empty)";
         }
 
-        var tokens = statement.Entries.Result.Select(FormatExpressionEntry);
+        var tokens = statement.Entries.Value.Select(FormatExpressionEntry);
         return string.Join(" ", tokens);
     }
 
@@ -484,7 +485,7 @@ internal static class MenuBehaviorFormatter
         };
     }
 
-    private static string FormatExpressionString(ZonePointer<string>? pointer)
+    private static string FormatExpressionString(XPointer<string>? pointer)
     {
         if (pointer is null || pointer.Kind == PointerKind.Null)
         {
@@ -496,12 +497,12 @@ internal static class MenuBehaviorFormatter
             return MenuDisplayFormatter.OffsetPointerText;
         }
 
-        if (!pointer.IsResolved || pointer.Result is null)
+        if (!pointer.IsResolved || pointer.Value is null)
         {
             return MenuDisplayFormatter.UnresolvedPointerText;
         }
 
-        return $"\"{pointer.Result}\"";
+        return $"\"{pointer.Value}\"";
     }
 
     private static string FormatFloat(float value)
@@ -544,9 +545,7 @@ internal static class MenuBehaviorFormatter
 
     private static string FormatPointerStatus(Pointer? pointer)
     {
-        return pointer?.IsInlineData == true
-            ? string.Empty
-            : MenuDisplayFormatter.FormatPointer(pointer);
+        return string.Empty;
     }
 
     private static string CleanName(string name)

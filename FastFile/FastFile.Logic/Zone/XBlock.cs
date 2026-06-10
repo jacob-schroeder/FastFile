@@ -7,7 +7,6 @@ namespace FastFile.Logic.Zone;
 public class XBlock
 {
     public readonly XFILE_BLOCK BlockType;
-    private readonly int _capacity;
     private readonly MemoryStream _stream;
     
     public int Position => (int)_stream.Position;
@@ -18,12 +17,11 @@ public class XBlock
     public XBlock(XFILE_BLOCK blockType, int  capacity)
     {
         BlockType = blockType;
-        _capacity = capacity;
-        
-        if(_capacity < 0)
+
+        if(capacity < 0)
             throw new InvalidDataException($"Invalid negative XFILE block size {capacity} for block {blockType}.");
         
-        _stream = new MemoryStream(_capacity);
+        _stream = new MemoryStream(capacity);
     }
     
     public void PatchInt32(int offset, int value)
@@ -53,6 +51,11 @@ public class XBlock
         buffer[byteCount] = 0;
 
         _stream.Write(buffer);
+    }
+
+    public void Write(byte[] value)
+    {
+        _stream.Write(value, 0, value.Length);
     }
 
     ~XBlock()

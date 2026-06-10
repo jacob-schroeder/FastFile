@@ -23,8 +23,8 @@ public partial class MenuListAssetView : UserControl
             ? "[OFFSET]"
             : "No menus available.";
 
-        var menus = asset.Menus is { IsResolved: true, Result: not null }
-            ? asset.Menus.Result
+        var menus = asset.Menus is { IsResolved: true, Value: not null }
+            ? asset.Menus.Value
                 .Select((menu, index) => new MenuListMenuDisplayItem(index, menu))
                 .ToArray()
             : [];

@@ -23,7 +23,7 @@ public partial class MainWindow : Window
     private FastFileDocument? _document;
     private DB_Header? _fastFileHeader;
     private XFile? _zoneHeader;
-    private XAssetListOLD? _assetList;
+    private XAssetList? _assetList;
     private string? _currentFileName;
     private string? _currentFilePath;
     private readonly List<string> _logMessages = new();
@@ -70,7 +70,7 @@ public partial class MainWindow : Window
         _buffer = _document.Buffer;
         _fastFileHeader = _document.Header;
         _zoneHeader = _document.ZoneHeader;
-        _assetList = _document.AssetListOld;
+        _assetList = _document.AssetList;
         _currentFileName = null;
         _currentFilePath = null;
 
@@ -140,16 +140,13 @@ public partial class MainWindow : Window
             _buffer = parseResult.Buffer;
             _fastFileHeader = parseResult.Header;
             _zoneHeader = parseResult.ZoneHeader;
-            /*
             _assetList = parseResult.AssetList;
             _document = FastFileDocument.FromParsed(
                 parseResult.Buffer,
                 parseResult.Header,
                 parseResult.ZoneHeader,
-                parseResult.AssetListOld,
+                parseResult.AssetList,
                 parseResult.Zone);
-            */
-            return;
             AddWarnings("FastFileReader", parseResult.Warnings);
 
             UpdateFastFileHeaderView();
@@ -179,7 +176,7 @@ public partial class MainWindow : Window
         byte[] Buffer,
         DB_Header Header,
         XFile ZoneHeader,
-        XAssetList AssetListOld,
+        XAssetList AssetList,
         byte[] Zone,
         IReadOnlyList<string> Warnings);
 
@@ -190,7 +187,7 @@ public partial class MainWindow : Window
 
         var zone = ffReader.UnpackZone();
 
-        var zoneReader = new XFileReader(zone, assetReadProgress).Read();
+        var zoneReader = new XFileReader(zone, assetReadProgress).Read().DumpBlocks();
         var zoneHeader = zoneReader.GetHeader();
         var assetList = zoneReader.GetAssetList();
 

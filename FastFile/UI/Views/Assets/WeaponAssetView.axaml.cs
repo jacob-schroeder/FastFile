@@ -3,6 +3,7 @@ using FastFile.Models.Assets.Weapons;
 using FastFile.Models.Data;
 using UI.Models;
 using System.Globalization;
+using FastFile.Models.Zone;
 
 namespace UI.Views.Assets;
 
@@ -67,9 +68,9 @@ public partial class WeaponAssetView : UserControl
         ];
     }
 
-    private static string GetResolvedString(DirectPointer<string>? pointer)
+    private static string GetResolvedString(XPointer<string>? pointer)
     {
-        if (pointer is { IsResolved: true, Result: { } value })
+        if (pointer is { IsResolved: true, Value: { } value })
         {
             return string.IsNullOrWhiteSpace(value) ? "(empty)" : value;
         }
@@ -77,7 +78,7 @@ public partial class WeaponAssetView : UserControl
         return "[unresolved]";
     }
 
-    private static string FormatArrayPointer<T>(DirectPointer<T[]>? pointer, int expectedCount)
+    private static string FormatArrayPointer<T>(XPointer<T[]>? pointer, int expectedCount)
     {
         if (pointer is null)
         {
@@ -90,7 +91,7 @@ public partial class WeaponAssetView : UserControl
             return $"{pointerText} · unresolved";
         }
 
-        var count = pointer.Result?.Length ?? 0;
+        var count = pointer.Value?.Length ?? 0;
         return $"{pointerText} · {count:N0} / {expectedCount:N0} values";
     }
 

@@ -7,9 +7,9 @@ namespace FastFile.Models.Assets.Tracers;
 
 public class TracerDef() : BaseAsset(XAssetType.Tracer)
 {
-    public DirectPointer<string> NamePtr { get; set; }
-    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Result ?? string.Empty : string.Empty;
-    public AliasPointer<Material.Material> Material { get; set; }
+    public XPointer<string> NamePtr { get; set; } // Direct
+    public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
+    public XPointer<Material.Material> Material { get; set; } // Alias
     public uint DrawInterval { get; set; }
     public float Speed { get; set; }
     public float BeamLength { get; set; }
