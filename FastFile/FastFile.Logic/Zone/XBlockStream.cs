@@ -125,72 +125,41 @@ internal sealed class XBlockStream
         }
     }
 
-    public bool TryMaterializePointer<T>(
+    public XPointerMaterializationResult MaterializePointer<T>(
         XPointer<T> pointer,
-        Func<XBlockAddress> inlineAddressFactory)
+        XPointerMaterializationPlan plan)
     {
+        if (plan.ResolutionKind == PointerResolutionKind.Unknown)
+            throw new InvalidDataException($"{plan.Target} pointer has unknown resolution semantics.");
+
         XBlockAddress? insertPatchAddress = null;
 
         switch (pointer.Kind)
         {
             case PointerKind.Null:
-                return false;
-
-            case PointerKind.Offset:
-                pointer.Address = XPointerCodec.DecodeOffset(pointer.Raw);
-                break;
-
-            case PointerKind.Inline:
-                pointer.Address = inlineAddressFactory();
-                break;
-
-            case PointerKind.Insert:
-                insertPatchAddress = AllocateInsertPointerCell();
-                pointer.Address = inlineAddressFactory();
-                break;
-
-            default:
-                throw new InvalidDataException($"Unknown pointer kind {pointer.Kind}.");
-        }
-
-        PatchPointer(pointer);
-        PatchInsertPointer(insertPatchAddress, pointer.Address);
-        return true;
-    }
-
-    public bool TryMaterializeCurrentStreamPointer<T>(
-        XPointer<T> pointer,
-        int alignment = 4)
-    {
-        XBlockAddress? insertPatchAddress = null;
-
-        switch (pointer.Kind)
-        {
-            case PointerKind.Null:
-                return false;
+                return new XPointerMaterializationResult(pointer.Kind, null, ShouldReadPayload: false);
 
             case PointerKind.Offset:
                 pointer.Address = XPointerCodec.DecodeOffset(pointer.Raw);
                 PatchPointer(pointer);
-                return false;
+                return new XPointerMaterializationResult(pointer.Kind, pointer.Address, plan.ReadOffsetPayload);
 
             case PointerKind.Inline:
+                pointer.Address = ResolvePayloadAddress(plan);
                 break;
 
             case PointerKind.Insert:
                 insertPatchAddress = AllocateInsertPointerCell();
+                pointer.Address = ResolvePayloadAddress(plan);
                 break;
 
             default:
                 throw new InvalidDataException($"Unknown pointer kind {pointer.Kind}.");
         }
 
-        ActiveBlock.Align(alignment);
-        pointer.Address = ActiveBlock.Address;
-
         PatchPointer(pointer);
         PatchInsertPointer(insertPatchAddress, pointer.Address);
-        return true;
+        return new XPointerMaterializationResult(pointer.Kind, pointer.Address, ShouldReadPayload: true);
     }
 
     public XBlockAddress AllocatePointerPayload(XFILE_BLOCK block, int alignment)
@@ -199,6 +168,23 @@ internal sealed class XBlockStream
         streamBlock.Align(alignment);
 
         return streamBlock.Address;
+    }
+
+    private XBlockAddress ResolvePayloadAddress(XPointerMaterializationPlan plan)
+    {
+        return plan.AddressMode switch
+        {
+            XPointerPayloadAddressMode.BlockPosition => GetAddress(plan.PayloadBlock),
+            XPointerPayloadAddressMode.AllocatedBlock => AllocatePointerPayload(plan.PayloadBlock, plan.Alignment),
+            XPointerPayloadAddressMode.CurrentStream => AllocateCurrentStreamPayload(plan.Alignment),
+            _ => throw new InvalidDataException($"Unsupported pointer payload address mode {plan.AddressMode}.")
+        };
+    }
+
+    private XBlockAddress AllocateCurrentStreamPayload(int alignment)
+    {
+        ActiveBlock.Align(alignment);
+        return ActiveBlock.Address;
     }
 
     public XBlockAddress AllocateInsertPointerCell()

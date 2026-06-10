@@ -138,18 +138,11 @@ public partial class XFileReader : IXAssetReaderContext
         _blocks.SeekOrVerify(expectedOffset);
     }
 
-    private bool TryMaterializePointer<T>(
+    private XPointerMaterializationResult MaterializePointer<T>(
         XPointer<T> ptr,
-        Func<XBlockAddress> inlineAddressFactory)
+        XPointerMaterializationPlan plan)
     {
-        return _blocks.TryMaterializePointer(ptr, inlineAddressFactory);
-    }
-
-    private bool TryMaterializeCurrentStreamPointer<T>(
-        XPointer<T> ptr,
-        int alignment = 4)
-    {
-        return _blocks.TryMaterializeCurrentStreamPointer(ptr, alignment);
+        return _blocks.MaterializePointer(ptr, plan);
     }
 
     private XPointer<T> ReadDirectPointer<T>() =>
@@ -269,11 +262,15 @@ public partial class XFileReader : IXAssetReaderContext
     {
         var ptr = list.ScriptStringsPtr;
 
-        if (!TryMaterializePointer(
-                ptr,
-                () => new XBlockAddress(
-                    XFILE_BLOCK.LARGE,
-                    _blocks.GetPosition(XFILE_BLOCK.LARGE))))
+        var materialization = MaterializePointer(
+            ptr,
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.PointerArray,
+                ptr.ResolutionKind,
+                XFILE_BLOCK.LARGE,
+                readOffsetPayload: true));
+
+        if (materialization.IsNull)
         {
             ptr.Value = [];
             return;
@@ -299,11 +296,15 @@ public partial class XFileReader : IXAssetReaderContext
     {
         var ptr = list.AssetsPtr;
 
-        if (!TryMaterializePointer(
-                ptr,
-                () => new XBlockAddress(
-                    XFILE_BLOCK.LARGE,
-                    _blocks.GetPosition(XFILE_BLOCK.LARGE))))
+        var materialization = MaterializePointer(
+            ptr,
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.ObjectArray,
+                ptr.ResolutionKind,
+                XFILE_BLOCK.LARGE,
+                readOffsetPayload: true));
+
+        if (materialization.IsNull)
         {
             ptr.Value = [];
             return;
@@ -425,11 +426,13 @@ public partial class XFileReader : IXAssetReaderContext
     private T LoadAssetRoot<T>(XPointer<BaseAsset> assetPtr)
         where T : BaseAsset, new()
     {
-        TryMaterializePointer(
+        MaterializePointer(
             assetPtr,
-            () => new XBlockAddress(
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.Object,
+                assetPtr.ResolutionKind,
                 XFILE_BLOCK.TEMP,
-                _blocks.GetPosition(XFILE_BLOCK.TEMP)));
+                readOffsetPayload: true));
 
         return WithStreamBlock(assetPtr.Address!.Value.Block, () =>
         {
@@ -454,15 +457,29 @@ public partial class XFileReader : IXAssetReaderContext
 
     private void MaterializeCStringPointer(XPointer<string?> ptr)
     {
-        if (!TryMaterializePointer(ptr, () => _blocks.ActiveAddress))
+        MaterializeCStringPointer(
+            ptr,
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.CString,
+                ptr.ResolutionKind,
+                _blocks.ActiveBlockType));
+    }
+
+    private void MaterializeCStringPointer(
+        XPointer<string?> ptr,
+        XPointerMaterializationPlan plan)
+    {
+        var materialization = MaterializePointer(ptr, plan);
+
+        if (materialization.IsNull)
         {
             ptr.Value = null;
             return;
         }
 
-        if (ptr.Kind == PointerKind.Offset)
+        if (!materialization.ShouldReadPayload)
         {
-            if (ptr.Address is { } address && TryGetEmittedString(address, out var value))
+            if (materialization.Address is { } address && TryGetEmittedString(address, out var value))
             {
                 ptr.Value = value;
             }
@@ -475,11 +492,14 @@ public partial class XFileReader : IXAssetReaderContext
             return;
         }
 
-        WithStreamBlock(ptr.Address!.Value.Block, () =>
+        XBlockAddress payloadAddress = materialization.Address
+                                       ?? throw new InvalidDataException("CString pointer materialized without an address.");
+
+        WithStreamBlock(payloadAddress.Block, () =>
         {
-            SeekOrVerify(ptr.Address.Value.Offset);
+            SeekOrVerify(payloadAddress.Offset);
             ptr.Value = ReadCString();
-            _stringsByAddress[ptr.Address.Value] = ptr.Value;
+            _stringsByAddress[payloadAddress] = ptr.Value;
         });
     }
 

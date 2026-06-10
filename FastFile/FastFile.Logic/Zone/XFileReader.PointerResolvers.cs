@@ -203,21 +203,31 @@ public partial class XFileReader
         XPointerFieldAttribute attr)
     {
         var ptr = (XPointer<string?>)pointerObj;
-        WithStreamBlock(attr.PayloadBlock, () => MaterializeCStringPointer(ptr));
+        MaterializeCStringPointer(
+            ptr,
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.CString,
+                attr.ResolutionKind,
+                attr.PayloadBlock));
     }
 
     private void ResolveCurrentStreamObjectPointer<T>(XPointer<T> ptr)
         where T : class, new()
     {
-        if (!TryMaterializeCurrentStreamPointer(ptr))
+        var materialization = MaterializePointer(
+            ptr,
+            XPointerMaterializationPlan.CurrentStream(XPointerTarget.Object, ptr.ResolutionKind));
+
+        if (!materialization.ShouldReadPayload)
         {
-            ptr.Value = ptr.Address is { } offsetAddress && TryGetCachedObject<T>(offsetAddress, out var cached)
+            ptr.Value = materialization.Address is { } offsetAddress && TryGetCachedObject<T>(offsetAddress, out var cached)
                 ? cached
                 : null;
             return;
         }
 
-        XBlockAddress address = ptr.Address!.Value;
+        XBlockAddress address = materialization.Address
+                                ?? throw new InvalidDataException("Current stream object pointer materialized without an address.");
 
         WithStreamBlock(address.Block, () =>
         {
@@ -244,17 +254,22 @@ public partial class XFileReader
     {
         var ptr = (XPointer<byte[]>)pointerObj;
 
-        if (!TryMaterializePointer(
-                ptr,
-                () => _blocks.GetAddress(attr.PayloadBlock)))
+        var materialization = MaterializePointer(
+            ptr,
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.ByteArray,
+                attr.ResolutionKind,
+                attr.PayloadBlock));
+
+        if (materialization.IsNull)
         {
             ptr.Value = [];
             return;
         }
 
-        if (ptr.Kind == PointerKind.Offset)
+        if (!materialization.ShouldReadPayload)
         {
-            ptr.Value = ptr.Address is { } address && TryGetCachedObject<byte[]>(address, out var cached)
+            ptr.Value = materialization.Address is { } address && TryGetCachedObject<byte[]>(address, out var cached)
                 ? cached
                 : [];
             return;
@@ -265,9 +280,12 @@ public partial class XFileReader
             throw new InvalidDataException(
                 $"Byte array pointer has negative count {count} from {DescribeCountOwner(owner, attr)}.");
 
-        WithStreamBlock(ptr.Address!.Value.Block, () =>
+        XBlockAddress payloadAddress = materialization.Address
+                                       ?? throw new InvalidDataException("Byte array pointer materialized without an address.");
+
+        WithStreamBlock(payloadAddress.Block, () =>
         {
-            var address = ptr.Address.Value;
+            var address = payloadAddress;
             if (TryGetCachedObject<byte[]>(address, out var cached))
             {
                 ptr.Value = cached;
@@ -287,43 +305,18 @@ public partial class XFileReader
         var pointerType = pointerObj.GetType();
         var targetType = pointerType.GetGenericArguments()[0];
         dynamic ptr = pointerObj;
-        Func<XBlockAddress> addressFactory =
-            () =>
-            {
-                var block = attr.ResolutionKind == PointerResolutionKind.Alias &&
-                            typeof(BaseAsset).IsAssignableFrom(targetType)
-                    ? XFILE_BLOCK.TEMP
-                    : attr.PayloadBlock;
-
-                return _blocks.GetAddress(block);
-            };
 
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{targetType.Name} pointer has unknown resolution semantics.");
 
-        PointerKind pointerKind = ptr.Kind;
-        if (attr.ResolutionKind == PointerResolutionKind.Alias &&
-            pointerKind is not PointerKind.Inline and not PointerKind.Insert)
-        {
-            TryMaterializePointer(ptr, addressFactory);
-            if (((XBlockAddress?)ptr.Address) is { } aliasAddress &&
-                TryGetCachedObject(targetType, aliasAddress, out var cached))
-            {
-                ptr.Value = (dynamic)cached;
-            }
-            else
-            {
-                ptr.Value = null;
-            }
+        var materialization = MaterializePointer(
+            ptr,
+            CreateObjectMaterializationPlan(attr, targetType));
 
-            return;
-        }
-
-        if (attr.ResolutionKind != PointerResolutionKind.CurrentStream &&
-            pointerKind == PointerKind.Offset)
+        if (!materialization.ShouldReadPayload)
         {
-            TryMaterializePointer(ptr, addressFactory);
-            if (((XBlockAddress?)ptr.Address) is { } offsetAddress &&
+            if (ShouldUseCachedOffsetReference(attr) &&
+                ((XBlockAddress?)materialization.Address) is { } offsetAddress &&
                 TryGetCachedObject(targetType, offsetAddress, out var cached))
             {
                 ptr.Value = (dynamic)cached;
@@ -336,17 +329,8 @@ public partial class XFileReader
             return;
         }
 
-        var materialized = attr.ResolutionKind == PointerResolutionKind.CurrentStream
-            ? TryMaterializeCurrentStreamPointer(ptr)
-            : TryMaterializePointer(ptr, addressFactory);
-
-        if (!materialized)
-        {
-            ptr.Value = null;
-            return;
-        }
-
-        XBlockAddress address = ((XBlockAddress?)ptr.Address)!.Value;
+        XBlockAddress address = ((XBlockAddress?)materialization.Address)
+                                ?? throw new InvalidDataException($"{targetType.Name} pointer materialized without an address.");
 
         WithStreamBlock(address.Block, () =>
         {
@@ -378,20 +362,21 @@ public partial class XFileReader
         var elementType = arrayType.GetElementType()
                           ?? throw new InvalidDataException($"{arrayType.Name} is not an array pointer target.");
         dynamic ptr = pointerObj;
-        Func<XBlockAddress> addressFactory =
-            () => AllocatePointerPayload(attr.PayloadBlock, GetArrayPayloadAlignment(elementType));
 
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{elementType.Name} array pointer has unknown resolution semantics.");
 
-        var materialized = attr.ResolutionKind == PointerResolutionKind.CurrentStream
-            ? TryMaterializeCurrentStreamPointer(ptr)
-            : TryMaterializePointer(ptr, addressFactory);
+        var materialization = MaterializePointer(
+            ptr,
+            CreateArrayMaterializationPlan(
+                XPointerTarget.ObjectArray,
+                attr,
+                GetArrayPayloadAlignment(elementType)));
 
-        if (attr.ResolutionKind != PointerResolutionKind.CurrentStream &&
-            ((PointerKind)ptr.Kind) == PointerKind.Offset)
+        if (!materialization.ShouldReadPayload)
         {
-            if (((XBlockAddress?)ptr.Address) is { } offsetAddress &&
+            if (ShouldUseCachedOffsetReference(attr) &&
+                ((XBlockAddress?)materialization.Address) is { } offsetAddress &&
                 TryGetCachedObject(arrayType, offsetAddress, out var cached))
             {
                 ptr.Value = (dynamic)cached;
@@ -404,19 +389,14 @@ public partial class XFileReader
             return;
         }
 
-        if (!materialized)
-        {
-            ptr.Value = (dynamic)Array.CreateInstance(elementType, 0);
-            return;
-        }
-
         int count = GetCount(owner, attr);
         if (count < 0)
             throw new InvalidDataException(
                 $"{elementType.Name} object array pointer has negative count {count} from {DescribeCountOwner(owner, attr)} " +
                 $"({DescribePointer(ptr)}).");
 
-        XBlockAddress address = ((XBlockAddress?)ptr.Address)!.Value;
+        XBlockAddress address = ((XBlockAddress?)materialization.Address)
+                                ?? throw new InvalidDataException($"{elementType.Name} object array pointer materialized without an address.");
 
         WithStreamBlock(address.Block, () =>
         {
@@ -483,20 +463,21 @@ public partial class XFileReader
             ? attr.ResolutionKind
             : attr.ElementResolutionKind;
         dynamic ptr = pointerObj;
-        Func<XBlockAddress> addressFactory =
-            () => AllocatePointerPayload(attr.PayloadBlock, 4);
 
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{arrayType.Name} pointer array has unknown resolution semantics.");
 
-        var materialized = attr.ResolutionKind == PointerResolutionKind.CurrentStream
-            ? TryMaterializeCurrentStreamPointer(ptr)
-            : TryMaterializePointer(ptr, addressFactory);
+        var materialization = MaterializePointer(
+            ptr,
+            CreateArrayMaterializationPlan(
+                XPointerTarget.PointerArray,
+                attr,
+                alignment: 4));
 
-        if (attr.ResolutionKind != PointerResolutionKind.CurrentStream &&
-            ((PointerKind)ptr.Kind) == PointerKind.Offset)
+        if (!materialization.ShouldReadPayload)
         {
-            if (((XBlockAddress?)ptr.Address) is { } offsetAddress &&
+            if (ShouldUseCachedOffsetReference(attr) &&
+                ((XBlockAddress?)materialization.Address) is { } offsetAddress &&
                 TryGetCachedObject(arrayType, offsetAddress, out var cached))
             {
                 ptr.Value = (dynamic)cached;
@@ -509,19 +490,14 @@ public partial class XFileReader
             return;
         }
 
-        if (!materialized)
-        {
-            ptr.Value = (dynamic)Array.CreateInstance(elementType, 0);
-            return;
-        }
-
         int count = GetCount(owner, attr);
         if (count < 0)
             throw new InvalidDataException(
                 $"{targetType.Name} pointer array has negative count {count} from {DescribeCountOwner(owner, attr)} " +
                 $"({DescribePointer(ptr)}).");
 
-        XBlockAddress address = ((XBlockAddress?)ptr.Address)!.Value;
+        XBlockAddress address = ((XBlockAddress?)materialization.Address)
+                                ?? throw new InvalidDataException($"{targetType.Name} pointer array materialized without an address.");
 
         WithStreamBlock(address.Block, () =>
         {
@@ -570,6 +546,39 @@ public partial class XFileReader
         });
     }
 
+    private static XPointerMaterializationPlan CreateObjectMaterializationPlan(
+        XPointerFieldAttribute attr,
+        Type targetType)
+    {
+        if (attr.ResolutionKind == PointerResolutionKind.CurrentStream)
+            return XPointerMaterializationPlan.CurrentStream(XPointerTarget.Object, attr.ResolutionKind);
+
+        var payloadBlock = attr.ResolutionKind == PointerResolutionKind.Alias &&
+                           typeof(BaseAsset).IsAssignableFrom(targetType)
+            ? XFILE_BLOCK.TEMP
+            : attr.PayloadBlock;
+
+        return XPointerMaterializationPlan.AtBlockPosition(
+            XPointerTarget.Object,
+            attr.ResolutionKind,
+            payloadBlock);
+    }
+
+    private static XPointerMaterializationPlan CreateArrayMaterializationPlan(
+        XPointerTarget target,
+        XPointerFieldAttribute attr,
+        int alignment)
+    {
+        return attr.ResolutionKind == PointerResolutionKind.CurrentStream
+            ? XPointerMaterializationPlan.CurrentStream(target, attr.ResolutionKind, alignment)
+            : XPointerMaterializationPlan.AllocatedBlock(target, attr.ResolutionKind, attr.PayloadBlock, alignment);
+    }
+
+    private static bool ShouldUseCachedOffsetReference(XPointerFieldAttribute attr)
+    {
+        return attr.ResolutionKind != PointerResolutionKind.CurrentStream;
+    }
+
     private static int GetCount(object owner, XPointerFieldAttribute attr)
     {
         if (attr.CountMember is null)
@@ -594,11 +603,6 @@ public partial class XFileReader
             throw new InvalidDataException($"Count member {attr.CountMember} is not convertible to int.");
 
         return convertible.ToInt32(null);
-    }
-
-    private XBlockAddress AllocatePointerPayload(XFILE_BLOCK block, int alignment)
-    {
-        return _blocks.AllocatePointerPayload(block, alignment);
     }
 
     private static int GetArrayPayloadAlignment(Type elementType)
