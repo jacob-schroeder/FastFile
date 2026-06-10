@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.Logic", "FastFile.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UI", "UI\UI.csproj", "{D40696E4-CEA6-468C-9EC8-D3908F65FC9E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastFile.Tests", "FastFile.Tests\FastFile.Tests.csproj", "{95B63A46-0FDC-4748-AB85-849FBBFDDE98}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,5 +27,9 @@ Global
 		{D40696E4-CEA6-468C-9EC8-D3908F65FC9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D40696E4-CEA6-468C-9EC8-D3908F65FC9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D40696E4-CEA6-468C-9EC8-D3908F65FC9E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95B63A46-0FDC-4748-AB85-849FBBFDDE98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95B63A46-0FDC-4748-AB85-849FBBFDDE98}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95B63A46-0FDC-4748-AB85-849FBBFDDE98}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95B63A46-0FDC-4748-AB85-849FBBFDDE98}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

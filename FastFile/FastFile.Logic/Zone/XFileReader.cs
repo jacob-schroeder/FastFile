@@ -1,3 +1,4 @@
+using FastFile.Logic.Assets.Readers;
 using FastFile.Logic.Extensions;
 using FastFile.Models.Assets;
 using FastFile.Models.Assets.AddonMapEnts;
@@ -37,10 +38,11 @@ using FastFile.Models.Assets.XModelAlias;
 using FastFile.Models.Assets.XModels;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
+using FastFile.Models.Zone.Attributes;
 
 namespace FastFile.Logic.Zone;
 
-public partial class XFileReader
+public partial class XFileReader : IXAssetReaderContext
 {
     private const int XFileHeaderSize = 0x24;
 
@@ -57,6 +59,11 @@ public partial class XFileReader
     private readonly Dictionary<XBlockAddress, string?> _stringsByAddress = new();
     private readonly Dictionary<XBlockAddress, object> _objectsByAddress = new();
     private readonly List<XPointer<string?>> _deferredCStringPointers = [];
+    private readonly IXAssetReadHandler[] _assetReadHandlers =
+    [
+        new MenuAssetReader(),
+        new XSurfaceAssetReader()
+    ];
     private readonly bool _traceAssets = Environment.GetEnvironmentVariable("FF_TRACE_ASSETS") == "1";
     private readonly Action<int, int>? _assetReadProgress;
     private int _assetReadProgressTotal;
@@ -71,6 +78,56 @@ public partial class XFileReader
     {
         _memory = buffer.AsMemory();
         _assetReadProgress = assetReadProgress;
+    }
+
+    XPointer<T> IXAssetReaderContext.ReadPointer<T>(PointerResolutionKind resolutionKind)
+    {
+        return ReadPointer<T>(resolutionKind);
+    }
+
+    XPointer<T> IXAssetReaderContext.ReinterpretPointer<T>(
+        XPointer<object> pointer,
+        PointerResolutionKind resolutionKind)
+    {
+        return ReinterpretPointer<T>(pointer, resolutionKind);
+    }
+
+    void IXAssetReaderContext.MaterializeCStringPointer(XPointer<string?> pointer)
+    {
+        MaterializeCStringPointer(pointer);
+    }
+
+    void IXAssetReaderContext.ResolveObjectPointers(object value)
+    {
+        ResolveObjectPointers(value);
+    }
+
+    void IXAssetReaderContext.ResolveChildPointers(object? value)
+    {
+        ResolveChildPointers(value);
+    }
+
+    void IXAssetReaderContext.ResolvePointerProperty(object owner, string propertyName)
+    {
+        ResolvePointerProperty(owner, propertyName);
+    }
+
+    void IXAssetReaderContext.ResolvePointerValue(
+        object value,
+        XPointerFieldAttribute attribute,
+        object owner)
+    {
+        ResolvePointerValueDynamic(value, attribute, owner);
+    }
+
+    void IXAssetReaderContext.ResolveCurrentStreamObjectPointer<T>(XPointer<T> pointer)
+    {
+        ResolveCurrentStreamObjectPointer(pointer);
+    }
+
+    void IXAssetReaderContext.WithStreamBlock(XFILE_BLOCK block, Action action)
+    {
+        WithStreamBlock(block, action);
     }
     
     public XFileReader DumpBlocks(string? directory = null)
@@ -538,6 +595,16 @@ public partial class XFileReader
     {
         return _assetList
             ?? throw new InvalidOperationException("XAssetList has not been loaded yet.");
+    }
+
+    public int GetSourcePosition()
+    {
+        return _position;
+    }
+
+    public int[] GetWrittenBlockSizes()
+    {
+        return [.._streamBlocks.Select(block => block.WrittenSpan.Length)];
     }
 
     #endregion

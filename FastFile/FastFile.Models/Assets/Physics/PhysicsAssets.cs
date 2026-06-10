@@ -123,9 +123,15 @@ public sealed class CPlane
     public byte[] Padding { get; set; } = new byte[3];
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x24)]
 public sealed class PhysMass
 {
+    [XField(Offset = 0x00)]
     public Vec3 CenterOfMass { get; set; }
+
+    [XField(Offset = 0x0C)]
     public Vec3 MomentsOfInertia { get; set; }
+
+    [XField(Offset = 0x18)]
     public Vec3 ProductsOfInertia { get; set; }
 }
