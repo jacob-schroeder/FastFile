@@ -456,6 +456,8 @@ public partial class XFileReader
             default:
                 throw new NotSupportedException($"Unsupported pointer target {attr.Target}.");
         }
+
+        ReportAssetReadProgress();
     }
 
     private void ResolveMenuDefPointers(MenuDef menu)
@@ -612,6 +614,7 @@ public partial class XFileReader
     {
         int value = Span.ReadInt32(ref _position);
         _activeBlock.PatchInt32(blockOffset, value);
+        ReportAssetReadProgress();
         return value;
     }
 

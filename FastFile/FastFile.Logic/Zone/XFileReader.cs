@@ -42,6 +42,8 @@ namespace FastFile.Logic.Zone;
 
 public partial class XFileReader
 {
+    private const int XFileHeaderSize = 0x24;
+
     private readonly ReadOnlyMemory<byte> _memory;
     private ReadOnlySpan<byte> Span => _memory.Span;
     private int _position;
@@ -56,6 +58,9 @@ public partial class XFileReader
     private readonly Dictionary<XBlockAddress, object> _objectsByAddress = new();
     private readonly List<XPointer<string?>> _deferredCStringPointers = [];
     private readonly bool _traceAssets = Environment.GetEnvironmentVariable("FF_TRACE_ASSETS") == "1";
+    private readonly Action<int, int>? _assetReadProgress;
+    private int _assetReadProgressTotal;
+    private int _lastAssetReadProgressPercent = -1;
 
     private readonly record struct StreamBlockFrame(
         XFILE_BLOCK PreviousBlock,
@@ -65,6 +70,7 @@ public partial class XFileReader
     public XFileReader(byte[] buffer, Action<int, int>? assetReadProgress = null)
     {
         _memory = buffer.AsMemory();
+        _assetReadProgress = assetReadProgress;
     }
     
     public XFileReader DumpBlocks(string? directory = null)
@@ -87,10 +93,12 @@ public partial class XFileReader
     public XFileReader Read()
     {
         Load_Header();
+        ReportAssetReadProgress(force: true);
         Load_XAssetList();
         ResolveDeferredCStringPointers();
         ValidateSourcePosition();
         SealStreamBlocks();
+        ReportAssetReadProgress(force: true);
 
         return this;
     }
@@ -120,6 +128,8 @@ public partial class XFileReader
             _streamBlocks[i] = new XBlock((XFILE_BLOCK)i, blockSize);
         }
 
+        _assetReadProgressTotal = checked(_header.Size + XFileHeaderSize);
+
         _activeBlock = _streamBlocks[tempBlock];
     }
 
@@ -139,8 +149,7 @@ public partial class XFileReader
 
     private void ValidateSourcePosition()
     {
-        const int xFileHeaderSize = 0x24;
-        int expectedPosition = checked(_header.Size + xFileHeaderSize);
+        int expectedPosition = checked(_header.Size + XFileHeaderSize);
 
         if (_position != expectedPosition)
         {
@@ -231,7 +240,10 @@ public partial class XFileReader
 
             // Phase 2: now _position points at the first asset payload.
             for (int i = 0; i < assets.Length; i++)
+            {
                 MaterializeAsset(assets[i], i);
+                ReportAssetReadProgress();
+            }
 
             ptr.Value = assets;
         });
@@ -265,6 +277,10 @@ public partial class XFileReader
                 $"Failed to load asset[{index}] {asset.Type} from pointer 0x{ptr.Raw:X8}.",
                 ex);
         }
+        finally
+        {
+            ReportAssetReadProgress();
+        }
     }
     
     private BaseAsset LoadAssetByType(XAssetType type, XPointer<BaseAsset> ptr)
@@ -279,7 +295,7 @@ public partial class XFileReader
             XAssetType.Material => LoadAssetRoot<Material>(ptr),
             XAssetType.PixelShader => LoadAssetRoot<MaterialPixelShader>(ptr),
             XAssetType.VertexShader => LoadAssetRoot<MaterialVertexShader>(ptr),
-            XAssetType.Techset => LoadTechset(ptr),
+            XAssetType.Techset => LoadAssetRoot<MaterialTechniqueSet>(ptr),
             XAssetType.Image => LoadAssetRoot<GfxImage>(ptr),
             XAssetType.Sound => LoadAssetRoot<SndAliasList>(ptr),
             XAssetType.SndCurve => LoadAssetRoot<SndCurve>(ptr),
@@ -393,6 +409,7 @@ public partial class XFileReader
     {
         int value = Span.ReadInt32(ref _position);
         _activeBlock.WriteInt32(value);
+        ReportAssetReadProgress();
         return value;
     }
 
@@ -404,6 +421,7 @@ public partial class XFileReader
         byte[] value = Span.Slice(_position, count).ToArray();
         _position += count;
         _activeBlock.Write(value);
+        ReportAssetReadProgress();
         return value;
     }
 
@@ -411,7 +429,23 @@ public partial class XFileReader
     {
         string value = Span.ReadCStringAt(ref _position);
         _activeBlock.WriteCString(value);
+        ReportAssetReadProgress();
         return value;
+    }
+
+    private void ReportAssetReadProgress(bool force = false)
+    {
+        if (_assetReadProgress is null || _assetReadProgressTotal <= 0)
+            return;
+
+        int unitsRead = Math.Clamp(_position, 0, _assetReadProgressTotal);
+        int percent = Math.Clamp((int)Math.Round(unitsRead * 100d / _assetReadProgressTotal), 0, 100);
+
+        if (!force && percent <= _lastAssetReadProgressPercent)
+            return;
+
+        _lastAssetReadProgressPercent = percent;
+        _assetReadProgress(unitsRead, _assetReadProgressTotal);
     }
 
     private bool TryGetEmittedString(XBlockAddress address, out string? value)
@@ -492,71 +526,6 @@ public partial class XFileReader
         value = null!;
         return false;
     }
-
-    #region Assets
-
-    private MaterialTechniqueSet LoadTechset(XPointer<BaseAsset> ptr)
-    {
-        TryMaterializePointer(
-            ptr,
-            () => new XBlockAddress(
-                XFILE_BLOCK.TEMP,
-                _streamBlocks[(int)XFILE_BLOCK.TEMP].Position));
-
-        return WithStreamBlock(ptr.Address!.Value.Block, () =>
-        {
-            var address = ptr.Address.Value;
-            if (TryGetCachedObject<MaterialTechniqueSet>(address, out var cached))
-                return cached;
-
-            SeekOrVerify(address.Offset);
-
-            var techset = new MaterialTechniqueSet
-            {
-                Offset = address.Offset
-            };
-
-            ReadObjectFields(techset);
-            CacheObject(address, techset);
-            WithStreamBlock(XFILE_BLOCK.LARGE, () => MaterializeCStringPointer(techset.NamePtr));
-
-            return techset;
-        });
-    }
-
-    private LocalizeEntry LoadLocalize(XPointer<BaseAsset> ptr)
-    {
-        if (!TryMaterializePointer(
-                ptr,
-                () => new XBlockAddress(
-                    XFILE_BLOCK.TEMP,
-                    _streamBlocks[(int)XFILE_BLOCK.TEMP].Position)))
-        {
-            throw new InvalidDataException("Localize asset pointer was null.");
-        }
-
-        return WithStreamBlock(ptr.Address!.Value.Block, () =>
-        {
-            SeekOrVerify(ptr.Address.Value.Offset);
-
-            var valuePtr = ReadDirectPointer<string?>();
-            var namePtr = ReadDirectPointer<string?>();
-
-            WithStreamBlock(XFILE_BLOCK.LARGE, () =>
-            {
-                MaterializeCStringPointer(valuePtr);
-                MaterializeCStringPointer(namePtr);
-            });
-
-            return new LocalizeEntry
-            {
-                ValuePtr = valuePtr,
-                NamePtr = namePtr
-            };
-        });
-    }
-
-    #endregion
 
     #region Exposed
 

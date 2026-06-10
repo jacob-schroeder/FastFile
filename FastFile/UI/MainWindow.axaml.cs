@@ -215,12 +215,12 @@ public partial class MainWindow : Window
         LoadingPercentTextBlock.Text = string.Empty;
     }
 
-    private void QueueAssetReadProgress(int assetsRead, int assetCount)
+    private void QueueAssetReadProgress(int readUnits, int totalUnits)
     {
-        if (assetCount <= 0)
+        if (totalUnits <= 0)
             return;
 
-        var percent = GetAssetReadPercent(assetsRead, assetCount);
+        var percent = GetReadProgressPercent(readUnits, totalUnits);
         lock (_loadProgressGate)
         {
             if (percent <= _lastQueuedAssetLoadPercent)
@@ -231,11 +231,11 @@ public partial class MainWindow : Window
 
         var loadingStatusVersion = Volatile.Read(ref _loadingStatusVersion);
         Dispatcher.UIThread.Post(
-            () => UpdateAssetReadProgress(loadingStatusVersion, assetsRead, assetCount),
+            () => UpdateAssetReadProgress(loadingStatusVersion, readUnits, totalUnits),
             DispatcherPriority.Background);
     }
 
-    private void UpdateAssetReadProgress(int loadingStatusVersion, int assetsRead, int assetCount)
+    private void UpdateAssetReadProgress(int loadingStatusVersion, int readUnits, int totalUnits)
     {
         if (loadingStatusVersion != Volatile.Read(ref _loadingStatusVersion)
             || !LoadingStatusPanel.IsVisible)
@@ -243,7 +243,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var percent = GetAssetReadPercent(assetsRead, assetCount);
+        var percent = GetReadProgressPercent(readUnits, totalUnits);
         var displayedPercent = Math.Max((int)Math.Round(LoadingProgressBar.Value), percent);
         LoadingStatusTextBlock.Text = "Loading zone";
         LoadingProgressBar.IsIndeterminate = false;
@@ -251,12 +251,12 @@ public partial class MainWindow : Window
         LoadingPercentTextBlock.Text = $"{displayedPercent}%";
     }
 
-    private static int GetAssetReadPercent(int assetsRead, int assetCount)
+    private static int GetReadProgressPercent(int readUnits, int totalUnits)
     {
-        if (assetCount <= 0)
+        if (totalUnits <= 0)
             return 0;
 
-        return Math.Clamp((int)Math.Round(assetsRead * 100d / assetCount), 0, 100);
+        return Math.Clamp((int)Math.Round(readUnits * 100d / totalUnits), 0, 100);
     }
 
     private void CompleteLoadingStatus()

@@ -119,7 +119,7 @@ public partial class XFileReader
                 patchOffset);
         }
 
-        return new XPointer<T>
+        var pointer = new XPointer<T>
         {
             Raw = raw,
             Kind = raw switch
@@ -132,6 +132,9 @@ public partial class XFileReader
             ResolutionKind = resolutionKind,
             PatchAddress = patchAddress
         };
+
+        ReportAssetReadProgress();
+        return pointer;
     }
 
     private void PatchPointer<T>(XPointer<T> ptr)
