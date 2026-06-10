@@ -16,7 +16,7 @@ namespace UI.Tabs;
 public partial class ZoneTab : UserControl
 {
     private List<DisplayItem> _scriptStringItems = [];
-    private XAssetList? _xassetList;
+    private XAssetListOLD? _xassetList;
 
     public ZoneTab()
     {
@@ -25,7 +25,7 @@ public partial class ZoneTab : UserControl
         SetScriptStrings([]);
     }
 
-    public void UpdateZone(FastFile.Models.Zone.XFile? xfile, FastFile.Models.Zone.XAssetList? xassetList)
+    public void UpdateZone(FastFile.Models.Zone.XFile? xfile, FastFile.Models.Zone.XAssetListOLD? xassetList)
     {
         _xassetList = xassetList;
 

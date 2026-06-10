@@ -31,7 +31,7 @@ public partial class AssetsTab : UserControl
         RefreshAssetDetailTabs();
     }
 
-    public void UpdateAssets(XAssetList? assetList)
+    public void UpdateAssets(XAssetListOLD? assetList)
     {
         _assetGroups = assetList?.Assets
             .Select((asset, index) => new

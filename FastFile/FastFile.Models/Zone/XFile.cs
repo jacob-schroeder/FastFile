@@ -2,7 +2,7 @@ namespace FastFile.Models.Zone;
 
 public class XFile
 {
-    public int Size { get; set; }
-    public int ExternalSize { get; set; }
-    public int[] BlockSize { get; set; } = [];
+    public int Size { get; init; }
+    public int ExternalSize { get; init; }
+    public int[] BlockSize { get; init; } = [];
 }

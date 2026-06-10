@@ -8,11 +8,6 @@ public enum XFILE_BLOCK : int
   VIRTUAL	= 3,
   LARGE	= 4,
   CALLBACK	= 5,
-  #if PC || PS3
-   XFILE_BLOCK_VERTEX	= 6,
-   #if PC
-   XFILE_BLOCK_INDEX	= 7,
-  #endif
-  #endif
+  XFILE_BLOCK_VERTEX	= 6,
   MAX_XFILE_COUNT
 }
