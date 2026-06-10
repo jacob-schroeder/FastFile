@@ -219,7 +219,7 @@ public class XFileReader
 
         int encoded = EncodeBlockAddress(ptr.Address.Value);
 
-        _streamBlocks[(int)ptr.PatchAddress.Value.Block]
+        _streamBlocks[(int)ptr.PatchAddress!.Value.Block]
             .PatchInt32(ptr.PatchAddress.Value.Offset, encoded);
     }
     #endregion
