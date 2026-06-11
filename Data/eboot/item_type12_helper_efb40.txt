@@ -1,0 +1,47 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000efb30 <+0xdf900>:
+   efb30:	7c 08 03 a6 	mtlr    r0
+   efb34:	38 21 00 70 	addi    r1,r1,112
+   efb38:	4e 80 00 20 	blr
+   efb3c:	60 00 00 00 	nop
+   efb40:	38 60 00 03 	li      r3,3
+   efb44:	7c 08 02 a6 	mflr    r0
+   efb48:	f8 21 ff 91 	stdu    r1,-112(r1)
+   efb4c:	f8 01 00 80 	std     r0,128(r1)
+   efb50:	48 02 e0 01 	bl      0x11db50
+   efb54:	60 00 00 00 	nop
+   efb58:	e8 01 00 80 	ld      r0,128(r1)
+   efb5c:	78 63 00 20 	clrldi  r3,r3,32
+   efb60:	7c 08 03 a6 	mtlr    r0
+   efb64:	38 21 00 70 	addi    r1,r1,112
+   efb68:	4e 80 00 20 	blr
+   efb6c:	60 00 00 00 	nop
+   efb70:	38 60 00 03 	li      r3,3
+   efb74:	7c 08 02 a6 	mflr    r0
+   efb78:	f8 21 ff 91 	stdu    r1,-112(r1)
+   efb7c:	f8 01 00 80 	std     r0,128(r1)
+   efb80:	48 02 df d1 	bl      0x11db50
+   efb84:	60 00 00 00 	nop
+   efb88:	e8 01 00 80 	ld      r0,128(r1)
+   efb8c:	78 63 00 20 	clrldi  r3,r3,32
+   efb90:	7c 08 03 a6 	mtlr    r0
+   efb94:	38 21 00 70 	addi    r1,r1,112
+   efb98:	4e 80 00 20 	blr
+   efb9c:	60 00 00 00 	nop
+   efba0:	38 60 00 03 	li      r3,3
+   efba4:	7c 08 02 a6 	mflr    r0
+   efba8:	f8 21 ff 91 	stdu    r1,-112(r1)
+   efbac:	f8 01 00 80 	std     r0,128(r1)
+   efbb0:	48 02 df a1 	bl      0x11db50
+   efbb4:	60 00 00 00 	nop
+   efbb8:	e8 01 00 80 	ld      r0,128(r1)
+   efbbc:	78 63 00 20 	clrldi  r3,r3,32
+   efbc0:	7c 08 03 a6 	mtlr    r0
+   efbc4:	38 21 00 70 	addi    r1,r1,112
+   efbc8:	4e 80 00 20 	blr
+   efbcc:	60 00 00 00 	nop

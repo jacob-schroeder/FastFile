@@ -1,0 +1,64 @@
+EBOOT XAsset loader findings (continuation)
+Date: 2026-06-08
+
+Dispatch:
+  0x116680 Load_XAsset row: loads 8 bytes, advances to pointer cell, then dispatches at 0x116328 by asset type.
+  0x116328 dispatch targets observed:
+    type 8  Techset -> 0x107ef8, inner 0x107e80
+    type 24 MenuFile -> 0x10f150, inner 0x10f0b8
+    type 26 Localize -> 0x1042e8, inner 0x104278
+    type 35 RawFile -> 0x103f70, inner 0x103ec0
+    type 36 StringTable -> 0x103bb8, inner 0x103b18
+    type 38 StructuredDataDef -> 0x1036c8, inner 0x103630
+
+Inner loader facts:
+  Localize inner 0x104278: Load_Stream size 0x08, Load_XString at root+0x00, Load_XString at root+0x04.
+  RawFile inner 0x103ec0: Load_Stream size 0x10, Load_XString at root+0x00, buffer pointer at +0x0c, length compressedLen(+0x04) if nonzero else len(+0x08)+1.
+  StringTable inner 0x103b18: Load_Stream size 0x10, Load_XString at root+0x00, cells pointer at +0x0c, count columns(+0x04)*rows(+0x08).
+  StringTableCell inner 0x1039d8: Load_Stream size 0x08, Load_XString at cell+0x00, hash at +0x04 unchanged.
+  MenuFile inner 0x10f0b8: Load_Stream size 0x0c, Load_XString at root+0x00, menu pointer array at +0x08, count at +0x04, each entry is a 4-byte MenuDef alias pointer.
+  Techset inner 0x107e80: Load_Stream size 0x9c, Load_XString at root+0x00, fixed 37 entries starting at root+0x08.
+  StructuredDataDefSet inner 0x103630: Load_Stream size 0x0c, Load_XString at root+0x00, defs pointer at +0x08, count at +0x04.
+  Techset technique array 0x107df8: fixed count array uses 4-byte direct pointers and calls 0x107cf0 for each entry.
+  MaterialTechnique pointer 0x107cf0: direct pointer cell; inline body calls inner 0x107c88.
+  MaterialTechnique inner 0x107c88: Load_Stream size 0x08, pass count is ushort at +0x06, pass array begins after root, then Load_XString at root+0x00.
+  MaterialPass array 0x107bf8: element size 0x18.
+
+Menu loader continuation:
+  MenuDef inner 0x10ecd8: Load_Stream size 0x2f0. Nested calls from root: +0x2ec -> 0x10b968, +0x000 Window -> 0x10e538, +0x0b0 XString, +0x0e4/+0x0ec/+0x0e8/+0x0f0 -> 0x10c4c0, optional +0x0f4 -> 0x10c540, +0x0f8 -> 0x10bb88, +0x0fc XString, +0x100 XString, +0x118/+0x11c/+0x120/+0x124 -> 0x10bb88, optional +0x128 with count at +0xb8 -> 0x10ec50.
+  Window inner 0x10e538/0x10e4c8: root size 0xb0, XString at +0x00 and +0x2c, nested 0x10d980 at +0xac.
+  ItemDef inner 0x10e940: root size 0x1cc, starts with Window at +0x00, plus many pointer offsets through +0x1a0.
+  Validation note: menu parse now reaches MenuFile.menus[0].onOpen.entries and fails if that pointer is treated as encoded stream block TEMP offset. Need classify helper 0xefe08 / 0xefdd8 pointer semantics before continuing.
+  Menu ItemDef skipped branch follow-up: +0x16c dispatches to 0x10a9d8 alias-style loader, inner 0x10a900. +0x184 dispatches through 0x10e850 based on item data type at +0x100.
+
+Menu item branch continuation (from EBOOT disassembly)
+- 0x10a9d8 is the item +0x16c pointer wrapper. It Load_Stream's the 4-byte pointer cell, returns on 0, converts non-inline/non-insert pointers through 0x11dbd0 without consuming new object bytes, and consumes inline/insert roots through 0x10a900.
+- 0x10a900 consumes a 0x0c root, pushes stream block 4 for the name XString at +0, then if +0x04 is inline consumes count(+0x08) * 0x64 entries through 0x10a878.
+- 0x10e850 dispatches item +0x184 by item type at +0x100: type 6 -> 0x10e7d0/0x10e770; types 0,4,9,10,11,14,16,17,18,22,23 -> 0xefbd0/e54b8; type 12 -> 0x10b600/0x10b5a0; type 13 -> Load_XString; type 20 -> 0xef998/e53e0; type 21 -> 0xef7c0/e5300; other types return without consuming.
+- 0x10a600 consumes each 0x64 sound-alias entry after the parent array stream copy. It processes XStrings at +0x00,+0x04,+0x08,+0x0c,+0x10, pushes stream 0 for +0x14, then consumes +0x50 through 0x109cb0 and +0x60 through 0x109b10 when inline.
+- 0x116f08 returns the count used for the sound-alias +0x14 inline array; default path returns 1 unless the referenced global override is nonzero.
+- 0x10a578 consumes count * 0x10 entries at the +0x14 target and calls 0x10a4a8 per entry.
+- 0x109b10 consumes a 0x198 object and loads an XString at +0x04. 0x109cb0 is a wrapper for the sound-alias +0x50 pointer and consumes a 0x88 object through 0x109c50 for inline/insert values.
+- 0x10a4a8 consumes a 0x10 entry then pushes stream block 4 and delegates the +0x04 field through 0x10a468. 0x10a468 dispatches by the entry's first dword; observed branches point to 0x10a030, 0x10a420, 0x10a2e0, and 0x10a380 depending on that tag.
+
+Menu statement branch investigation after validation stop at item[1].onFocus
+- Current validation still stops at position 0x468D1 with an invalid count in MenuFile.menus[0].items[1].onFocus.entries, so the next mismatch is before item +0x150.
+- The relevant EBOOT chain is 0x10c4c0 -> 0x10c340 -> 0x10c2b8 -> 0x10c1c8 -> 0x10c180, plus expression dispatch helpers 0x10cef8/0x10ceb8.
+- 0x10c340 consumes an 0x08 object. If +0x04 is non-null, it allocates count(+0x00) * 4 through 0x10c2b8.
+- 0x10c1c8 consumes each non-null entry pointer through current stream allocation 0xefe38, then 0x10c180 consumes an 0x08 object.
+- 0x10c180 sets a union pointer at +0x04 and dispatches via 0x10c100. This means 0x10c340 entries are 0x08 union objects, not 0x0c expression entries.
+- 0x10c100 dispatches the 0x10c180 object by byte +0x04: kind 0 loads XString at +0; kind 1 goes through 0x10c080/0x10c028; kind 2 goes through 0x10c4c0 at +0; kinds 3..6 go through 0x10bdb8.
+- After correcting 0x10c340 entries, validation moved to MenuFile.menus[0].items[1].mouseExit.entries[2873].operand.statement.entries at position 0x44649. That places the next mismatch in the 0x10bb88/0x10ba00 expression-entry branch, especially 0x10cef8/0x10ceb8.
+- The repeated validation stop after the 0x10c340 correction is in the kind-1 operand path before the nested 0x10c4c0 statement root. The operand +0x04 branch is 0x10bb88 -> 0x10ba00, so its array/pointer semantics are the next suspect.
+- 0x10ba00 +0x08 calls 0x10b968, whose inline root is 0x10b8f8 size 0x18. That root embeds 0x10d328 at +0x00, 0x1047b0 at +0x08, and 0x10b870 at +0x10. The existing reader only consumed the +0x10 string-list child, so it skipped stream data before returning to the kind-1 operand statement.
+- 0x10d328 embeds count/+4 pointer array semantics: if +0x04 is non-null, it allocates count(+0x00) * 4 and calls 0x10bb88 for each pointer cell.
+- 0x1047b0 has the same count/+4 pointer-array shape but calls 0x104638 for each pointer cell.
+- 0x104638 is a non-null current-stream wrapper. Its target 0x1045f0 consumes a 0x08 root and loads XStrings at +0 and +4.
+- After implementing 0x10b8f8, validation advanced to position 0x6A6A4 and now stops while loading RawFile.buffer with a negative computed buffer length. This means the menu branch advanced substantially; the next check is RawFile field order and/or the immediately preceding asset stream consumption.
+- RawFile 0x103ec0 confirmed root size 0x10: XString at +0, compressedLen at +4, len at +8, buffer pointer at +0x0c; buffer length is compressedLen when +4 != 0, otherwise len+1. The RawFile failure therefore likely comes from an earlier unconsumed inline asset, not RawFile field order.
+- Dispatch table 0x116328 shows type 24 -> 0x10f150 MenuFile and type 25 -> 0x10eea8 MenuDef. A skipped inline type 25 would misalign later RawFile roots.
+
+StructuredDataDef branch after RawFile failure
+- Validation identified asset 6 as StructuredDataDef and asset 7 as the misread RawFile. The StructuredDataDef loader is currently shallow, so nested structured-data arrays need EBOOT-accurate consumption before RawFile can align.
+- StructuredDataDef root array entries are 0x34. Within each def, +0x0c uses count +0x08 and array entries of 0x0c; +0x14 uses count +0x10 and array entries of 0x10; +0x1c uses count +0x18 via 0xe3bb8; +0x24 uses count +0x20 via 0xe3ae0.
+- After StructuredDataDef consumption, validation reaches position 0x107BB6 and fails in a later MenuFile at MenuFile.menus[0].items[0].mouseExitText.entries with count 1702130793. This is before item +0x13c, so the item root/window/text preamble or the previous +0x138 statement path is suspect.

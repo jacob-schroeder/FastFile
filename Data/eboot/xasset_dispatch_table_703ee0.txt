@@ -1,0 +1,59 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+0000000000703ee0 <+0x9590>:
+  703ee0:	00 10 e3 c8 	.long 0x10e3c8
+  703ee4:	00 72 4c 38 	.long 0x724c38
+  703ee8:	00 10 e4 38 	.long 0x10e438
+  703eec:	00 72 4c 38 	.long 0x724c38
+  703ef0:	00 10 e4 c8 	.long 0x10e4c8
+  703ef4:	00 72 4c 38 	.long 0x724c38
+  703ef8:	00 10 e5 38 	.long 0x10e538
+  703efc:	00 72 4c 38 	.long 0x724c38
+  703f00:	00 10 e5 80 	.long 0x10e580
+  703f04:	00 72 4c 38 	.long 0x724c38
+  703f08:	00 10 e5 f0 	.long 0x10e5f0
+  703f0c:	00 72 4c 38 	.long 0x724c38
+  703f10:	00 10 e6 78 	.long 0x10e678
+  703f14:	00 72 4c 38 	.long 0x724c38
+  703f18:	00 10 e6 e8 	.long 0x10e6e8
+  703f1c:	00 72 4c 38 	.long 0x724c38
+  703f20:	00 10 e7 70 	.long 0x10e770
+  703f24:	00 72 4c 38 	.long 0x724c38
+  703f28:	00 10 e7 d0 	.long 0x10e7d0
+  703f2c:	00 72 4c 38 	.long 0x724c38
+  703f30:	00 10 e8 50 	.long 0x10e850
+  703f34:	00 72 4c 38 	.long 0x724c38
+  703f38:	00 10 e9 40 	.long 0x10e940
+  703f3c:	00 72 4c 38 	.long 0x724c38
+  703f40:	00 10 eb 60 	.long 0x10eb60
+  703f44:	00 72 4c 38 	.long 0x724c38
+  703f48:	00 10 eb e0 	.long 0x10ebe0
+  703f4c:	00 72 4c 38 	.long 0x724c38
+  703f50:	00 10 ec 50 	.long 0x10ec50
+  703f54:	00 72 4c 38 	.long 0x724c38
+  703f58:	00 10 ec d8 	.long 0x10ecd8
+  703f5c:	00 72 4c 38 	.long 0x724c38
+  703f60:	00 10 ee a8 	.long 0x10eea8
+  703f64:	00 72 4c 38 	.long 0x724c38
+  703f68:	00 10 ef c0 	.long 0x10efc0
+  703f6c:	00 72 4c 38 	.long 0x724c38
+  703f70:	00 10 f0 30 	.long 0x10f030
+  703f74:	00 72 4c 38 	.long 0x724c38
+  703f78:	00 10 f0 b8 	.long 0x10f0b8
+  703f7c:	00 72 4c 38 	.long 0x724c38
+  703f80:	00 10 f1 50 	.long 0x10f150
+  703f84:	00 72 4c 38 	.long 0x724c38
+  703f88:	00 10 f2 68 	.long 0x10f268
+  703f8c:	00 72 4c 38 	.long 0x724c38
+  703f90:	00 10 f2 d8 	.long 0x10f2d8
+  703f94:	00 72 4c 38 	.long 0x724c38
+  703f98:	00 10 f3 60 	.long 0x10f360
+  703f9c:	00 72 4c 38 	.long 0x724c38
+  703fa0:	00 10 f3 d0 	.long 0x10f3d0
+  703fa4:	00 72 4c 38 	.long 0x724c38
+  703fa8:	00 10 f4 60 	.long 0x10f460
+  703fac:	00 72 4c 38 	.long 0x724c38

@@ -1,0 +1,57 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000010bda8 <+0xfbb78>:
+  10bda8:	eb a1 00 78 	ld      r29,120(r1)
+  10bdac:	38 21 00 90 	addi    r1,r1,144
+  10bdb0:	7c 08 03 a6 	mtlr    r0
+  10bdb4:	4b ff fd d4 	b       0x10bb88
+  10bdb8:	f8 21 ff 81 	stdu    r1,-128(r1)
+  10bdbc:	7c 08 02 a6 	mflr    r0
+  10bdc0:	fb c1 00 70 	std     r30,112(r1)
+  10bdc4:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  10bdc8:	38 a0 00 04 	li      r5,4
+  10bdcc:	fb e1 00 78 	std     r31,120(r1)
+  10bdd0:	f8 01 00 90 	std     r0,144(r1)
+  10bdd4:	80 9e 07 b4 	lwz     r4,1972(r30)
+  10bdd8:	48 01 1f 29 	bl      0x11dd00
+  10bddc:	60 00 00 00 	nop
+  10bde0:	83 fe 07 b4 	lwz     r31,1972(r30)
+  10bde4:	80 1f 00 00 	lwz     r0,0(r31)
+  10bde8:	2f 80 00 00 	cmpwi   cr7,r0,0
+  10bdec:	41 9e 00 34 	beq     cr7,0x10be20
+  10bdf0:	4b fe 40 d9 	bl      0xefec8
+  10bdf4:	90 7f 00 00 	stw     r3,0(r31)
+  10bdf8:	81 3e 07 b4 	lwz     r9,1972(r30)
+  10bdfc:	38 60 00 01 	li      r3,1
+  10be00:	80 09 00 00 	lwz     r0,0(r9)
+  10be04:	90 1e 07 b0 	stw     r0,1968(r30)
+  10be08:	e8 01 00 90 	ld      r0,144(r1)
+  10be0c:	eb c1 00 70 	ld      r30,112(r1)
+  10be10:	eb e1 00 78 	ld      r31,120(r1)
+  10be14:	38 21 00 80 	addi    r1,r1,128
+  10be18:	7c 08 03 a6 	mtlr    r0
+  10be1c:	4b ff ff 44 	b       0x10bd60
+  10be20:	e8 01 00 90 	ld      r0,144(r1)
+  10be24:	eb c1 00 70 	ld      r30,112(r1)
+  10be28:	eb e1 00 78 	ld      r31,120(r1)
+  10be2c:	7c 08 03 a6 	mtlr    r0
+  10be30:	38 21 00 80 	addi    r1,r1,128
+  10be34:	4e 80 00 20 	blr
+  10be38:	2f 84 00 00 	cmpwi   cr7,r4,0
+  10be3c:	7c 08 02 a6 	mflr    r0
+  10be40:	f8 21 ff 71 	stdu    r1,-144(r1)
+  10be44:	fb a1 00 78 	std     r29,120(r1)
+  10be48:	fb c1 00 80 	std     r30,128(r1)
+  10be4c:	fb e1 00 88 	std     r31,136(r1)
+  10be50:	f8 01 00 a0 	std     r0,160(r1)
+  10be54:	7c 9d 23 78 	mr      r29,r4
+  10be58:	40 9d 00 30 	ble     cr7,0x10be88
+  10be5c:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  10be60:	3b e0 00 00 	li      r31,0
+  10be64:	60 00 00 00 	nop
+  10be68:	38 60 00 01 	li      r3,1
+  10be6c:	3b ff 00 01 	addi    r31,r31,1

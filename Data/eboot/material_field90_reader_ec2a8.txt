@@ -1,0 +1,105 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000ec298 <+0xdc068>:
+   ec298:	eb e1 00 88 	ld      r31,136(r1)
+   ec29c:	38 21 00 90 	addi    r1,r1,144
+   ec2a0:	4e 80 00 20 	blr
+   ec2a4:	60 00 00 00 	nop
+   ec2a8:	81 22 e6 28 	lwz     r9,-6616(r2)
+   ec2ac:	7c 08 02 a6 	mflr    r0
+   ec2b0:	f8 21 ff 91 	stdu    r1,-112(r1)
+   ec2b4:	54 85 08 3c 	slwi    r5,r4,1
+   ec2b8:	f8 01 00 80 	std     r0,128(r1)
+   ec2bc:	7c a5 07 b4 	extsw   r5,r5
+   ec2c0:	80 89 02 d8 	lwz     r4,728(r9)
+   ec2c4:	48 03 1a 3d 	bl      0x11dd00
+   ec2c8:	60 00 00 00 	nop
+   ec2cc:	e8 01 00 80 	ld      r0,128(r1)
+   ec2d0:	38 21 00 70 	addi    r1,r1,112
+   ec2d4:	7c 08 03 a6 	mtlr    r0
+   ec2d8:	4e 80 00 20 	blr
+   ec2dc:	60 00 00 00 	nop
+   ec2e0:	81 22 e6 28 	lwz     r9,-6616(r2)
+   ec2e4:	7c 08 02 a6 	mflr    r0
+   ec2e8:	f8 21 ff 91 	stdu    r1,-112(r1)
+   ec2ec:	f8 01 00 80 	std     r0,128(r1)
+   ec2f0:	38 a0 00 02 	li      r5,2
+   ec2f4:	80 89 02 d8 	lwz     r4,728(r9)
+   ec2f8:	48 03 1a 09 	bl      0x11dd00
+   ec2fc:	60 00 00 00 	nop
+   ec300:	e8 01 00 80 	ld      r0,128(r1)
+   ec304:	38 21 00 70 	addi    r1,r1,112
+   ec308:	7c 08 03 a6 	mtlr    r0
+   ec30c:	4e 80 00 20 	blr
+   ec310:	2f 84 00 00 	cmpwi   cr7,r4,0
+   ec314:	7c 08 02 a6 	mflr    r0
+   ec318:	f8 21 ff 71 	stdu    r1,-144(r1)
+   ec31c:	fb a1 00 78 	std     r29,120(r1)
+   ec320:	fb c1 00 80 	std     r30,128(r1)
+   ec324:	fb e1 00 88 	std     r31,136(r1)
+   ec328:	f8 01 00 a0 	std     r0,160(r1)
+   ec32c:	7c 9d 23 78 	mr      r29,r4
+   ec330:	40 9d 00 30 	ble     cr7,0xec360
+   ec334:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   ec338:	3b e0 00 00 	li      r31,0
+   ec33c:	60 00 00 00 	nop
+   ec340:	38 60 00 01 	li      r3,1
+   ec344:	3b ff 00 01 	addi    r31,r31,1
+   ec348:	4b ff ff 99 	bl      0xec2e0
+   ec34c:	48 03 17 f5 	bl      0x11db40
+   ec350:	60 00 00 00 	nop
+   ec354:	7f 9d f8 00 	cmpw    cr7,r29,r31
+   ec358:	90 7e 02 d8 	stw     r3,728(r30)
+   ec35c:	40 9e ff e4 	bne     cr7,0xec340
+   ec360:	e8 01 00 a0 	ld      r0,160(r1)
+   ec364:	eb a1 00 78 	ld      r29,120(r1)
+   ec368:	eb c1 00 80 	ld      r30,128(r1)
+   ec36c:	7c 08 03 a6 	mtlr    r0
+   ec370:	eb e1 00 88 	ld      r31,136(r1)
+   ec374:	38 21 00 90 	addi    r1,r1,144
+   ec378:	4e 80 00 20 	blr
+   ec37c:	60 00 00 00 	nop
+   ec380:	81 22 e6 28 	lwz     r9,-6616(r2)
+   ec384:	54 85 20 36 	slwi    r5,r4,4
+   ec388:	54 84 10 3a 	slwi    r4,r4,2
+   ec38c:	7c 08 02 a6 	mflr    r0
+   ec390:	f8 21 ff 91 	stdu    r1,-112(r1)
+   ec394:	7c a4 28 50 	subf    r5,r4,r5
+   ec398:	f8 01 00 80 	std     r0,128(r1)
+   ec39c:	80 89 02 dc 	lwz     r4,732(r9)
+   ec3a0:	7c a5 07 b4 	extsw   r5,r5
+   ec3a4:	48 03 19 5d 	bl      0x11dd00
+   ec3a8:	60 00 00 00 	nop
+   ec3ac:	e8 01 00 80 	ld      r0,128(r1)
+   ec3b0:	38 21 00 70 	addi    r1,r1,112
+   ec3b4:	7c 08 03 a6 	mtlr    r0
+   ec3b8:	4e 80 00 20 	blr
+   ec3bc:	60 00 00 00 	nop
+   ec3c0:	81 22 e6 28 	lwz     r9,-6616(r2)
+   ec3c4:	7c 08 02 a6 	mflr    r0
+   ec3c8:	f8 21 ff 91 	stdu    r1,-112(r1)
+   ec3cc:	f8 01 00 80 	std     r0,128(r1)
+   ec3d0:	38 a0 00 0c 	li      r5,12
+   ec3d4:	80 89 02 dc 	lwz     r4,732(r9)
+   ec3d8:	48 03 19 29 	bl      0x11dd00
+   ec3dc:	60 00 00 00 	nop
+   ec3e0:	e8 01 00 80 	ld      r0,128(r1)
+   ec3e4:	38 21 00 70 	addi    r1,r1,112
+   ec3e8:	7c 08 03 a6 	mtlr    r0
+   ec3ec:	4e 80 00 20 	blr
+   ec3f0:	2f 84 00 00 	cmpwi   cr7,r4,0
+   ec3f4:	7c 08 02 a6 	mflr    r0
+   ec3f8:	f8 21 ff 71 	stdu    r1,-144(r1)
+   ec3fc:	fb a1 00 78 	std     r29,120(r1)
+   ec400:	fb c1 00 80 	std     r30,128(r1)
+   ec404:	fb e1 00 88 	std     r31,136(r1)
+   ec408:	f8 01 00 a0 	std     r0,160(r1)
+   ec40c:	7c 9d 23 78 	mr      r29,r4
+   ec410:	40 9d 00 30 	ble     cr7,0xec440
+   ec414:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   ec418:	3b e0 00 00 	li      r31,0
+   ec41c:	60 00 00 00 	nop

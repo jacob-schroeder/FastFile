@@ -1,0 +1,47 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000e8b80 <+0xd8950>:
+   e8b80:	38 21 00 70 	addi    r1,r1,112
+   e8b84:	7c 08 03 a6 	mtlr    r0
+   e8b88:	4e 80 00 20 	blr
+   e8b8c:	60 00 00 00 	nop
+   e8b90:	81 22 e6 28 	lwz     r9,-6616(r2)
+   e8b94:	7c 08 02 a6 	mflr    r0
+   e8b98:	f8 21 ff 91 	stdu    r1,-112(r1)
+   e8b9c:	f8 01 00 80 	std     r0,128(r1)
+   e8ba0:	38 a0 00 1c 	li      r5,28
+   e8ba4:	80 89 01 cc 	lwz     r4,460(r9)
+   e8ba8:	48 03 51 59 	bl      0x11dd00
+   e8bac:	60 00 00 00 	nop
+   e8bb0:	e8 01 00 80 	ld      r0,128(r1)
+   e8bb4:	38 21 00 70 	addi    r1,r1,112
+   e8bb8:	7c 08 03 a6 	mtlr    r0
+   e8bbc:	4e 80 00 20 	blr
+   e8bc0:	2f 84 00 00 	cmpwi   cr7,r4,0
+   e8bc4:	7c 08 02 a6 	mflr    r0
+   e8bc8:	f8 21 ff 71 	stdu    r1,-144(r1)
+   e8bcc:	fb a1 00 78 	std     r29,120(r1)
+   e8bd0:	fb c1 00 80 	std     r30,128(r1)
+   e8bd4:	fb e1 00 88 	std     r31,136(r1)
+   e8bd8:	f8 01 00 a0 	std     r0,160(r1)
+   e8bdc:	7c 9d 23 78 	mr      r29,r4
+   e8be0:	40 9d 00 30 	ble     cr7,0xe8c10
+   e8be4:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   e8be8:	3b e0 00 00 	li      r31,0
+   e8bec:	60 00 00 00 	nop
+   e8bf0:	38 60 00 01 	li      r3,1
+   e8bf4:	3b ff 00 01 	addi    r31,r31,1
+   e8bf8:	4b ff ff 99 	bl      0xe8b90
+   e8bfc:	48 03 4f 45 	bl      0x11db40
+   e8c00:	60 00 00 00 	nop
+   e8c04:	7f 9d f8 00 	cmpw    cr7,r29,r31
+   e8c08:	90 7e 01 cc 	stw     r3,460(r30)
+   e8c0c:	40 9e ff e4 	bne     cr7,0xe8bf0
+   e8c10:	e8 01 00 a0 	ld      r0,160(r1)
+   e8c14:	eb a1 00 78 	ld      r29,120(r1)
+   e8c18:	eb c1 00 80 	ld      r30,128(r1)
+   e8c1c:	7c 08 03 a6 	mtlr    r0

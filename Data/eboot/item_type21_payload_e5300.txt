@@ -1,0 +1,35 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000e52f0 <+0xd50c0>:
+   e52f0:	38 21 00 70 	addi    r1,r1,112
+   e52f4:	7c 08 03 a6 	mtlr    r0
+   e52f8:	4e 80 00 20 	blr
+   e52fc:	60 00 00 00 	nop
+   e5300:	81 22 e6 28 	lwz     r9,-6616(r2)
+   e5304:	7c 08 02 a6 	mflr    r0
+   e5308:	f8 21 ff 91 	stdu    r1,-112(r1)
+   e530c:	f8 01 00 80 	std     r0,128(r1)
+   e5310:	38 a0 00 04 	li      r5,4
+   e5314:	80 89 00 b8 	lwz     r4,184(r9)
+   e5318:	48 03 89 e9 	bl      0x11dd00
+   e531c:	60 00 00 00 	nop
+   e5320:	e8 01 00 80 	ld      r0,128(r1)
+   e5324:	38 21 00 70 	addi    r1,r1,112
+   e5328:	7c 08 03 a6 	mtlr    r0
+   e532c:	4e 80 00 20 	blr
+   e5330:	2f 84 00 00 	cmpwi   cr7,r4,0
+   e5334:	7c 08 02 a6 	mflr    r0
+   e5338:	f8 21 ff 71 	stdu    r1,-144(r1)
+   e533c:	fb a1 00 78 	std     r29,120(r1)
+   e5340:	fb c1 00 80 	std     r30,128(r1)
+   e5344:	fb e1 00 88 	std     r31,136(r1)
+   e5348:	f8 01 00 a0 	std     r0,160(r1)
+   e534c:	7c 9d 23 78 	mr      r29,r4
+   e5350:	40 9d 00 30 	ble     cr7,0xe5380
+   e5354:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   e5358:	3b e0 00 00 	li      r31,0
+   e535c:	60 00 00 00 	nop

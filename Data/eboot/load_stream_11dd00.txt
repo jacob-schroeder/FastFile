@@ -1,0 +1,66 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000011dcf0 <+0x10dac0>:
+  11dcf0:	38 21 00 80 	addi    r1,r1,128
+  11dcf4:	7c 08 03 a6 	mtlr    r0
+  11dcf8:	4e 80 00 20 	blr
+  11dcfc:	60 00 00 00 	nop
+  11dd00:	2f 83 00 00 	cmpwi   cr7,r3,0
+  11dd04:	7c 08 02 a6 	mflr    r0
+  11dd08:	f8 21 ff 81 	stdu    r1,-128(r1)
+  11dd0c:	fb e1 00 78 	std     r31,120(r1)
+  11dd10:	f8 01 00 90 	std     r0,144(r1)
+  11dd14:	7c ab 2b 78 	mr      r11,r5
+  11dd18:	7c 8a 23 78 	mr      r10,r4
+  11dd1c:	2f 05 00 00 	cmpwi   cr6,r5,0
+  11dd20:	41 9e 00 54 	beq     cr7,0x11dd74
+  11dd24:	41 9a 00 50 	beq     cr6,0x11dd74
+  11dd28:	81 22 e7 34 	lwz     r9,-6348(r2)
+  11dd2c:	78 83 00 20 	clrldi  r3,r4,32
+  11dd30:	78 a5 00 20 	clrldi  r5,r5,32
+  11dd34:	38 80 00 00 	li      r4,0
+  11dd38:	7d 7f 07 b4 	extsw   r31,r11
+  11dd3c:	80 09 00 00 	lwz     r0,0(r9)
+  11dd40:	2f 80 00 02 	cmpwi   cr7,r0,2
+  11dd44:	2f 00 00 03 	cmpwi   cr6,r0,3
+  11dd48:	41 9e 00 40 	beq     cr7,0x11dd88
+  11dd4c:	79 43 00 20 	clrldi  r3,r10,32
+  11dd50:	38 a0 00 00 	li      r5,0
+  11dd54:	7d 7f 07 b4 	extsw   r31,r11
+  11dd58:	41 9a 00 10 	beq     cr6,0x11dd68
+  11dd5c:	7f e4 fb 78 	mr      r4,r31
+  11dd60:	4b fc 34 69 	bl      0xe11c8
+  11dd64:	60 00 00 00 	nop
+  11dd68:	7f e3 fb 78 	mr      r3,r31
+  11dd6c:	4b ff fe 05 	bl      0x11db70
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000011dd68 <+0x10db38>:
+  11dd68:	7f e3 fb 78 	mr      r3,r31
+  11dd6c:	4b ff fe 05 	bl      0x11db70
+  11dd70:	60 00 00 00 	nop
+  11dd74:	e8 01 00 90 	ld      r0,144(r1)
+  11dd78:	eb e1 00 78 	ld      r31,120(r1)
+  11dd7c:	38 21 00 80 	addi    r1,r1,128
+  11dd80:	7c 08 03 a6 	mtlr    r0
+  11dd84:	4e 80 00 20 	blr
+  11dd88:	48 3a 8e 91 	bl      0x4c6c18
+  11dd8c:	e8 41 00 28 	ld      r2,40(r1)
+  11dd90:	4b ff ff d8 	b       0x11dd68
+  11dd94:	60 00 00 00 	nop
+  11dd98:	3d 2d 00 00 	addis   r9,r13,0
+  11dd9c:	39 29 90 0c 	addi    r9,r9,-28660
+  11dda0:	81 69 00 00 	lwz     r11,0(r9)
+  11dda4:	39 6b ff ff 	addi    r11,r11,-1
+  11dda8:	2f 8b 00 00 	cmpwi   cr7,r11,0
+  11ddac:	91 69 00 00 	stw     r11,0(r9)
+  11ddb0:	4c 9e 00 20 	bnelr   cr7
+  11ddb4:	7c 20 04 ac 	lwsync

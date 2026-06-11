@@ -1,0 +1,87 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000f1ef0 <+0xe1cc0>:
+   f1ef0:	7c 08 03 a6 	mtlr    r0
+   f1ef4:	38 21 00 70 	addi    r1,r1,112
+   f1ef8:	4e 80 00 20 	blr
+   f1efc:	60 00 00 00 	nop
+   f1f00:	38 60 00 0f 	li      r3,15
+   f1f04:	7c 08 02 a6 	mflr    r0
+   f1f08:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f1f0c:	f8 01 00 80 	std     r0,128(r1)
+   f1f10:	48 02 bc 41 	bl      0x11db50
+   f1f14:	60 00 00 00 	nop
+   f1f18:	e8 01 00 80 	ld      r0,128(r1)
+   f1f1c:	78 63 00 20 	clrldi  r3,r3,32
+   f1f20:	7c 08 03 a6 	mtlr    r0
+   f1f24:	38 21 00 70 	addi    r1,r1,112
+   f1f28:	4e 80 00 20 	blr
+   f1f2c:	60 00 00 00 	nop
+   f1f30:	38 60 00 03 	li      r3,3
+   f1f34:	7c 08 02 a6 	mflr    r0
+   f1f38:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f1f3c:	f8 01 00 80 	std     r0,128(r1)
+   f1f40:	48 02 bc 11 	bl      0x11db50
+   f1f44:	60 00 00 00 	nop
+   f1f48:	e8 01 00 80 	ld      r0,128(r1)
+   f1f4c:	78 63 00 20 	clrldi  r3,r3,32
+   f1f50:	7c 08 03 a6 	mtlr    r0
+   f1f54:	38 21 00 70 	addi    r1,r1,112
+   f1f58:	4e 80 00 20 	blr
+   f1f5c:	60 00 00 00 	nop
+   f1f60:	38 60 00 03 	li      r3,3
+   f1f64:	7c 08 02 a6 	mflr    r0
+   f1f68:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f1f6c:	f8 01 00 80 	std     r0,128(r1)
+   f1f70:	48 02 bb e1 	bl      0x11db50
+   f1f74:	60 00 00 00 	nop
+   f1f78:	e8 01 00 80 	ld      r0,128(r1)
+   f1f7c:	78 63 00 20 	clrldi  r3,r3,32
+   f1f80:	7c 08 03 a6 	mtlr    r0
+   f1f84:	38 21 00 70 	addi    r1,r1,112
+   f1f88:	4e 80 00 20 	blr
+   f1f8c:	60 00 00 00 	nop
+   f1f90:	38 60 00 00 	li      r3,0
+   f1f94:	7c 08 02 a6 	mflr    r0
+   f1f98:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f1f9c:	f8 01 00 80 	std     r0,128(r1)
+   f1fa0:	48 02 bb b1 	bl      0x11db50
+   f1fa4:	60 00 00 00 	nop
+   f1fa8:	e8 01 00 80 	ld      r0,128(r1)
+   f1fac:	78 63 00 20 	clrldi  r3,r3,32
+   f1fb0:	7c 08 03 a6 	mtlr    r0
+   f1fb4:	38 21 00 70 	addi    r1,r1,112
+   f1fb8:	4e 80 00 20 	blr
+   f1fbc:	60 00 00 00 	nop
+   f1fc0:	38 60 00 03 	li      r3,3
+   f1fc4:	7c 08 02 a6 	mflr    r0
+   f1fc8:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f1fcc:	f8 01 00 80 	std     r0,128(r1)
+   f1fd0:	48 02 bb 81 	bl      0x11db50
+   f1fd4:	60 00 00 00 	nop
+   f1fd8:	e8 01 00 80 	ld      r0,128(r1)
+   f1fdc:	78 63 00 20 	clrldi  r3,r3,32
+   f1fe0:	7c 08 03 a6 	mtlr    r0
+   f1fe4:	38 21 00 70 	addi    r1,r1,112
+   f1fe8:	4e 80 00 20 	blr
+   f1fec:	60 00 00 00 	nop
+   f1ff0:	38 60 00 03 	li      r3,3
+   f1ff4:	7c 08 02 a6 	mflr    r0
+   f1ff8:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f1ffc:	f8 01 00 80 	std     r0,128(r1)
+   f2000:	48 02 bb 51 	bl      0x11db50
+   f2004:	60 00 00 00 	nop
+   f2008:	e8 01 00 80 	ld      r0,128(r1)
+   f200c:	78 63 00 20 	clrldi  r3,r3,32
+   f2010:	7c 08 03 a6 	mtlr    r0
+   f2014:	38 21 00 70 	addi    r1,r1,112
+   f2018:	4e 80 00 20 	blr
+   f201c:	60 00 00 00 	nop
+   f2020:	38 60 00 03 	li      r3,3
+   f2024:	7c 08 02 a6 	mflr    r0
+   f2028:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f202c:	f8 01 00 80 	std     r0,128(r1)

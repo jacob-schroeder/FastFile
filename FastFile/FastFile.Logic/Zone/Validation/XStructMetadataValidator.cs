@@ -15,6 +15,11 @@ public static class XStructMetadataValidator
         return ValidateAssembly(typeof(BaseAsset).Assembly);
     }
 
+    public static XStructEvidenceReport GetAssetEvidenceReport()
+    {
+        return GetEvidenceReport(typeof(BaseAsset).Assembly);
+    }
+
     public static XStructMetadataValidationResult ValidateAssembly(Assembly assembly)
     {
         var diagnostics = new List<XStructMetadataDiagnostic>();
@@ -28,9 +33,36 @@ public static class XStructMetadataValidator
         {
             ValidateBaseAsset(type, diagnostics);
             ValidateXFields(type, diagnostics);
+            ValidateEvidence(type, diagnostics);
         }
 
         return new XStructMetadataValidationResult(diagnostics);
+    }
+
+    public static XStructEvidenceReport GetEvidenceReport(Assembly assembly)
+    {
+        var items = assembly
+            .GetTypes()
+            .Select(type => new
+            {
+                Type = type,
+                Struct = type.GetCustomAttribute<XStructAttribute>()
+            })
+            .Where(item => item.Struct is not null)
+            .OrderBy(item => item.Type.FullName, StringComparer.Ordinal)
+            .Select(item =>
+            {
+                var evidence = GetEvidence(item.Type);
+                return new XStructEvidenceItem(
+                    FormatType(item.Type),
+                    item.Struct!.Block,
+                    item.Struct.Size,
+                    evidence.Length > 0,
+                    evidence);
+            })
+            .ToArray();
+
+        return new XStructEvidenceReport(items);
     }
 
     private static void ValidateBaseAsset(Type type, List<XStructMetadataDiagnostic> diagnostics)
@@ -81,6 +113,23 @@ public static class XStructMetadataValidator
 
             previous = current;
         }
+    }
+
+    private static void ValidateEvidence(Type type, List<XStructMetadataDiagnostic> diagnostics)
+    {
+        if (type.GetCustomAttribute<XStructAttribute>() is null)
+            return;
+
+        var hasEvidence = GetEvidence(type).Length > 0;
+
+        if (hasEvidence)
+            return;
+
+        AddWarning(
+            diagnostics,
+            type,
+            null,
+            "XStruct has no XEbootEvidenceAttribute tying size/order to an EBOOT loader trace.");
     }
 
     private static void ValidateField(
@@ -465,6 +514,27 @@ public static class XStructMetadataValidator
         }
 
         return [..fields.OrderBy(field => field.Attribute.Offset)];
+    }
+
+    private static string[] GetEvidence(Type type)
+    {
+        var typeEvidence = type
+            .GetCustomAttributes<XEbootEvidenceAttribute>()
+            .Select(FormatEvidence);
+
+        var fieldEvidence = GetXFields(type)
+            .SelectMany(field => field.Property
+                .GetCustomAttributes<XEbootEvidenceAttribute>()
+                .Select(evidence => $"{field.Property.Name}: {FormatEvidence(evidence)}"));
+
+        return [..typeEvidence.Concat(fieldEvidence)];
+    }
+
+    private static string FormatEvidence(XEbootEvidenceAttribute evidence)
+    {
+        return string.IsNullOrWhiteSpace(evidence.Detail)
+            ? $"{evidence.Address} ({evidence.Trace})"
+            : $"{evidence.Address} ({evidence.Trace}): {evidence.Detail}";
     }
 
     private static string FormatType(Type type)

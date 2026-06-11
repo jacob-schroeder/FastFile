@@ -7,6 +7,10 @@ using FastFile.Models.Zone.Attributes;
 namespace FastFile.Models.Assets.Weapons;
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x74)]
+[XEbootEvidence(
+    "0x1152f8",
+    "Data/eboot/weapon_loaders_114678_1152f8.txt",
+    Detail = "WeaponVariantDef body: Load_Stream size 0x74; XStrings at +0x00/+0x08/+0x3c; WeaponDef pointer at +0x04; hide tags +0x0c count 0x20; anim names +0x10 count 0x25; material aliases +0x48/+0x4c; accuracy arrays +0x68/+0x6c using counts +0x64/+0x66.")]
 public sealed class WeaponVariantDef() : BaseAsset(XAssetType.Weapon)
 {
     [XField(Offset = 0x00)]

@@ -1,0 +1,75 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+0000000000108f40 <+0xf8d10>:
+  108f40:	eb e1 00 88 	ld      r31,136(r1)
+  108f44:	38 21 00 90 	addi    r1,r1,144
+  108f48:	4e 80 00 20 	blr
+  108f4c:	60 00 00 00 	nop
+  108f50:	f8 21 ff 81 	stdu    r1,-128(r1)
+  108f54:	7c 08 02 a6 	mflr    r0
+  108f58:	fb c1 00 70 	std     r30,112(r1)
+  108f5c:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  108f60:	38 a0 00 48 	li      r5,72
+  108f64:	fb e1 00 78 	std     r31,120(r1)
+  108f68:	f8 01 00 90 	std     r0,144(r1)
+  108f6c:	80 9e 07 38 	lwz     r4,1848(r30)
+  108f70:	48 01 4d 91 	bl      0x11dd00
+  108f74:	60 00 00 00 	nop
+  108f78:	81 3e 07 38 	lwz     r9,1848(r30)
+  108f7c:	79 3f 00 20 	clrldi  r31,r9,32
+  108f80:	80 1f 00 04 	lwz     r0,4(r31)
+  108f84:	2f 80 00 00 	cmpwi   cr7,r0,0
+  108f88:	41 9e 00 34 	beq     cr7,0x108fbc
+  108f8c:	4b fe c3 ed 	bl      0xf5378
+  108f90:	90 7f 00 04 	stw     r3,4(r31)
+  108f94:	81 3e 07 38 	lwz     r9,1848(r30)
+  108f98:	38 60 00 01 	li      r3,1
+  108f9c:	80 09 00 04 	lwz     r0,4(r9)
+  108fa0:	90 1e 02 ec 	stw     r0,748(r30)
+  108fa4:	81 69 00 14 	lwz     r11,20(r9)
+  108fa8:	80 89 00 10 	lwz     r4,16(r9)
+  108fac:	7c 84 59 d6 	mullw   r4,r4,r11
+  108fb0:	7c 84 07 b4 	extsw   r4,r4
+  108fb4:	4b fe 37 35 	bl      0xec6e8
+  108fb8:	81 3e 07 38 	lwz     r9,1848(r30)
+  108fbc:	79 3f 00 20 	clrldi  r31,r9,32
+  108fc0:	80 1f 00 08 	lwz     r0,8(r31)
+  108fc4:	2f 80 00 00 	cmpwi   cr7,r0,0
+  108fc8:	41 9e 00 34 	beq     cr7,0x108ffc
+  108fcc:	4b fe c3 ad 	bl      0xf5378
+  108fd0:	90 7f 00 08 	stw     r3,8(r31)
+  108fd4:	81 3e 07 38 	lwz     r9,1848(r30)
+  108fd8:	38 60 00 01 	li      r3,1
+  108fdc:	80 09 00 08 	lwz     r0,8(r9)
+  108fe0:	90 1e 02 ec 	stw     r0,748(r30)
+  108fe4:	81 69 00 14 	lwz     r11,20(r9)
+  108fe8:	80 89 00 10 	lwz     r4,16(r9)
+  108fec:	7c 84 59 d6 	mullw   r4,r4,r11
+  108ff0:	7c 84 07 b4 	extsw   r4,r4
+  108ff4:	4b fe 36 f5 	bl      0xec6e8
+  108ff8:	81 3e 07 38 	lwz     r9,1848(r30)
+  108ffc:	79 3f 00 20 	clrldi  r31,r9,32
+  109000:	80 1f 00 0c 	lwz     r0,12(r31)
+  109004:	2f 80 00 00 	cmpwi   cr7,r0,0
+  109008:	41 9e 00 34 	beq     cr7,0x10903c
+  10900c:	4b fe c3 6d 	bl      0xf5378
+  109010:	90 7f 00 0c 	stw     r3,12(r31)
+  109014:	81 3e 07 38 	lwz     r9,1848(r30)
+  109018:	38 60 00 01 	li      r3,1
+  10901c:	80 09 00 0c 	lwz     r0,12(r9)
+  109020:	90 1e 02 ec 	stw     r0,748(r30)
+  109024:	81 69 00 14 	lwz     r11,20(r9)
+  109028:	80 89 00 10 	lwz     r4,16(r9)
+  10902c:	7c 84 59 d6 	mullw   r4,r4,r11
+  109030:	7c 84 07 b4 	extsw   r4,r4
+  109034:	4b fe 36 b5 	bl      0xec6e8
+  109038:	81 3e 07 38 	lwz     r9,1848(r30)
+  10903c:	38 09 00 44 	addi    r0,r9,68
+  109040:	38 60 00 00 	li      r3,0
+  109044:	90 1e 07 1c 	stw     r0,1820(r30)
+  109048:	e8 01 00 90 	ld      r0,144(r1)
+  10904c:	eb c1 00 70 	ld      r30,112(r1)

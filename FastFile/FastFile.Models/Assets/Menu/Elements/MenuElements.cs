@@ -28,6 +28,10 @@ public class RectangleDef
 }
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0xB0)]
+[XEbootEvidence(
+    "0x10e538",
+    "Data/eboot/xasset_loader_findings.txt",
+    Detail = "Window inner loader: root size 0xb0; Load_XString at +0x00 and +0x2c; nested material/background loader at +0xac.")]
 public class Window
 {
     [XField(Offset = 0x00)]
@@ -440,6 +444,10 @@ public class ItemDefRawData
 }
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x1CC)]
+[XEbootEvidence(
+    "0x10e940",
+    "Data/eboot/xasset_loader_findings.txt",
+    Detail = "ItemDef inner loader: Load_Stream size 0x1cc; starts with Window at +0x00; XString/pointer/event offsets proceed through +0x1a0; +0x16c dispatches alias-style focus sound; +0x184 dispatches by item type at +0x100.")]
 public class ItemDef
 {
     public int Offset { get; set; }

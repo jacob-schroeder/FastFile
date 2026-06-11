@@ -1,0 +1,11 @@
+544398 Asset version of %i does not match XFILE_VERSION of %i; unable to load asset
+544660 Fastfile for zone '%s' is out of date (version %d, expecting %d)
+5446a8 Fastfile for zone '%s' is newer than client executable (version %d, expecting %d)
+544740 Fastfile for zone '%s' is empty.
+5447e0 Attempting to override asset '%s' from zone '%s' with zone '%s'
+544980 Could not allocate asset - increase XASSET_ENTRY_POOL_SIZE
+56a908 stream end
+56a930 stream error
+570710 zone/english/
+58f380 MULTISTREAM ERROR - START SAFE GUARD MEMORY HAS BEEN CORRUPTED. THIS IS EITHER A MULTISTREAM BUG OR YOU ARE CORRUPTING MULTISTREAMS MEMORY
+58f410 MULTISTREAM ERROR - END SAFE GUARD MEMORY HAS BEEN CORRUPTED. THIS IS EITHER A MULTISTREAM BUG OR YOU ARE CORRUPTING MULTISTREAMS MEMORY

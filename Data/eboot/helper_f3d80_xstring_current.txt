@@ -1,0 +1,27 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000f3d70 <+0xe3b40>:
+   f3d70:	7c 08 03 a6 	mtlr    r0
+   f3d74:	38 21 00 70 	addi    r1,r1,112
+   f3d78:	4e 80 00 20 	blr
+   f3d7c:	60 00 00 00 	nop
+   f3d80:	38 60 00 00 	li      r3,0
+   f3d84:	7c 08 02 a6 	mflr    r0
+   f3d88:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f3d8c:	f8 01 00 80 	std     r0,128(r1)
+   f3d90:	48 02 9d c1 	bl      0x11db50
+   f3d94:	60 00 00 00 	nop
+   f3d98:	e8 01 00 80 	ld      r0,128(r1)
+   f3d9c:	78 63 00 20 	clrldi  r3,r3,32
+   f3da0:	7c 08 03 a6 	mtlr    r0
+   f3da4:	38 21 00 70 	addi    r1,r1,112
+   f3da8:	4e 80 00 20 	blr
+   f3dac:	60 00 00 00 	nop
+   f3db0:	38 60 00 01 	li      r3,1
+   f3db4:	7c 08 02 a6 	mflr    r0
+   f3db8:	f8 21 ff 91 	stdu    r1,-112(r1)
+   f3dbc:	f8 01 00 80 	std     r0,128(r1)

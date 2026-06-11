@@ -1,0 +1,53 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000010e900 <+0xfe6d0>:
+  10e900:	80 0b 08 1c 	lwz     r0,2076(r11)
+  10e904:	78 63 06 20 	clrldi  r3,r3,56
+  10e908:	90 0b 08 14 	stw     r0,2068(r11)
+  10e90c:	4b ff fe c4 	b       0x10e7d0
+  10e910:	80 0b 08 1c 	lwz     r0,2076(r11)
+  10e914:	78 63 06 20 	clrldi  r3,r3,56
+  10e918:	90 0b 07 8c 	stw     r0,1932(r11)
+  10e91c:	4b ff cc e4 	b       0x10b600
+  10e920:	80 0b 08 1c 	lwz     r0,2076(r11)
+  10e924:	78 63 06 20 	clrldi  r3,r3,56
+  10e928:	90 0b 06 44 	stw     r0,1604(r11)
+  10e92c:	4b ff 3f b4 	b       0x1028e0
+  10e930:	80 0b 08 1c 	lwz     r0,2076(r11)
+  10e934:	78 63 06 20 	clrldi  r3,r3,56
+  10e938:	90 0b 03 64 	stw     r0,868(r11)
+  10e93c:	4b fe 10 5c 	b       0xef998
+  10e940:	f8 21 ff 81 	stdu    r1,-128(r1)
+  10e944:	7c 08 02 a6 	mflr    r0
+  10e948:	fb e1 00 78 	std     r31,120(r1)
+  10e94c:	83 e2 e6 28 	lwz     r31,-6616(r2)
+  10e950:	38 a0 01 cc 	li      r5,460
+  10e954:	fb c1 00 70 	std     r30,112(r1)
+  10e958:	f8 01 00 90 	std     r0,144(r1)
+  10e95c:	80 9f 08 18 	lwz     r4,2072(r31)
+  10e960:	48 00 f3 a1 	bl      0x11dd00
+  10e964:	60 00 00 00 	nop
+  10e968:	80 1f 08 18 	lwz     r0,2072(r31)
+  10e96c:	38 60 00 00 	li      r3,0
+  10e970:	90 1f 08 0c 	stw     r0,2060(r31)
+  10e974:	4b ff fb c5 	bl      0x10e538
+  10e978:	81 3f 08 18 	lwz     r9,2072(r31)
+  10e97c:	38 60 00 00 	li      r3,0
+  10e980:	39 29 01 2c 	addi    r9,r9,300
+  10e984:	91 3f 06 44 	stw     r9,1604(r31)
+  10e988:	4b ff 3f 59 	bl      0x1028e0
+  10e98c:	81 3f 08 18 	lwz     r9,2072(r31)
+  10e990:	38 60 00 00 	li      r3,0
+  10e994:	39 29 01 38 	addi    r9,r9,312
+  10e998:	91 3f 07 bc 	stw     r9,1980(r31)
+  10e99c:	4b ff db 25 	bl      0x10c4c0
+  10e9a0:	81 3f 08 18 	lwz     r9,2072(r31)
+  10e9a4:	38 60 00 00 	li      r3,0
+  10e9a8:	39 29 01 3c 	addi    r9,r9,316
+  10e9ac:	91 3f 07 bc 	stw     r9,1980(r31)
+  10e9b0:	4b ff db 11 	bl      0x10c4c0
+  10e9b4:	81 3f 08 18 	lwz     r9,2072(r31)

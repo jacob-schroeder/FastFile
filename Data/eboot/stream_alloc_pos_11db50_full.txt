@@ -1,0 +1,27 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000011db40 <+0x10d910>:
+  11db40:	81 22 e7 2c 	lwz     r9,-6356(r2)
+  11db44:	80 69 00 20 	lwz     r3,32(r9)
+  11db48:	4e 80 00 20 	blr
+  11db4c:	60 00 00 00 	nop
+  11db50:	81 62 e7 2c 	lwz     r11,-6356(r2)
+  11db54:	80 0b 00 20 	lwz     r0,32(r11)
+  11db58:	7d 23 02 14 	add     r9,r3,r0
+  11db5c:	7d 23 18 78 	andc    r3,r9,r3
+  11db60:	90 6b 00 20 	stw     r3,32(r11)
+  11db64:	78 63 00 20 	clrldi  r3,r3,32
+  11db68:	4e 80 00 20 	blr
+  11db6c:	60 00 00 00 	nop
+  11db70:	81 22 e7 2c 	lwz     r9,-6356(r2)
+  11db74:	80 09 00 20 	lwz     r0,32(r9)
+  11db78:	7c 00 1a 14 	add     r0,r0,r3
+  11db7c:	90 09 00 20 	stw     r0,32(r9)
+  11db80:	4e 80 00 20 	blr
+  11db84:	60 00 00 00 	nop
+  11db88:	38 60 00 04 	li      r3,4
+  11db8c:	7c 08 02 a6 	mflr    r0

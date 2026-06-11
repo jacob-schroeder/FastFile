@@ -1,0 +1,57 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000010b9f0 <+0xfb7c0>:
+  10b9f0:	eb e1 00 78 	ld      r31,120(r1)
+  10b9f4:	38 21 00 80 	addi    r1,r1,128
+  10b9f8:	7c 08 03 a6 	mtlr    r0
+  10b9fc:	4b ff fe fc 	b       0x10b8f8
+  10ba00:	f8 21 ff 81 	stdu    r1,-128(r1)
+  10ba04:	7c 08 02 a6 	mflr    r0
+  10ba08:	fb c1 00 70 	std     r30,112(r1)
+  10ba0c:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  10ba10:	38 a0 00 18 	li      r5,24
+  10ba14:	fb e1 00 78 	std     r31,120(r1)
+  10ba18:	f8 01 00 90 	std     r0,144(r1)
+  10ba1c:	80 9e 07 a0 	lwz     r4,1952(r30)
+  10ba20:	48 01 22 e1 	bl      0x11dd00
+  10ba24:	60 00 00 00 	nop
+  10ba28:	81 3e 07 a0 	lwz     r9,1952(r30)
+  10ba2c:	79 3f 00 20 	clrldi  r31,r9,32
+  10ba30:	80 1f 00 04 	lwz     r0,4(r31)
+  10ba34:	2f 80 00 00 	cmpwi   cr7,r0,0
+  10ba38:	41 9e 00 2c 	beq     cr7,0x10ba64
+  10ba3c:	4b fe 46 cd 	bl      0xf0108
+  10ba40:	90 7f 00 04 	stw     r3,4(r31)
+  10ba44:	81 3e 07 a0 	lwz     r9,1952(r30)
+  10ba48:	38 60 00 01 	li      r3,1
+  10ba4c:	80 09 00 04 	lwz     r0,4(r9)
+  10ba50:	90 1e 07 a4 	stw     r0,1956(r30)
+  10ba54:	80 89 00 00 	lwz     r4,0(r9)
+  10ba58:	7c 84 07 b4 	extsw   r4,r4
+  10ba5c:	48 00 15 55 	bl      0x10cfb0
+  10ba60:	81 3e 07 a0 	lwz     r9,1952(r30)
+  10ba64:	38 09 00 08 	addi    r0,r9,8
+  10ba68:	38 60 00 00 	li      r3,0
+  10ba6c:	90 1e 07 9c 	stw     r0,1948(r30)
+  10ba70:	e8 01 00 90 	ld      r0,144(r1)
+  10ba74:	eb c1 00 70 	ld      r30,112(r1)
+  10ba78:	eb e1 00 78 	ld      r31,120(r1)
+  10ba7c:	38 21 00 80 	addi    r1,r1,128
+  10ba80:	7c 08 03 a6 	mtlr    r0
+  10ba84:	4b ff fe e4 	b       0x10b968
+  10ba88:	2f 84 00 00 	cmpwi   cr7,r4,0
+  10ba8c:	7c 08 02 a6 	mflr    r0
+  10ba90:	f8 21 ff 71 	stdu    r1,-144(r1)
+  10ba94:	fb a1 00 78 	std     r29,120(r1)
+  10ba98:	fb c1 00 80 	std     r30,128(r1)
+  10ba9c:	fb e1 00 88 	std     r31,136(r1)
+  10baa0:	f8 01 00 a0 	std     r0,160(r1)
+  10baa4:	7c 9d 23 78 	mr      r29,r4
+  10baa8:	40 9d 00 30 	ble     cr7,0x10bad8
+  10baac:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  10bab0:	3b e0 00 00 	li      r31,0
+  10bab4:	60 00 00 00 	nop

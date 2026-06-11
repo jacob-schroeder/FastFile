@@ -5,6 +5,10 @@ using FastFile.Models.Zone.Attributes;
 namespace FastFile.Models.Assets.RawFiles;
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
+[XEbootEvidence(
+    "0x103ec0",
+    "Data/eboot/xasset_loader_findings.txt",
+    Detail = "RawFile inner loader: Load_Stream size 0x10; XString +0x00; compressedLen +0x04; len +0x08; buffer pointer +0x0c; buffer length is compressedLen when nonzero else len+1.")]
 public class RawFile() : BaseAsset(XAssetType.RawFile)
 {
     [XField(Offset = 0x00)]

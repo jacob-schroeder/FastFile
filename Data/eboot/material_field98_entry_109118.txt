@@ -1,0 +1,57 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+0000000000109108 <+0xf8ed8>:
+  109108:	80 7e 07 40 	lwz     r3,1856(r30)
+  10910c:	48 3b e3 5d 	bl      0x4c7468
+  109110:	e8 41 00 28 	ld      r2,40(r1)
+  109114:	4b ff ff c0 	b       0x1090d4
+  109118:	f8 21 ff 71 	stdu    r1,-144(r1)
+  10911c:	7c 08 02 a6 	mflr    r0
+  109120:	fb a1 00 78 	std     r29,120(r1)
+  109124:	83 a2 e6 28 	lwz     r29,-6616(r2)
+  109128:	38 a0 00 0c 	li      r5,12
+  10912c:	f8 01 00 a0 	std     r0,160(r1)
+  109130:	80 9d 07 3c 	lwz     r4,1852(r29)
+  109134:	48 01 4b cd 	bl      0x11dd00
+  109138:	60 00 00 00 	nop
+  10913c:	81 3d 07 3c 	lwz     r9,1852(r29)
+  109140:	39 29 00 08 	addi    r9,r9,8
+  109144:	38 60 00 00 	li      r3,0
+  109148:	91 3d 07 40 	stw     r9,1856(r29)
+  10914c:	e8 01 00 a0 	ld      r0,160(r1)
+  109150:	eb a1 00 78 	ld      r29,120(r1)
+  109154:	38 21 00 90 	addi    r1,r1,144
+  109158:	7c 08 03 a6 	mtlr    r0
+  10915c:	4b ff ff 04 	b       0x109060
+  109160:	2f 84 00 00 	cmpwi   cr7,r4,0
+  109164:	7c 08 02 a6 	mflr    r0
+  109168:	f8 21 ff 71 	stdu    r1,-144(r1)
+  10916c:	fb a1 00 78 	std     r29,120(r1)
+  109170:	fb c1 00 80 	std     r30,128(r1)
+  109174:	fb e1 00 88 	std     r31,136(r1)
+  109178:	f8 01 00 a0 	std     r0,160(r1)
+  10917c:	7c 9d 23 78 	mr      r29,r4
+  109180:	40 9d 00 30 	ble     cr7,0x1091b0
+  109184:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  109188:	3b e0 00 00 	li      r31,0
+  10918c:	60 00 00 00 	nop
+  109190:	38 60 00 01 	li      r3,1
+  109194:	3b ff 00 01 	addi    r31,r31,1
+  109198:	4b ff ff 81 	bl      0x109118
+  10919c:	48 01 49 a5 	bl      0x11db40
+  1091a0:	60 00 00 00 	nop
+  1091a4:	7f 9d f8 00 	cmpw    cr7,r29,r31
+  1091a8:	90 7e 07 3c 	stw     r3,1852(r30)
+  1091ac:	40 9e ff e4 	bne     cr7,0x109190
+  1091b0:	e8 01 00 a0 	ld      r0,160(r1)
+  1091b4:	eb a1 00 78 	ld      r29,120(r1)
+  1091b8:	eb c1 00 80 	ld      r30,128(r1)
+  1091bc:	7c 08 03 a6 	mtlr    r0
+  1091c0:	eb e1 00 88 	ld      r31,136(r1)
+  1091c4:	38 21 00 90 	addi    r1,r1,144
+  1091c8:	4e 80 00 20 	blr
+  1091cc:	60 00 00 00 	nop

@@ -1,0 +1,135 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000faf60 <+0xead30>:
+   faf60:	eb e1 00 88 	ld      r31,136(r1)
+   faf64:	38 21 00 90 	addi    r1,r1,144
+   faf68:	4e 80 00 20 	blr
+   faf6c:	60 00 00 00 	nop
+   faf70:	f8 21 ff 71 	stdu    r1,-144(r1)
+   faf74:	7c 08 02 a6 	mflr    r0
+   faf78:	fb 81 00 70 	std     r28,112(r1)
+   faf7c:	83 82 e6 28 	lwz     r28,-6616(r2)
+   faf80:	54 85 18 38 	slwi    r5,r4,3
+   faf84:	fb a1 00 78 	std     r29,120(r1)
+   faf88:	fb e1 00 88 	std     r31,136(r1)
+   faf8c:	fb c1 00 80 	std     r30,128(r1)
+   faf90:	f8 01 00 a0 	std     r0,160(r1)
+   faf94:	7c 9d 23 78 	mr      r29,r4
+   faf98:	80 9c 04 cc 	lwz     r4,1228(r28)
+   faf9c:	7c a5 07 b4 	extsw   r5,r5
+   fafa0:	48 02 2d 61 	bl      0x11dd00
+   fafa4:	60 00 00 00 	nop
+   fafa8:	2f 9d 00 00 	cmpwi   cr7,r29,0
+   fafac:	83 fc 04 cc 	lwz     r31,1228(r28)
+   fafb0:	40 9d 00 24 	ble     cr7,0xfafd4
+   fafb4:	3b c0 00 00 	li      r30,0
+   fafb8:	3b de 00 01 	addi    r30,r30,1
+   fafbc:	38 60 00 00 	li      r3,0
+   fafc0:	93 fc 04 cc 	stw     r31,1228(r28)
+   fafc4:	4b ff fd fd 	bl      0xfadc0
+   fafc8:	7f 9d f0 00 	cmpw    cr7,r29,r30
+   fafcc:	3b ff 00 08 	addi    r31,r31,8
+   fafd0:	40 9e ff e8 	bne     cr7,0xfafb8
+   fafd4:	e8 01 00 a0 	ld      r0,160(r1)
+   fafd8:	eb 81 00 70 	ld      r28,112(r1)
+   fafdc:	eb a1 00 78 	ld      r29,120(r1)
+   fafe0:	7c 08 03 a6 	mtlr    r0
+   fafe4:	eb c1 00 80 	ld      r30,128(r1)
+   fafe8:	eb e1 00 88 	ld      r31,136(r1)
+   fafec:	38 21 00 90 	addi    r1,r1,144
+   faff0:	4e 80 00 20 	blr
+   faff4:	60 00 00 00 	nop
+   faff8:	f8 21 ff 71 	stdu    r1,-144(r1)
+   faffc:	7c 08 02 a6 	mflr    r0
+   fb000:	fb c1 00 80 	std     r30,128(r1)
+   fb004:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   fb008:	38 a0 00 08 	li      r5,8
+   fb00c:	f8 01 00 a0 	std     r0,160(r1)
+   fb010:	fb a1 00 78 	std     r29,120(r1)
+   fb014:	fb e1 00 88 	std     r31,136(r1)
+   fb018:	80 9e 04 d0 	lwz     r4,1232(r30)
+   fb01c:	48 02 2c e5 	bl      0x11dd00
+   fb020:	60 00 00 00 	nop
+   fb024:	38 60 00 00 	li      r3,0
+   fb028:	48 02 2a 69 	bl      0x11da90
+   fb02c:	60 00 00 00 	nop
+   fb030:	83 fe 04 d0 	lwz     r31,1232(r30)
+   fb034:	83 bf 00 00 	lwz     r29,0(r31)
+   fb038:	2f 9d 00 00 	cmpwi   cr7,r29,0
+   fb03c:	38 1d 00 02 	addi    r0,r29,2
+   fb040:	2b 00 00 01 	cmplwi  cr6,r0,1
+   fb044:	41 9e 00 14 	beq     cr7,0xfb058
+   fb048:	7f e3 fb 78 	mr      r3,r31
+   fb04c:	40 99 00 34 	ble     cr6,0xfb080
+   fb050:	48 02 2b 81 	bl      0x11dbd0
+   fb054:	60 00 00 00 	nop
+   fb058:	48 02 2a a9 	bl      0x11db00
+   fb05c:	60 00 00 00 	nop
+   fb060:	e8 01 00 a0 	ld      r0,160(r1)
+   fb064:	eb a1 00 78 	ld      r29,120(r1)
+   fb068:	eb c1 00 80 	ld      r30,128(r1)
+   fb06c:	7c 08 03 a6 	mtlr    r0
+   fb070:	eb e1 00 88 	ld      r31,136(r1)
+   fb074:	38 21 00 90 	addi    r1,r1,144
+   fb078:	4e 80 00 20 	blr
+   fb07c:	60 00 00 00 	nop
+   fb080:	4b ff 72 41 	bl      0xf22c0
+   fb084:	2f 9d ff fe 	cmpwi   cr7,r29,-2
+   fb088:	90 7f 00 00 	stw     r3,0(r31)
+   fb08c:	81 3e 04 d0 	lwz     r9,1232(r30)
+   fb090:	38 60 00 01 	li      r3,1
+   fb094:	80 09 00 00 	lwz     r0,0(r9)
+   fb098:	90 1e 01 d4 	stw     r0,468(r30)
+   fb09c:	41 9e 00 44 	beq     cr7,0xfb0e0
+   fb0a0:	80 89 00 04 	lwz     r4,4(r9)
+   fb0a4:	7c 84 07 b4 	extsw   r4,r4
+   fb0a8:	4b fe dc 61 	bl      0xe8d08
+   fb0ac:	80 9e 04 d4 	lwz     r4,1236(r30)
+   fb0b0:	80 7e 04 d0 	lwz     r3,1232(r30)
+   fb0b4:	48 3c c3 75 	bl      0x4c7428
+   fb0b8:	e8 41 00 28 	ld      r2,40(r1)
+   fb0bc:	48 02 2a 45 	bl      0x11db00
+   fb0c0:	60 00 00 00 	nop
+   fb0c4:	e8 01 00 a0 	ld      r0,160(r1)
+   fb0c8:	eb a1 00 78 	ld      r29,120(r1)
+   fb0cc:	eb c1 00 80 	ld      r30,128(r1)
+   fb0d0:	7c 08 03 a6 	mtlr    r0
+   fb0d4:	eb e1 00 88 	ld      r31,136(r1)
+   fb0d8:	38 21 00 90 	addi    r1,r1,144
+   fb0dc:	4e 80 00 20 	blr
+   fb0e0:	48 02 2a a9 	bl      0x11db88
+   fb0e4:	60 00 00 00 	nop
+   fb0e8:	81 3e 04 d0 	lwz     r9,1232(r30)
+   fb0ec:	7c 7f 1b 78 	mr      r31,r3
+   fb0f0:	38 60 00 01 	li      r3,1
+   fb0f4:	80 89 00 04 	lwz     r4,4(r9)
+   fb0f8:	7c 84 07 b4 	extsw   r4,r4
+   fb0fc:	4b fe dc 0d 	bl      0xe8d08
+   fb100:	80 7e 04 d0 	lwz     r3,1232(r30)
+   fb104:	80 9e 04 d4 	lwz     r4,1236(r30)
+   fb108:	48 3c c3 21 	bl      0x4c7428
+   fb10c:	e8 41 00 28 	ld      r2,40(r1)
+   fb110:	2f 9f 00 00 	cmpwi   cr7,r31,0
+   fb114:	41 9e ff 44 	beq     cr7,0xfb058
+   fb118:	81 3e 04 d0 	lwz     r9,1232(r30)
+   fb11c:	80 09 00 00 	lwz     r0,0(r9)
+   fb120:	90 1f 00 00 	stw     r0,0(r31)
+   fb124:	4b ff ff 34 	b       0xfb058
+   fb128:	f8 21 ff 71 	stdu    r1,-144(r1)
+   fb12c:	7c 08 02 a6 	mflr    r0
+   fb130:	fb a1 00 78 	std     r29,120(r1)
+   fb134:	83 a2 e6 28 	lwz     r29,-6616(r2)
+   fb138:	38 a0 00 14 	li      r5,20
+   fb13c:	f8 01 00 a0 	std     r0,160(r1)
+   fb140:	80 9d 04 d8 	lwz     r4,1240(r29)
+   fb144:	48 02 2b bd 	bl      0x11dd00
+   fb148:	60 00 00 00 	nop
+   fb14c:	80 1d 04 d8 	lwz     r0,1240(r29)
+   fb150:	90 1d 04 d0 	stw     r0,1232(r29)
+   fb154:	e8 01 00 a0 	ld      r0,160(r1)
+   fb158:	38 60 00 00 	li      r3,0
+   fb15c:	eb a1 00 78 	ld      r29,120(r1)

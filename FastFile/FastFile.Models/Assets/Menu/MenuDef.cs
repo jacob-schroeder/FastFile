@@ -7,6 +7,10 @@ using FastFile.Models.Zone.Attributes;
 namespace FastFile.Models.Assets.Menu;
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x2F0)]
+[XEbootEvidence(
+    "0x10ecd8",
+    "Data/eboot/xasset_loader_findings.txt",
+    Detail = "MenuDef inner loader: Load_Stream size 0x2f0; Window at +0x000; XStrings at +0x0b0/+0x0fc/+0x100; event handlers at +0x0e4/+0x0e8/+0x0ec/+0x0f0; expression pointers at +0x0f8/+0x118/+0x11c/+0x120/+0x124; items pointer at +0x128 with count +0x0b8; expression data at +0x2ec.")]
 public class MenuDef() : BaseAsset(XAssetType.Menu)
 {
     [XField(Offset = 0x00)]

@@ -1,0 +1,35 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000011db50 <+0x10d920>:
+  11db50:	81 62 e7 2c 	lwz     r11,-6356(r2)
+  11db54:	80 0b 00 20 	lwz     r0,32(r11)
+  11db58:	7d 23 02 14 	add     r9,r3,r0
+  11db5c:	7d 23 18 78 	andc    r3,r9,r3
+  11db60:	90 6b 00 20 	stw     r3,32(r11)
+  11db64:	78 63 00 20 	clrldi  r3,r3,32
+  11db68:	4e 80 00 20 	blr
+  11db6c:	60 00 00 00 	nop
+  11db70:	81 22 e7 2c 	lwz     r9,-6356(r2)
+  11db74:	80 09 00 20 	lwz     r0,32(r9)
+  11db78:	7c 00 1a 14 	add     r0,r0,r3
+  11db7c:	90 09 00 20 	stw     r0,32(r9)
+  11db80:	4e 80 00 20 	blr
+  11db84:	60 00 00 00 	nop
+  11db88:	38 60 00 04 	li      r3,4
+  11db8c:	7c 08 02 a6 	mflr    r0
+  11db90:	f8 21 ff 71 	stdu    r1,-144(r1)
+  11db94:	f8 01 00 a0 	std     r0,160(r1)
+  11db98:	fb a1 00 78 	std     r29,120(r1)
+  11db9c:	4b ff fe f5 	bl      0x11da90
+  11dba0:	38 60 00 03 	li      r3,3
+  11dba4:	4b ff ff ad 	bl      0x11db50
+  11dba8:	7c 7d 1b 78 	mr      r29,r3
+  11dbac:	38 60 00 04 	li      r3,4
+  11dbb0:	4b ff ff c1 	bl      0x11db70
+  11dbb4:	4b ff ff 4d 	bl      0x11db00
+  11dbb8:	e8 01 00 a0 	ld      r0,160(r1)
+  11dbbc:	7b a3 00 20 	clrldi  r3,r29,32

@@ -1,0 +1,119 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+00000000000fadb0 <+0xeab80>:
+   fadb0:	7c 08 03 a6 	mtlr    r0
+   fadb4:	eb e1 00 88 	ld      r31,136(r1)
+   fadb8:	38 21 00 90 	addi    r1,r1,144
+   fadbc:	4e 80 00 20 	blr
+   fadc0:	f8 21 ff 71 	stdu    r1,-144(r1)
+   fadc4:	7c 08 02 a6 	mflr    r0
+   fadc8:	fb c1 00 80 	std     r30,128(r1)
+   fadcc:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   fadd0:	38 a0 00 08 	li      r5,8
+   fadd4:	f8 01 00 a0 	std     r0,160(r1)
+   fadd8:	fb 81 00 70 	std     r28,112(r1)
+   faddc:	fb a1 00 78 	std     r29,120(r1)
+   fade0:	fb e1 00 88 	std     r31,136(r1)
+   fade4:	80 9e 04 cc 	lwz     r4,1228(r30)
+   fade8:	7f dc f3 78 	mr      r28,r30
+   fadec:	48 02 2f 15 	bl      0x11dd00
+   fadf0:	60 00 00 00 	nop
+   fadf4:	38 60 00 00 	li      r3,0
+   fadf8:	48 02 2c 99 	bl      0x11da90
+   fadfc:	60 00 00 00 	nop
+   fae00:	83 be 04 cc 	lwz     r29,1228(r30)
+   fae04:	83 fd 00 00 	lwz     r31,0(r29)
+   fae08:	2f 9f 00 00 	cmpwi   cr7,r31,0
+   fae0c:	38 1f 00 02 	addi    r0,r31,2
+   fae10:	2b 00 00 01 	cmplwi  cr6,r0,1
+   fae14:	41 9e 00 14 	beq     cr7,0xfae28
+   fae18:	7f a3 eb 78 	mr      r3,r29
+   fae1c:	40 99 00 64 	ble     cr6,0xfae80
+   fae20:	48 02 2d b1 	bl      0x11dbd0
+   fae24:	60 00 00 00 	nop
+   fae28:	48 02 2c d9 	bl      0x11db00
+   fae2c:	60 00 00 00 	nop
+   fae30:	81 3c 04 cc 	lwz     r9,1228(r28)
+   fae34:	39 29 00 04 	addi    r9,r9,4
+   fae38:	38 60 00 00 	li      r3,0
+   fae3c:	91 3c 02 f8 	stw     r9,760(r28)
+   fae40:	4b ff 1b 69 	bl      0xec9a8
+   fae44:	80 9c 04 cc 	lwz     r4,1228(r28)
+   fae48:	38 64 00 04 	addi    r3,r4,4
+   fae4c:	78 84 00 20 	clrldi  r4,r4,32
+   fae50:	78 63 00 20 	clrldi  r3,r3,32
+   fae54:	48 3c c5 b5 	bl      0x4c7408
+   fae58:	e8 41 00 28 	ld      r2,40(r1)
+   fae5c:	e8 01 00 a0 	ld      r0,160(r1)
+   fae60:	eb 81 00 70 	ld      r28,112(r1)
+   fae64:	eb a1 00 78 	ld      r29,120(r1)
+   fae68:	7c 08 03 a6 	mtlr    r0
+   fae6c:	eb c1 00 80 	ld      r30,128(r1)
+   fae70:	eb e1 00 88 	ld      r31,136(r1)
+   fae74:	38 21 00 90 	addi    r1,r1,144
+   fae78:	4e 80 00 20 	blr
+   fae7c:	60 00 00 00 	nop
+   fae80:	4b ff a5 89 	bl      0xf5408
+   fae84:	2f 9f ff fe 	cmpwi   cr7,r31,-2
+   fae88:	90 7d 00 00 	stw     r3,0(r29)
+   fae8c:	81 3e 04 cc 	lwz     r9,1228(r30)
+   fae90:	38 80 00 02 	li      r4,2
+   fae94:	38 60 00 01 	li      r3,1
+   fae98:	80 09 00 00 	lwz     r0,0(r9)
+   fae9c:	90 1e 02 f8 	stw     r0,760(r30)
+   faea0:	41 9e 00 1c 	beq     cr7,0xfaebc
+   faea4:	4b ff 1a cd 	bl      0xec970
+   faea8:	80 7e 04 cc 	lwz     r3,1228(r30)
+   faeac:	7c 64 1b 78 	mr      r4,r3
+   faeb0:	48 3c c5 69 	bl      0x4c7418
+   faeb4:	e8 41 00 28 	ld      r2,40(r1)
+   faeb8:	4b ff ff 70 	b       0xfae28
+   faebc:	48 02 2c cd 	bl      0x11db88
+   faec0:	60 00 00 00 	nop
+   faec4:	38 80 00 02 	li      r4,2
+   faec8:	7c 7f 1b 78 	mr      r31,r3
+   faecc:	38 60 00 01 	li      r3,1
+   faed0:	4b ff 1a a1 	bl      0xec970
+   faed4:	80 7e 04 cc 	lwz     r3,1228(r30)
+   faed8:	7c 64 1b 78 	mr      r4,r3
+   faedc:	48 3c c5 3d 	bl      0x4c7418
+   faee0:	e8 41 00 28 	ld      r2,40(r1)
+   faee4:	2f 9f 00 00 	cmpwi   cr7,r31,0
+   faee8:	41 9e ff 40 	beq     cr7,0xfae28
+   faeec:	81 3e 04 cc 	lwz     r9,1228(r30)
+   faef0:	80 09 00 00 	lwz     r0,0(r9)
+   faef4:	90 1f 00 00 	stw     r0,0(r31)
+   faef8:	4b ff ff 30 	b       0xfae28
+   faefc:	60 00 00 00 	nop
+   faf00:	2f 84 00 00 	cmpwi   cr7,r4,0
+   faf04:	7c 08 02 a6 	mflr    r0
+   faf08:	f8 21 ff 71 	stdu    r1,-144(r1)
+   faf0c:	fb a1 00 78 	std     r29,120(r1)
+   faf10:	fb c1 00 80 	std     r30,128(r1)
+   faf14:	fb e1 00 88 	std     r31,136(r1)
+   faf18:	f8 01 00 a0 	std     r0,160(r1)
+   faf1c:	7c 9d 23 78 	mr      r29,r4
+   faf20:	40 9d 00 30 	ble     cr7,0xfaf50
+   faf24:	83 c2 e6 28 	lwz     r30,-6616(r2)
+   faf28:	3b e0 00 00 	li      r31,0
+   faf2c:	60 00 00 00 	nop
+   faf30:	38 60 00 01 	li      r3,1
+   faf34:	3b ff 00 01 	addi    r31,r31,1
+   faf38:	4b ff fe 89 	bl      0xfadc0
+   faf3c:	48 02 2c 05 	bl      0x11db40
+   faf40:	60 00 00 00 	nop
+   faf44:	7f 9d f8 00 	cmpw    cr7,r29,r31
+   faf48:	90 7e 04 cc 	stw     r3,1228(r30)
+   faf4c:	40 9e ff e4 	bne     cr7,0xfaf30
+   faf50:	e8 01 00 a0 	ld      r0,160(r1)
+   faf54:	eb a1 00 78 	ld      r29,120(r1)
+   faf58:	eb c1 00 80 	ld      r30,128(r1)
+   faf5c:	7c 08 03 a6 	mtlr    r0
+   faf60:	eb e1 00 88 	ld      r31,136(r1)
+   faf64:	38 21 00 90 	addi    r1,r1,144
+   faf68:	4e 80 00 20 	blr
+   faf6c:	60 00 00 00 	nop

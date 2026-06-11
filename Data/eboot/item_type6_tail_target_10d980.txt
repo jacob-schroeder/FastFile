@@ -1,0 +1,71 @@
+
+/Users/jacob/Repositories/FastFile/FastFile/Data/EBOOT.elf:     file format elf64-powerpc
+
+
+Disassembly of section :
+
+000000000010d970 <+0xfd740>:
+  10d970:	88 89 00 3f 	lbz     r4,63(r9)
+  10d974:	4b fe d5 fd 	bl      0xfaf70
+  10d978:	4b ff ff 40 	b       0x10d8b8
+  10d97c:	60 00 00 00 	nop
+  10d980:	f8 21 ff 71 	stdu    r1,-144(r1)
+  10d984:	7c 08 02 a6 	mflr    r0
+  10d988:	fb c1 00 80 	std     r30,128(r1)
+  10d98c:	83 c2 e6 28 	lwz     r30,-6616(r2)
+  10d990:	38 a0 00 04 	li      r5,4
+  10d994:	f8 01 00 a0 	std     r0,160(r1)
+  10d998:	fb a1 00 78 	std     r29,120(r1)
+  10d99c:	fb e1 00 88 	std     r31,136(r1)
+  10d9a0:	80 9e 07 ec 	lwz     r4,2028(r30)
+  10d9a4:	48 01 03 5d 	bl      0x11dd00
+  10d9a8:	60 00 00 00 	nop
+  10d9ac:	38 60 00 00 	li      r3,0
+  10d9b0:	48 01 00 e1 	bl      0x11da90
+  10d9b4:	60 00 00 00 	nop
+  10d9b8:	83 fe 07 ec 	lwz     r31,2028(r30)
+  10d9bc:	83 bf 00 00 	lwz     r29,0(r31)
+  10d9c0:	2f 9d 00 00 	cmpwi   cr7,r29,0
+  10d9c4:	38 1d 00 02 	addi    r0,r29,2
+  10d9c8:	2b 00 00 01 	cmplwi  cr6,r0,1
+  10d9cc:	41 9e 00 14 	beq     cr7,0x10d9e0
+  10d9d0:	7f e3 fb 78 	mr      r3,r31
+  10d9d4:	40 99 00 34 	ble     cr6,0x10da08
+  10d9d8:	48 01 01 f9 	bl      0x11dbd0
+  10d9dc:	60 00 00 00 	nop
+  10d9e0:	48 01 01 21 	bl      0x11db00
+  10d9e4:	60 00 00 00 	nop
+  10d9e8:	e8 01 00 a0 	ld      r0,160(r1)
+  10d9ec:	eb a1 00 78 	ld      r29,120(r1)
+  10d9f0:	eb c1 00 80 	ld      r30,128(r1)
+  10d9f4:	7c 08 03 a6 	mtlr    r0
+  10d9f8:	eb e1 00 88 	ld      r31,136(r1)
+  10d9fc:	38 21 00 90 	addi    r1,r1,144
+  10da00:	4e 80 00 20 	blr
+  10da04:	60 00 00 00 	nop
+  10da08:	4b fe 44 09 	bl      0xf1e10
+  10da0c:	2f 9d ff fe 	cmpwi   cr7,r29,-2
+  10da10:	90 7f 00 00 	stw     r3,0(r31)
+  10da14:	81 3e 07 ec 	lwz     r9,2028(r30)
+  10da18:	38 60 00 01 	li      r3,1
+  10da1c:	80 09 00 00 	lwz     r0,0(r9)
+  10da20:	90 1e 07 e8 	stw     r0,2024(r30)
+  10da24:	41 9e 00 38 	beq     cr7,0x10da5c
+  10da28:	4b ff fd 71 	bl      0x10d798
+  10da2c:	80 7e 07 ec 	lwz     r3,2028(r30)
+  10da30:	48 00 f5 91 	bl      0x11cfc0
+  10da34:	60 00 00 00 	nop
+  10da38:	48 01 00 c9 	bl      0x11db00
+  10da3c:	60 00 00 00 	nop
+  10da40:	e8 01 00 a0 	ld      r0,160(r1)
+  10da44:	eb a1 00 78 	ld      r29,120(r1)
+  10da48:	eb c1 00 80 	ld      r30,128(r1)
+  10da4c:	7c 08 03 a6 	mtlr    r0
+  10da50:	eb e1 00 88 	ld      r31,136(r1)
+  10da54:	38 21 00 90 	addi    r1,r1,144
+  10da58:	4e 80 00 20 	blr
+  10da5c:	48 01 01 2d 	bl      0x11db88
+  10da60:	60 00 00 00 	nop
+  10da64:	7c 7f 1b 78 	mr      r31,r3
+  10da68:	38 60 00 01 	li      r3,1
+  10da6c:	4b ff fd 2d 	bl      0x10d798
