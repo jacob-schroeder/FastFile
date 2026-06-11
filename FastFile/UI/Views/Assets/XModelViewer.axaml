@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:assets="clr-namespace:UI.Views.Assets"
+             x:Class="UI.Views.Assets.XModelViewer">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.viewerTitle">
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.viewerMeta">
+            <Setter Property="Foreground" Value="#B8BCC6" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <Style Selector="TextBlock.viewerLabel">
+            <Setter Property="Foreground" Value="#AEB2BB" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Button.viewerButton">
+            <Setter Property="Background" Value="#303238" />
+            <Setter Property="BorderBrush" Value="#4E5157" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Foreground" Value="#F4F4F5" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          Background="#1E1F22">
+        <Border Padding="14,12"
+                Background="#252629"
+                BorderBrush="#3C3F44"
+                BorderThickness="0,0,0,1">
+            <StackPanel Spacing="3">
+                <TextBlock x:Name="ModelNameTextBlock"
+                           Classes="viewerTitle" />
+                <TextBlock x:Name="ModelMetaTextBlock"
+                           Classes="viewerMeta" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Margin="14">
+            <Border Background="#16171A"
+                    BorderBrush="#3C3F44"
+                    BorderThickness="1"
+                    CornerRadius="0">
+                <assets:XModelViewport x:Name="Viewport"
+                                        Focusable="True" />
+            </Border>
+
+            <Border x:Name="EmptyStateBorder"
+                    Padding="18,14"
+                    Background="#252629"
+                    BorderBrush="#4E5157"
+                    BorderThickness="1"
+                    CornerRadius="0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    IsVisible="False">
+                <TextBlock x:Name="EmptyStateTextBlock"
+                           Classes="viewerMeta"
+                           TextAlignment="Center"
+                           MaxWidth="420" />
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Padding="14,12"
+                Background="#252629"
+                BorderBrush="#3C3F44"
+                BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto"
+                  ColumnSpacing="12">
+                <TextBlock Classes="viewerLabel"
+                           Text="Yaw" />
+                <Slider x:Name="YawSlider"
+                        Grid.Column="1"
+                        Minimum="0"
+                        Maximum="360" />
+
+                <TextBlock Grid.Column="2"
+                           Classes="viewerLabel"
+                           Text="Pitch" />
+                <Slider x:Name="PitchSlider"
+                        Grid.Column="3"
+                        Minimum="-89"
+                        Maximum="89" />
+
+                <TextBlock Grid.Column="4"
+                           Classes="viewerLabel"
+                           Text="Zoom" />
+                <Slider x:Name="ZoomSlider"
+                        Grid.Column="5"
+                        Minimum="0.2"
+                        Maximum="4" />
+
+                <Button x:Name="ResetButton"
+                        Grid.Column="6"
+                        Classes="viewerButton"
+                        Click="ResetButton_Click"
+                        Content="Reset" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

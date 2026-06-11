@@ -1,7 +1,10 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using FastFile.Models.Assets.XModels;
 using FastFile.Models.Assets.Weapons;
 using FastFile.Models.Data;
 using UI.Models;
+using System.Collections.Generic;
 using System.Globalization;
 using FastFile.Models.Zone;
 
@@ -9,6 +12,9 @@ namespace UI.Views.Assets;
 
 public partial class WeaponAssetView : UserControl
 {
+    private WeaponVariantDef? _weapon;
+    private XModel? _previewModel;
+
     public WeaponAssetView()
     {
         InitializeComponent();
@@ -16,10 +22,31 @@ public partial class WeaponAssetView : UserControl
 
     public WeaponAssetView(WeaponVariantDef weapon) : this()
     {
+        _weapon = weapon;
+        _previewModel = ResolvePreviewModel(weapon);
+
         WeaponNameTextBlock.Text = GetDisplayName(weapon);
         WeaponSummaryTextBlock.Text = "Weapon variant asset";
         WeaponOffsetTextBlock.Text = $"0x{weapon.Offset:X8}";
+        ViewXModelButton.IsEnabled = _previewModel is not null;
         WeaponSummaryItemsControl.ItemsSource = BuildSummaryItems(weapon);
+    }
+
+    private void ViewXModelButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_weapon is null || _previewModel is null)
+        {
+            return;
+        }
+
+        var window = new XModelViewerWindow(_previewModel, GetDisplayName(_weapon));
+        if (VisualRoot is Window owner)
+        {
+            window.Show(owner);
+            return;
+        }
+
+        window.Show();
     }
 
     private static string GetDisplayName(WeaponVariantDef weapon)
@@ -31,6 +58,8 @@ public partial class WeaponAssetView : UserControl
 
     private static KeyValueListItem[] BuildSummaryItems(WeaponVariantDef weapon)
     {
+        var previewModel = ResolvePreviewModel(weapon);
+
         return
         [
             new("Display Name", GetResolvedString(weapon.InternalNamePtr)),
@@ -43,6 +72,9 @@ public partial class WeaponAssetView : UserControl
             new("WeaponDef", weapon.WeaponDef is not null && !string.IsNullOrWhiteSpace(weapon.WeaponDef.InternalName)
                 ? $"{weapon.WeaponDef.InternalName} (0x{weapon.WeaponDef.Offset:X8})"
                 : "[not resolved]"),
+            new("Preview XModel", previewModel is null
+                ? "[not resolved]"
+                : $"{previewModel.GetDisplayName} (0x{previewModel.Offset:X8})"),
             new("Hide Tags", FormatArrayPointer(weapon.HideTags, WeaponVariantDef.HideTagCount)),
             new("Animation Set Pointer", FormatArrayPointer(weapon.XAnims, WeaponVariantDef.WeaponAnimCount)),
             new("Clip Size", FormatInt(weapon.iClipSize)),
@@ -66,6 +98,52 @@ public partial class WeaponAssetView : UserControl
             new("Original Accuracy Knot Count", weapon.originalAccuracyGraphKnotCount.ToString("N0", CultureInfo.CurrentCulture)),
             new("WeaponDef Alt Ratio", weapon.dpadIconRatio.ToString())
         ];
+    }
+
+    private static XModel? ResolvePreviewModel(WeaponVariantDef weapon)
+    {
+        var weaponDef = weapon.WeaponDef;
+        if (weaponDef is null)
+        {
+            return null;
+        }
+
+        return ResolveFirstModel(weaponDef.gunXModel) ??
+               ResolveModel(weaponDef.handXModel) ??
+               ResolveFirstModel(weaponDef.WorldGunXModel) ??
+               ResolveFirstModel(weaponDef.WorldModelPointers) ??
+               ResolveModel(weaponDef.ProjectileModel);
+    }
+
+    private static XModel? ResolveFirstModel(XPointer<XPointer<XModel>[]>? pointerArray)
+    {
+        if (pointerArray is not { IsResolved: true, Value: { } pointers })
+        {
+            return null;
+        }
+
+        return ResolveFirstModel(pointers);
+    }
+
+    private static XModel? ResolveFirstModel(IEnumerable<XPointer<XModel>?> pointers)
+    {
+        foreach (var pointer in pointers)
+        {
+            var model = ResolveModel(pointer);
+            if (model is not null)
+            {
+                return model;
+            }
+        }
+
+        return null;
+    }
+
+    private static XModel? ResolveModel(XPointer<XModel>? pointer)
+    {
+        return pointer is { IsResolved: true, Value: { } model }
+            ? model
+            : null;
     }
 
     private static string GetResolvedString(XPointer<string>? pointer)
