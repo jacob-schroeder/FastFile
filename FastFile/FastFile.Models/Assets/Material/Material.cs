@@ -89,16 +89,34 @@ public class Material() : BaseAsset(XAssetType.Material)
     public override string? GetDisplayName => Info?.Name ?? string.Empty;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x20)]
 public class MaterialConstantDef
 {
+    [XField(Offset = 0x00)]
     public int NameHash { get; set; }
+
+    [XField(Offset = 0x04, Count = 0x0C)]
+    public byte[] NameBytes { get; set; } = new byte[0x0C];
+
     public string Name { get; set; } = string.Empty;
+
+    [XField(Offset = 0x10)]
     public Vec4 Literal { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 public class GfxStateBits
 {
+    public int LoadBitsCount => 2;
+
+    [XField(Offset = 0x00)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(LoadBitsCount))]
     public XPointer<int[]> LoadBits { get; set; } // Direct
+
+    [XField(Offset = 0x04)]
     public int Unknown { get; set; }
 }
 
@@ -141,22 +159,40 @@ public enum MaterialTextureSemantic : byte
     TS_WATER_MAP = 0xB,
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x04)]
 public class MaterialTextureDefInfo
 {
-    public int Raw { get; set; }
+    [XField(Offset = 0x00)]
+    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.None)]
+    public XPointer<object> DataPtr { get; set; }
+
+    public int Raw => DataPtr?.Raw ?? 0;
     public XPointer<GfxImage> Image { get; set; } // Alias
     public XPointer<Water> Water { get; set; } // Direct
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 public class MaterialTextureDef
 {
+    [XField(Offset = 0x00)]
     public uint NameHash { get; set; }
+
+    [XField(Offset = 0x04)]
     public byte NameStart { get; set; }
+
+    [XField(Offset = 0x05)]
     public byte NameEnd { get; set; }
+
+    [XField(Offset = 0x06)]
     public byte SampleState { get; set; }
+
+    [XField(Offset = 0x07)]
     public MaterialTextureSemantic Semantic { get; set; }
+
     public byte IsMatureContent { get; set; }
     public byte[] Pad { get; set; } = new byte[3];
+
+    [XField(Offset = 0x08)]
     public MaterialTextureDefInfo Info { get; set; }
 }
 
@@ -229,7 +265,7 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
     public int[] CardMemory { get; set; } = new int[2];
     [XField(Offset = EBOOT_NAME_POINTER_OFFSET)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> NamePtr { get; set; } // Direct
+    public XPointer<string?> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
     public ushort Width { get; set; }
     public ushort Height { get; set; }

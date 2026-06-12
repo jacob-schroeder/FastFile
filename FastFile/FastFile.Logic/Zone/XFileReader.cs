@@ -60,6 +60,7 @@ public partial class XFileReader : IXAssetReaderContext
     private readonly IXAssetReadHandler[] _assetReadHandlers =
     [
         new MenuAssetReader(),
+        new MaterialAssetReader(),
         new XSurfaceAssetReader()
     ];
     private readonly bool _traceAssets = Environment.GetEnvironmentVariable("FF_TRACE_ASSETS") == "1";
@@ -295,13 +296,14 @@ public partial class XFileReader : IXAssetReaderContext
     private void MaterializeAssets(XAssetList list)
     {
         var ptr = list.AssetsPtr;
+        var payloadBlock = GetAssetTablePayloadBlock(list);
 
         var materialization = MaterializePointer(
             ptr,
             XPointerMaterializationPlan.AtBlockPosition(
                 XPointerTarget.ObjectArray,
                 ptr.ResolutionKind,
-                XFILE_BLOCK.LARGE,
+                payloadBlock,
                 readOffsetPayload: true));
 
         if (materialization.IsNull)
@@ -310,7 +312,7 @@ public partial class XFileReader : IXAssetReaderContext
             return;
         }
 
-        WithStreamBlock(ptr.Address!.Value.Block, () =>
+        void ReadAssets()
         {
             SeekOrVerify(ptr.Address.Value.Offset);
 
@@ -336,7 +338,27 @@ public partial class XFileReader : IXAssetReaderContext
             }
 
             ptr.Value = assets;
-        });
+        }
+
+        if (ptr.Address!.Value.Block == _blocks.ActiveBlockType)
+            ReadAssets();
+        else
+            WithStreamBlock(ptr.Address.Value.Block, ReadAssets);
+    }
+
+    private XFILE_BLOCK GetAssetTablePayloadBlock(XAssetList list)
+    {
+        var tempBlock = XFILE_BLOCK.TEMP;
+        var tempPosition = _blocks.GetPosition(tempBlock);
+        var assetTableSize = checked(list.AssetCount * 8);
+
+        if (list.ScriptStringsPtr.Kind == PointerKind.Null &&
+            tempPosition + assetTableSize <= _header.BlockSize[(int)tempBlock])
+        {
+            return tempBlock;
+        }
+
+        return XFILE_BLOCK.LARGE;
     }
 
     private void MaterializeAsset(XAsset asset, int index)

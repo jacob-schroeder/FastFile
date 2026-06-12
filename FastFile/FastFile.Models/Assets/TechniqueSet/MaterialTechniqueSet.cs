@@ -42,7 +42,7 @@ public class MaterialTechnique
 
     [XField(Offset = 0x00)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> NamePtr { get; set; } // Direct
+    public XPointer<string?> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
 
     [XField(Offset = 0x04)]
@@ -97,10 +97,16 @@ public class MaterialPass
     public int ArgCount => PerPrimArgCount + PerObjArgCount + StableArgCount;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 public class MaterialShaderArgument
 {
+    [XField(Offset = 0x00)]
     public MaterialShaderArgumentType Type { get; set; }
+
+    [XField(Offset = 0x02)]
     public ushort Dest { get; set; }
+
+    [XField(Offset = 0x04)]
     public MaterialArgumentDef Argument { get; set; } = new();
 }
 
@@ -116,8 +122,10 @@ public enum MaterialShaderArgumentType : ushort
     MTL_ARG_LITERAL_PIXEL_CONST = 0x7,
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x04)]
 public class MaterialArgumentDef
 {
+    [XField(Offset = 0x00)]
     public int Raw { get; set; }
     public XPointer<float[]> LiteralConst { get; set; } // Direct
     public MaterialArgumentCodeConst CodeConst { get; set; } = new();
@@ -132,9 +140,12 @@ public class MaterialArgumentCodeConst
     public byte RowCount { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x1C)]
 public class MaterialVertexDeclaration
 {
     public int Offset { get; set; }
+
+    [XField(Offset = 0x00, Count = 0x1C)]
     public byte[] Raw { get; set; } = new byte[0x1C];
 }
 
@@ -179,6 +190,7 @@ public class MaterialVertexShaderProgram
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ByteArray,
+        PayloadBlock = XFILE_BLOCK.XFILE_BLOCK_VERTEX,
         CountMember = nameof(DataSize))]
     public XPointer<byte[]> Data { get; set; } // Direct
 
@@ -195,6 +207,7 @@ public class MaterialPixelShaderProgram
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ByteArray,
+        PayloadBlock = XFILE_BLOCK.XFILE_BLOCK_VERTEX,
         CountMember = nameof(DataSize))]
     public XPointer<byte[]> Data { get; set; } // Direct
 

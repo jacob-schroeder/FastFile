@@ -184,29 +184,37 @@
                                                                    Text="{Binding Pointer}" />
                                                     </Grid>
 
-                                                    <Grid ColumnDefinitions="80,*,120,120"
+                                                    <Grid Grid.Row="1"
+                                                          ColumnDefinitions="80,*,70,120"
                                                           ColumnSpacing="10">
                                                         <TextBlock Classes="techsetSecondary"
                                                                    Text="Slot" />
-                                                        <TextBlock Classes="techsetPassValue"
+                                                        <TextBlock Grid.Column="1"
+                                                                   Classes="techsetPassValue"
                                                                    Text="{Binding SlotText}" />
-                                                        <TextBlock Classes="techsetSecondary"
+                                                        <TextBlock Grid.Column="2"
+                                                                   Classes="techsetSecondary"
                                                                    Text="Flags" />
-                                                        <TextBlock Classes="techsetPassValue"
+                                                        <TextBlock Grid.Column="3"
+                                                                   Classes="techsetPassValue"
                                                                    Text="{Binding Flags}" />
                                                     </Grid>
 
-                                                    <Grid ColumnDefinitions="80,*,120"
+                                                    <Grid Grid.Row="2"
+                                                          ColumnDefinitions="80,*,120"
                                                           ColumnSpacing="10">
                                                         <TextBlock Classes="techsetSecondary"
                                                                    Text="Passes" />
-                                                        <TextBlock Classes="techsetPassValue"
+                                                        <TextBlock Grid.Column="1"
+                                                                   Classes="techsetPassValue"
                                                                    Text="{Binding PassCount}" />
-                                                        <TextBlock Classes="techsetPassValue"
+                                                        <TextBlock Grid.Column="2"
+                                                                   Classes="techsetPassValue"
                                                                    Text="{Binding PassesIndicator}" />
                                                     </Grid>
 
-                                                    <StackPanel Spacing="6">
+                                                    <StackPanel Grid.Row="3"
+                                                                Spacing="6">
                                                         <TextBlock Classes="techsetSecondary"
                                                                    Text="Passes Detail"
                                                                    IsVisible="{Binding HasPasses}" />
@@ -224,7 +232,8 @@
                                                                                   ColumnSpacing="10">
                                                                                 <TextBlock Classes="techsetPassLabel"
                                                                                            Text="{Binding IndexText}" />
-                                                                                <TextBlock Classes="techsetPassValue"
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Classes="techsetPassValue"
                                                                                            Text="{Binding ArgumentSummary}" />
                                                                             </Grid>
 
@@ -232,7 +241,8 @@
                                                                                   ColumnSpacing="10">
                                                                                 <TextBlock Classes="techsetPassLabel"
                                                                                            Text="Vertex Decl" />
-                                                                                <TextBlock Classes="techsetPassValue"
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Classes="techsetPassValue"
                                                                                            Text="{Binding VertexDeclaration}" />
                                                                             </Grid>
 
@@ -240,7 +250,8 @@
                                                                                   ColumnSpacing="10">
                                                                                 <TextBlock Classes="techsetPassLabel"
                                                                                            Text="Vertex Shader" />
-                                                                                <TextBlock Classes="techsetPassValue"
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Classes="techsetPassValue"
                                                                                            Text="{Binding VertexShader}" />
                                                                             </Grid>
 
@@ -248,7 +259,8 @@
                                                                                   ColumnSpacing="10">
                                                                                 <TextBlock Classes="techsetPassLabel"
                                                                                            Text="Pixel Shader" />
-                                                                                <TextBlock Classes="techsetPassValue"
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Classes="techsetPassValue"
                                                                                            Text="{Binding PixelShader}" />
                                                                             </Grid>
 
@@ -256,7 +268,8 @@
                                                                                   ColumnSpacing="10">
                                                                                 <TextBlock Classes="techsetPassLabel"
                                                                                            Text="Arguments" />
-                                                                                <TextBlock Classes="techsetPassValue"
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Classes="techsetPassValue"
                                                                                            Text="{Binding Arguments}" />
                                                                             </Grid>
 
@@ -264,7 +277,8 @@
                                                                                   ColumnSpacing="10">
                                                                                 <TextBlock Classes="techsetPassLabel"
                                                                                            Text="Flags/Precompiled" />
-                                                                                <TextBlock Classes="techsetPassValue"
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Classes="techsetPassValue"
                                                                                            Text="{Binding FlagsAndPrecompiled}" />
                                                                             </Grid>
                                                                         </StackPanel>

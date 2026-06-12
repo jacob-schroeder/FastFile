@@ -8,7 +8,12 @@ internal static class GoldenFastFileFixture
 {
     public static GoldenFastFile ReadPatchMp(Action<int, int>? progress = null)
     {
-        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "patch_mp.ff"));
+        return ReadOfficialFastFile("patch_mp.ff", progress);
+    }
+
+    public static GoldenFastFile ReadOfficialFastFile(string fileName, Action<int, int>? progress = null)
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", fileName));
         var buffer = File.ReadAllBytes(path);
 
         var fastFileReader = new FastFileReader(buffer, buffer.Length);

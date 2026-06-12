@@ -128,7 +128,7 @@ public class MenuDef() : BaseAsset(XAssetType.Menu)
 
     [XField(Offset = 0x2EC)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
-    public XPointer<ExpressionSupportingData> ExpressionData { get; set; } // ?
+    public XPointer<ExpressionSupportingData> ExpressionData { get; set; } // Direct
 
     public override string? GetDisplayName => Window?.Name ?? string.Empty;
 }
