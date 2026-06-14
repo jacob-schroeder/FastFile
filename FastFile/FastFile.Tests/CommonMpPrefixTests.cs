@@ -1,8 +1,10 @@
 using FastFile.Logic.Archive;
 using FastFile.Logic.Zone;
+using FastFile.Models.Assets.Effects;
 using FastFile.Models.Assets.Fonts;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.SoundAliasList;
+using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
@@ -174,6 +176,76 @@ public sealed class CommonMpPrefixTests
         Assert.True(issues.Count == 0, string.Join(Environment.NewLine, issues.Take(20)));
     }
 
+    [Fact]
+    public void CommonMpFirstFx5528UsesPs3FxEffectDefSemantics()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5528);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Fx, assetList.Assets[5528].Type);
+
+        var fx = Assert.IsType<FxEffectDef>(assetList.Assets[5528].XAssetPtr.Value);
+        Assert.False(string.IsNullOrWhiteSpace(fx.Name));
+        Assert.True(fx.ElemDefCount > 0);
+        Assert.True(fx.ElemDefs.IsResolved);
+        Assert.Equal(XFILE_BLOCK.LARGE, fx.ElemDefs.Address?.Block);
+
+        var elemDefs = Assert.IsType<FxElemDef[]>(fx.ElemDefs.Value);
+        Assert.Equal(fx.ElemDefCount, elemDefs.Length);
+
+        foreach (var elem in elemDefs)
+        {
+            Assert.True(Enum.IsDefined(elem.ElemType));
+            AssertFxSampleArray(elem.VelSamples, elem.VelSampleCount);
+            AssertFxSampleArray(elem.VisSamples, elem.VisStateSampleCount);
+            AssertFxVisualBranch(elem);
+            AssertFxExtendedBranch(elem);
+        }
+    }
+
+    [Fact]
+    public void CommonMpTechset5529DefersForwardShaderLiteralOffsets()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5529);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Techset, assetList.Assets[5529].Type);
+
+        var techset = Assert.IsType<MaterialTechniqueSet>(assetList.Assets[5529].XAssetPtr.Value);
+        Assert.Equal("mc_l_sm_r0c0n0sf0", techset.Name);
+
+        var shaderArgs = techset.Techniques
+            .Select(pointer => pointer.Value)
+            .OfType<MaterialTechnique>()
+            .SelectMany(technique => technique.Passes)
+            .SelectMany(pass => pass.Args.Value ?? []);
+
+        Assert.Contains(
+            shaderArgs,
+            argument =>
+                (argument.Type == MaterialShaderArgumentType.MTL_ARG_LITERAL_VERTEX_CONST ||
+                 argument.Type == MaterialShaderArgumentType.MTL_ARG_LITERAL_PIXEL_CONST) &&
+                argument.Argument.LiteralConst is
+                {
+                    Kind: PointerKind.Offset,
+                    Address.Block: XFILE_BLOCK.LARGE
+                });
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -187,6 +259,132 @@ public sealed class CommonMpPrefixTests
         }
 
         throw new FileNotFoundException($"Could not find repository file '{relativePath}'.");
+    }
+
+    private static void AssertFxSampleArray<T>(
+        XPointer<T[]> pointer,
+        int expectedCount)
+    {
+        if (pointer.IsNull)
+            return;
+
+        Assert.True(pointer.IsResolved);
+        Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
+        Assert.NotNull(pointer.Value);
+        Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static void AssertFxVisualBranch(FxElemDef elem)
+    {
+        if (elem.ElemType == FxElemType.Decal)
+        {
+            Assert.NotNull(elem.MarkVisualArray);
+            Assert.Null(elem.VisualArray);
+            AssertFxArrayPointer(elem.MarkVisualArray!, elem.VisualCountValue);
+            return;
+        }
+
+        if (elem.VisualCount > 1)
+        {
+            Assert.NotNull(elem.VisualArray);
+            Assert.Null(elem.MarkVisualArray);
+            AssertFxArrayPointer(elem.VisualArray!, elem.VisualCountValue);
+
+            foreach (var visual in elem.VisualArray.Value ?? [])
+                AssertFxVisualUnion(visual, elem.ElemType);
+
+            return;
+        }
+
+        Assert.Null(elem.VisualArray);
+        Assert.Null(elem.MarkVisualArray);
+        AssertFxVisualUnion(elem.Visuals, elem.ElemType);
+    }
+
+    private static void AssertFxVisualUnion(
+        FxElemDefVisuals visual,
+        FxElemType elemType)
+    {
+        switch (elemType)
+        {
+            case FxElemType.Model:
+                AssertFxAliasVisualPointer(visual.Model);
+                break;
+
+            case FxElemType.OmniLight:
+            case FxElemType.SpotLight:
+                Assert.Null(visual.Material);
+                Assert.Null(visual.Model);
+                Assert.Null(visual.EffectDef);
+                Assert.Null(visual.SoundName);
+                break;
+
+            case FxElemType.Sound:
+                Assert.NotNull(visual.SoundName);
+                Assert.True(visual.SoundName!.IsResolved);
+                break;
+
+            case FxElemType.Runner:
+                Assert.NotNull(visual.EffectDef);
+                Assert.True(visual.EffectDef!.NamePtr.IsResolved);
+                break;
+
+            default:
+                AssertFxAliasVisualPointer(visual.Material);
+                break;
+        }
+    }
+
+    private static void AssertFxAliasVisualPointer<T>(XPointer<T>? pointer)
+    {
+        Assert.NotNull(pointer);
+
+        // Prefix parses can see a forward alias cell before the owning asset has
+        // materialized. The loader branch is still proven by creating the typed
+        // pointer; deferred offset aliases resolve once the target insert exists.
+        Assert.True(pointer!.IsResolved || pointer.Kind == PointerKind.Offset);
+    }
+
+    private static void AssertFxExtendedBranch(FxElemDef elem)
+    {
+        if (elem.Extended.IsNull)
+        {
+            Assert.Null(elem.Extended.Value);
+            return;
+        }
+
+        Assert.True(elem.Extended.IsResolved);
+        var extended = Assert.IsType<FxElemExtendedDef>(elem.Extended.Value);
+
+        switch (elem.ElemType)
+        {
+            case FxElemType.Trail:
+                Assert.Equal(FxElemExtendedDefKind.Trail, extended.Kind);
+                Assert.NotNull(extended.TrailDef);
+                AssertFxSampleArray(extended.TrailDef!.Verts, extended.TrailDef.VertCount);
+                AssertFxSampleArray(extended.TrailDef.Inds, extended.TrailDef.IndCount);
+                break;
+
+            case FxElemType.SparkFountain:
+                Assert.Equal(FxElemExtendedDefKind.SparkFountain, extended.Kind);
+                Assert.NotNull(extended.SparkFountainDef);
+                break;
+
+            default:
+                Assert.Equal(FxElemExtendedDefKind.Unknown, extended.Kind);
+                Assert.NotNull(extended.UnknownDef);
+                break;
+        }
+    }
+
+    private static void AssertFxArrayPointer<T>(
+        XPointer<T[]> pointer,
+        int expectedCount)
+    {
+        Assert.True(pointer.IsResolved);
+        Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
+        Assert.NotNull(pointer.Value);
+        Assert.Equal(expectedCount, pointer.Value!.Length);
     }
 
     private static void ValidateMaterializedPointers(

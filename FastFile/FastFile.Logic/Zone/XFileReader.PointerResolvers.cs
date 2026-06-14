@@ -282,6 +282,15 @@ public partial class XFileReader
             ptr.Value = materialization.Address is { } address && TryGetCachedObject<byte[]>(address, out var cached)
                 ? cached
                 : [];
+
+            if (ptr.Value.Length == 0 &&
+                materialization.Address is { } emittedAddress &&
+                TryGetEmittedBytes(emittedAddress, GetCount(owner, attr), out var emittedBytes))
+            {
+                ptr.Value = emittedBytes;
+                CacheObject(emittedAddress, emittedBytes);
+            }
+
             return;
         }
 

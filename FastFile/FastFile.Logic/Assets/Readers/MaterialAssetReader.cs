@@ -531,26 +531,45 @@ public sealed class MaterialAssetReader : XAssetReadHandler
             },
             owner);
 
-        var bytes = bytePointer.Value ?? [];
-        if (bytes.Length != 16)
-        {
-            throw new InvalidDataException(
-                $"Material shader literal expected 16 bytes but got {bytes.Length}.");
-        }
-
-        var values = new float[4];
-        for (var i = 0; i < values.Length; i++)
-            values[i] = BinaryPrimitives.ReadSingleBigEndian(bytes.AsSpan(i * 4, 4));
-
-        return new XPointer<float[]>
+        var result = new XPointer<float[]>
         {
             Raw = raw,
             Kind = bytePointer.Kind,
             ResolutionKind = PointerResolutionKind.Direct,
             PatchAddress = bytePointer.PatchAddress,
-            Address = bytePointer.Address,
-            Value = values
+            Address = bytePointer.Address
         };
+
+        var bytes = bytePointer.Value ?? [];
+        if (bytes.Length == 16)
+        {
+            result.Value = ReadFloat4(bytes);
+        }
+        else if (bytePointer.IsNull)
+        {
+            result.Value = [];
+        }
+        else if (bytePointer.Kind == PointerKind.Offset && bytePointer.Address is { } address)
+        {
+            context.DeferEmittedBytes(address, 16, resolvedBytes => result.Value = ReadFloat4(resolvedBytes));
+        }
+        else
+        {
+            throw new InvalidDataException(
+                $"Material shader literal expected 16 bytes but got {bytes.Length} " +
+                $"(raw=0x{raw:X8}, kind={bytePointer.Kind}, address={bytePointer.Address}).");
+        }
+
+        return result;
+    }
+
+    private static float[] ReadFloat4(byte[] bytes)
+    {
+        var values = new float[4];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = BinaryPrimitives.ReadSingleBigEndian(bytes.AsSpan(i * 4, 4));
+
+        return values;
     }
 
     private static void ResolveMaterialTextureDef(

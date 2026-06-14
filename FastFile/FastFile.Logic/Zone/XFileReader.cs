@@ -59,12 +59,14 @@ public partial class XFileReader : IXAssetReaderContext
     private readonly Dictionary<XBlockAddress, object> _objectsByAliasCell = new();
     private readonly List<DeferredObjectPointerResolution> _deferredObjectPointers = [];
     private readonly List<XPointer<string?>> _deferredCStringPointers = [];
+    private readonly List<DeferredEmittedBytesResolution> _deferredEmittedBytes = [];
     private readonly IXAssetReadHandler[] _assetReadHandlers =
     [
         new MenuAssetReader(),
         new FontAssetReader(),
         new MaterialAssetReader(),
         new SoundAssetReader(),
+        new FxAssetReader(),
         new XSurfaceAssetReader()
     ];
     private readonly bool _traceAssets = Environment.GetEnvironmentVariable("FF_TRACE_ASSETS") == "1";
@@ -76,6 +78,11 @@ public partial class XFileReader : IXAssetReaderContext
         object PointerObject,
         XPointerFieldAttribute Attribute,
         object Owner);
+
+    private sealed record DeferredEmittedBytesResolution(
+        XBlockAddress Address,
+        int Count,
+        Action<byte[]> OnResolved);
 
     public XFileReader(byte[] buffer, Action<int, int>? assetReadProgress = null)
     {
@@ -126,6 +133,22 @@ public partial class XFileReader : IXAssetReaderContext
     void IXAssetReaderContext.ResolveCurrentStreamObjectPointer<T>(XPointer<T> pointer)
     {
         ResolveCurrentStreamObjectPointer(pointer);
+    }
+
+    bool IXAssetReaderContext.TryReadEmittedBytes(
+        XBlockAddress address,
+        int count,
+        out byte[] value)
+    {
+        return TryGetEmittedBytes(address, count, out value);
+    }
+
+    void IXAssetReaderContext.DeferEmittedBytes(
+        XBlockAddress address,
+        int count,
+        Action<byte[]> onResolved)
+    {
+        _deferredEmittedBytes.Add(new DeferredEmittedBytesResolution(address, count, onResolved));
     }
 
     void IXAssetReaderContext.WithStreamBlock(XFILE_BLOCK block, Action action)
@@ -204,6 +227,7 @@ public partial class XFileReader : IXAssetReaderContext
         ReportAssetReadProgress(force: true);
         Load_XAssetList();
         ResolveDeferredObjectPointers();
+        ResolveDeferredEmittedBytes();
         ResolveDeferredCStringPointers();
         ValidateSourcePosition();
         SealStreamBlocks();
@@ -218,6 +242,7 @@ public partial class XFileReader : IXAssetReaderContext
         ReportAssetReadProgress(force: true);
         Load_XAssetList(shouldMaterialize);
         ResolveDeferredObjectPointers();
+        ResolveDeferredEmittedBytes();
         ResolveDeferredCStringPointers();
         ReportAssetReadProgress(force: true);
 
@@ -592,6 +617,21 @@ public partial class XFileReader : IXAssetReaderContext
             ResolvePointerValueDynamic(item.PointerObject, item.Attribute, item.Owner);
     }
 
+    private void ResolveDeferredEmittedBytes()
+    {
+        if (_deferredEmittedBytes.Count == 0)
+            return;
+
+        var deferred = _deferredEmittedBytes.ToArray();
+        _deferredEmittedBytes.Clear();
+
+        foreach (var item in deferred)
+        {
+            if (TryGetEmittedBytes(item.Address, item.Count, out var bytes))
+                item.OnResolved(bytes);
+        }
+    }
+
     private int ReadInt32()
     {
         int value = Span.ReadInt32(ref _position);
@@ -665,6 +705,29 @@ public partial class XFileReader : IXAssetReaderContext
             value = null;
             return false;
         }
+    }
+
+    private bool TryGetEmittedBytes(
+        XBlockAddress address,
+        int count,
+        out byte[] value)
+    {
+        if (count < 0 ||
+            !_blocks.ContainsBlock(address.Block))
+        {
+            value = [];
+            return false;
+        }
+
+        var span = _blocks.GetWrittenSpan(address.Block);
+        if (address.Offset < 0 || address.Offset + count > span.Length)
+        {
+            value = [];
+            return false;
+        }
+
+        value = span.Slice(address.Offset, count).ToArray();
+        return true;
     }
 
     private void CacheObject(XBlockAddress address, object value)

@@ -28,5 +28,15 @@ public interface IXAssetReaderContext
     void ResolveCurrentStreamObjectPointer<T>(XPointer<T> pointer)
         where T : class, new();
 
+    bool TryReadEmittedBytes(
+        XBlockAddress address,
+        int count,
+        out byte[] value);
+
+    void DeferEmittedBytes(
+        XBlockAddress address,
+        int count,
+        Action<byte[]> onResolved);
+
     void WithStreamBlock(XFILE_BLOCK block, Action action);
 }
