@@ -154,7 +154,7 @@ public partial class XFileReader
                 break;
 
             case XPointerTarget.Object:
-                ResolveObjectPointerDynamic(pointerObj, attr);
+                ResolveObjectPointerDynamic(pointerObj, attr, owner);
                 break;
 
             case XPointerTarget.ObjectArray:
@@ -310,7 +310,8 @@ public partial class XFileReader
 
     private void ResolveObjectPointerDynamic(
         object pointerObj,
-        XPointerFieldAttribute attr)
+        XPointerFieldAttribute attr,
+        object owner)
     {
         var pointerType = pointerObj.GetType();
         var targetType = pointerType.GetGenericArguments()[0];
@@ -342,6 +343,14 @@ public partial class XFileReader
             }
             else
             {
+                if (attr.OffsetIsAliasCell && ptr.Kind == PointerKind.Offset)
+                {
+                    // Some alias cells are forward insert targets that are only
+                    // patched after a later asset materializes.
+                    ptr.Address = null;
+                    DeferObjectPointerResolution(pointerObj, attr, owner);
+                }
+
                 ptr.Value = null;
             }
 

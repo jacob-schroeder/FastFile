@@ -24,6 +24,7 @@ public sealed class Ps3GfxImagePayloadSizeTests
     [InlineData(GfxImageFormats.GcmFormatDxt1, 16, 16, 1, 128)]
     [InlineData(GfxImageFormats.GcmFormatDxt23, 16, 16, 1, 256)]
     [InlineData(GfxImageFormats.GcmFormatDxt45, 16, 16, 1, 256)]
+    [InlineData(0x8B, 16, 16, 1, 512)]
     public void ComputeMipLevelByteCount_UsesExpectedCellGcmFamilies(
         byte formatByte,
         int width,
@@ -68,5 +69,22 @@ public sealed class Ps3GfxImagePayloadSizeTests
         var size = Ps3GfxImagePayloadSize.ComputeByteCount(image);
 
         Assert.Equal(0x050002D0, size);
+    }
+
+    [Fact]
+    public void ComputeByteCount_UsesObserved16BitPs3FamilyForFormat8B()
+    {
+        var image = new GfxImage
+        {
+            FormatByte = 0x8B,
+            LevelCount = 8,
+            Width = 128,
+            Height = 64,
+            Depth = 1
+        };
+
+        var size = Ps3GfxImagePayloadSize.ComputeByteCount(image);
+
+        Assert.Equal(0x5580, size);
     }
 }

@@ -8,13 +8,16 @@ public class XBlock
 {
     public readonly XFILE_BLOCK BlockType;
     private readonly MemoryStream _stream;
-    private readonly int _capacity;
+    private readonly int _declaredSize;
     
     public int Position => (int)_stream.Position;
     public ReadOnlySpan<byte> WrittenSpan => _stream.GetBuffer().AsSpan(0, (int)_stream.Length);
-    public ReadOnlySpan<byte> BlockSpan => _stream.GetBuffer().AsSpan(0, _capacity);
+    public ReadOnlySpan<byte> BlockSpan => _stream.GetBuffer().AsSpan(0, LogicalSize);
     
     public XBlockAddress Address => new XBlockAddress(BlockType, Position);
+
+    private bool CanGrow => _declaredSize == 0;
+    private int LogicalSize => Math.Max(_declaredSize, (int)_stream.Length);
     
     public XBlock(XFILE_BLOCK blockType, int  capacity)
     {
@@ -23,13 +26,13 @@ public class XBlock
         if(capacity < 0)
             throw new InvalidDataException($"Invalid negative XFILE block size {capacity} for block {blockType}.");
         
-        _capacity = capacity;
+        _declaredSize = capacity;
         _stream = new MemoryStream(capacity);
     }
     
     public void PatchInt32(int offset, int value)
     {
-        EnsureCanWrite(offset, sizeof(int));
+        EnsureCanAccess(offset, sizeof(int));
 
         long oldPosition = _stream.Position;
 
@@ -41,7 +44,7 @@ public class XBlock
 
     public int ReadInt32(int offset)
     {
-        EnsureCanWrite(offset, sizeof(int));
+        EnsureCanAccess(offset, sizeof(int));
         return BinaryPrimitives.ReadInt32BigEndian(BlockSpan.Slice(offset, sizeof(int)));
     }
 
@@ -89,10 +92,13 @@ public class XBlock
 
     public void Seek(int offset)
     {
-        if (offset < 0 || offset > _capacity)
+        if (offset < 0)
+            throw new InvalidDataException($"Seeking {BlockType} to negative offset 0x{offset:X}.");
+
+        if (!CanGrow && offset > _declaredSize)
         {
             throw new InvalidDataException(
-                $"Seeking {BlockType} to 0x{offset:X} exceeds block size 0x{_capacity:X}.");
+                $"Seeking {BlockType} to 0x{offset:X} exceeds block size 0x{_declaredSize:X}.");
         }
 
         _stream.Position = offset;
@@ -100,15 +106,18 @@ public class XBlock
 
     public void PadToCapacity()
     {
-        if (_stream.Length > _capacity)
+        if (CanGrow)
+            return;
+
+        if (_stream.Length > _declaredSize)
         {
             throw new InvalidDataException(
-                $"{BlockType} stream length 0x{_stream.Length:X} exceeds block size 0x{_capacity:X}.");
+                $"{BlockType} stream length 0x{_stream.Length:X} exceeds block size 0x{_declaredSize:X}.");
         }
 
         _stream.Position = _stream.Length;
 
-        var remaining = _capacity - (int)_stream.Length;
+        var remaining = _declaredSize - (int)_stream.Length;
         if (remaining == 0)
             return;
 
@@ -126,10 +135,25 @@ public class XBlock
         if (count < 0)
             throw new ArgumentOutOfRangeException(nameof(count));
 
-        if (offset < 0 || offset + count > _capacity)
+        if (offset < 0)
+            throw new InvalidDataException($"Writing at negative {BlockType} offset 0x{offset:X}.");
+
+        if (!CanGrow && offset + count > _declaredSize)
         {
             throw new InvalidDataException(
-                $"Writing 0x{count:X} bytes at {BlockType}:0x{offset:X} exceeds block size 0x{_capacity:X}.");
+                $"Writing 0x{count:X} bytes at {BlockType}:0x{offset:X} exceeds block size 0x{_declaredSize:X}.");
+        }
+    }
+
+    private void EnsureCanAccess(int offset, int count)
+    {
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
+
+        if (offset < 0 || offset + count > LogicalSize)
+        {
+            throw new InvalidDataException(
+                $"Accessing 0x{count:X} bytes at {BlockType}:0x{offset:X} exceeds logical block size 0x{LogicalSize:X}.");
         }
     }
 

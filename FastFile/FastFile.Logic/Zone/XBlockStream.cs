@@ -199,6 +199,10 @@ internal sealed class XBlockStream
             return address;
 
         int aliasedRaw = ReadInt32(address);
+        if (aliasedRaw == 0)
+            // Forward alias cells stay zero until a later insert target patches them.
+            return address;
+
         if (XPointerCodec.GetKind(aliasedRaw) != PointerKind.Offset)
         {
             throw new InvalidDataException(
@@ -254,7 +258,10 @@ internal sealed class XBlockStream
             var block = _blocks[i];
             var expectedSize = expectedBlockSizes[i];
 
-            if (block.WrittenSpan.Length > expectedSize)
+            // PS3 loaders can allocate into zero-sized destination arenas such
+            // as common_mp's RUNTIME block. Preserve strict header matching for
+            // nonzero serialized blocks, but allow zero-sized blocks to grow.
+            if (expectedSize != 0 && block.WrittenSpan.Length > expectedSize)
             {
                 throw new InvalidDataException(
                     $"{block.BlockType} stream length 0x{block.WrittenSpan.Length:X} exceeds header block size 0x{expectedSize:X}.");

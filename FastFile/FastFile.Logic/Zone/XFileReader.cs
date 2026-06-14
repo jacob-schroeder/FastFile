@@ -57,6 +57,7 @@ public partial class XFileReader : IXAssetReaderContext
     private readonly Dictionary<XBlockAddress, string?> _stringsByAddress = new();
     private readonly Dictionary<XBlockAddress, object> _objectsByAddress = new();
     private readonly Dictionary<XBlockAddress, object> _objectsByAliasCell = new();
+    private readonly List<DeferredObjectPointerResolution> _deferredObjectPointers = [];
     private readonly List<XPointer<string?>> _deferredCStringPointers = [];
     private readonly IXAssetReadHandler[] _assetReadHandlers =
     [
@@ -68,6 +69,11 @@ public partial class XFileReader : IXAssetReaderContext
     private readonly Action<int, int>? _assetReadProgress;
     private int _assetReadProgressTotal;
     private int _lastAssetReadProgressPercent = -1;
+
+    private sealed record DeferredObjectPointerResolution(
+        object PointerObject,
+        XPointerFieldAttribute Attribute,
+        object Owner);
 
     public XFileReader(byte[] buffer, Action<int, int>? assetReadProgress = null)
     {
@@ -195,6 +201,7 @@ public partial class XFileReader : IXAssetReaderContext
         Load_Header();
         ReportAssetReadProgress(force: true);
         Load_XAssetList();
+        ResolveDeferredObjectPointers();
         ResolveDeferredCStringPointers();
         ValidateSourcePosition();
         SealStreamBlocks();
@@ -208,6 +215,7 @@ public partial class XFileReader : IXAssetReaderContext
         Load_Header();
         ReportAssetReadProgress(force: true);
         Load_XAssetList(shouldMaterialize);
+        ResolveDeferredObjectPointers();
         ResolveDeferredCStringPointers();
         ReportAssetReadProgress(force: true);
 
@@ -560,6 +568,26 @@ public partial class XFileReader : IXAssetReaderContext
         }
 
         _deferredCStringPointers.Clear();
+    }
+
+    private void DeferObjectPointerResolution(
+        object pointerObject,
+        XPointerFieldAttribute attr,
+        object owner)
+    {
+        _deferredObjectPointers.Add(new DeferredObjectPointerResolution(pointerObject, attr, owner));
+    }
+
+    private void ResolveDeferredObjectPointers()
+    {
+        if (_deferredObjectPointers.Count == 0)
+            return;
+
+        var deferred = _deferredObjectPointers.ToArray();
+        _deferredObjectPointers.Clear();
+
+        foreach (var item in deferred)
+            ResolvePointerValueDynamic(item.PointerObject, item.Attribute, item.Owner);
     }
 
     private int ReadInt32()

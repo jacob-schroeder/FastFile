@@ -77,6 +77,11 @@ internal static class Ps3GfxImagePayloadSize
             GfxImageFormats.GcmFormatDxt1 => checked(GetCompressedBlockWidth(width) * GetCompressedBlockWidth(height) * depth * 8),
             GfxImageFormats.GcmFormatDxt23 or GfxImageFormats.GcmFormatDxt45 => checked(GetCompressedBlockWidth(width) * GetCompressedBlockWidth(height) * depth * 16),
             GfxImageFormats.GcmFormatA8R8G8B8 => checked(width * height * depth * 4),
+            // common_mp material "gradient_center" uses PS3 format byte 0x8B.
+            // The PS3 size helper path must treat it as an uncompressed 16-bit
+            // texel family; otherwise the reader falls back to the inline
+            // card-memory words and drifts the source stream by megabytes.
+            0x8B => checked(width * height * depth * 2),
             _ => 0
         };
     }

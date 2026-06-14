@@ -67,6 +67,24 @@ public sealed class CommonMpPrefixTests
         Assert.Equal(image.LoadDef.Value.ResourceSize, image.LoadDef.Value.Data.Length);
     }
 
+    [Fact]
+    public void CommonMpPrefixThroughAsset384SurvivesForwardMaterialImageAliases()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 384);
+        var assetList = reader.GetAssetList();
+
+        Assert.NotNull(assetList.Assets[40].XAssetPtr.Value);
+        Assert.IsType<Material>(assetList.Assets[40].XAssetPtr.Value);
+        Assert.NotNull(assetList.Assets[384].XAssetPtr.Value);
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
