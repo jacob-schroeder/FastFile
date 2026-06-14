@@ -40,14 +40,16 @@ public partial class ImageAssetView : UserControl
             new("Name", string.IsNullOrWhiteSpace(image.Name) ? "(unnamed image)" : image.Name),
             new("Dimensions", $"{image.Width:N0} x {image.Height:N0} x {image.Depth:N0}"),
             new("Map Type", $"{image.MapType} (0x{(byte)image.MapType:X2})"),
-            new("Semantic", $"{image.Semantic} (0x{(byte)image.Semantic:X2})"),
+            new("Texture Semantic", $"{image.TextureSemantic} (0x{(byte)image.TextureSemantic:X2})"),
             new("Category", $"{image.Category} (0x{(byte)image.Category:X2})"),
-            new("sRGB Reads", image.UseSrgbReads == 0 ? "No" : "Yes"),
-            new("Picmip", string.Join(", ", image.Picmip)),
+            new("Unknown 0x1B", AssetViewFormatters.FormatByte(image.Unknown1B)),
+            new("Picmip Platform Bytes (0x1C)", FormatByteArray(image.PicmipPlatformBytes)),
             new("No Picmip", image.NoPicmip == 0 ? "No" : "Yes"),
-            new("Track", AssetViewFormatters.FormatByte(image.Track)),
-            new("Platform Words (0x20)", string.Join(", ", image.PlatformControlWords.Select(value => value.ToString("N0", CultureInfo.CurrentCulture)))),
-            new("Delay Load Pixels", image.DelayLoadPixels == 0 ? "No" : "Yes"),
+            new("Unknown 0x1F", AssetViewFormatters.FormatByte(image.Unknown1F)),
+            new("CardMemory Platform Words (0x20)", string.Join(", ", image.CardMemoryPlatformWords.Select(value => value.ToString("N0", CultureInfo.CurrentCulture)))),
+            new("Texture Platform Bytes (0x0E)", FormatByteArray(image.TexturePlatformBytes0E)),
+            new("Platform Tail Bytes (0x2C)", FormatByteArray(image.PlatformTailBytes2C)),
+            new("Unknown 0x48", AssetViewFormatters.FormatByte(image.Unknown48)),
             new("LoadDef Pointer", AssetViewFormatters.FormatPointerRaw(image.LoadDef)),
             new("LoadDef Levels", loadDef?.LevelCount.ToString("N0", CultureInfo.CurrentCulture) ?? AssetViewFormatters.UnresolvedPointerText),
             new("LoadDef Flags", loadDef is null ? AssetViewFormatters.UnresolvedPointerText : $"0x{loadDef.Flags:X8}"),
@@ -55,5 +57,10 @@ public partial class ImageAssetView : UserControl
             new("Inline Data", loadDef is null ? AssetViewFormatters.UnresolvedPointerText : $"{loadDef.Data.Length:N0} bytes"),
             new("Decode Status", decoded.Status)
         ];
+    }
+
+    private static string FormatByteArray(byte[] values)
+    {
+        return string.Join(" ", values.Select(value => $"0x{value:X2}"));
     }
 }

@@ -642,23 +642,23 @@ public sealed class MaterialAssetReader : XAssetReadHandler
 
         image.FormatByte = root[0x00];
         image.LevelCount = root[0x01];
-        image.TextureControl = root[0x02];
+        image.Unknown02 = root[0x02];
         image.MultiFaceControl = root[0x03];
         image.TextureFlags = ReadInt32(root, 0x04);
         image.Width = ReadUInt16(root, 0x08);
         image.Height = ReadUInt16(root, 0x0A);
         image.Depth = ReadUInt16(root, 0x0C);
-        image.PlatformTextureHeader = root.AsSpan(0x0E, 0x0A).ToArray();
+        image.TexturePlatformBytes0E = root.AsSpan(0x0E, 0x0A).ToArray();
         image.MapType = (GfxImageMapType)root[0x18];
-        image.Semantic = (MaterialTextureSemantic)root[0x19];
+        image.TextureSemantic = (MaterialTextureSemantic)root[0x19];
         image.Category = (GfxImageCategory)root[0x1A];
-        image.UseSrgbReads = root[0x1B];
-        image.Picmip = [root[0x1C], root[0x1D]];
+        image.Unknown1B = root[0x1B];
+        image.PicmipPlatformBytes = [root[0x1C], root[0x1D]];
         image.NoPicmip = root[0x1E];
-        image.Track = root[0x1F];
-        image.PlatformControlWords = [ReadInt32(root, 0x20), ReadInt32(root, 0x24)];
-        image.PlatformTextureTail = image.EbootRootSuffix.AsSpan(0x00, 0x1C).ToArray();
-        image.DelayLoadPixels = image.EbootRootSuffix[0x1C];
+        image.Unknown1F = root[0x1F];
+        image.CardMemoryPlatformWords = [ReadInt32(root, 0x20), ReadInt32(root, 0x24)];
+        image.PlatformTailBytes2C = image.EbootRootSuffix.AsSpan(0x00, 0x1C).ToArray();
+        image.Unknown48 = image.EbootRootSuffix[0x1C];
         image.NamePadding = image.EbootRootSuffix.AsSpan(0x1D, 0x03).ToArray();
     }
 
@@ -710,8 +710,8 @@ public sealed class MaterialAssetReader : XAssetReadHandler
                 $"Failed to materialize GfxImage payload for '{image.Name}' " +
                 $"(formatByte=0x{image.FormatByte:X2}, formatKey=0x{formatKey:X8}, flags=0x{image.TextureFlags:X8}, " +
                 $"width={image.Width}, height={image.Height}, depth={image.Depth}, levels={image.LevelCount}, " +
-                $"mapType={image.MapType}, semantic={image.Semantic}, category={image.Category}, multiFace=0x{image.MultiFaceControl:X2}, " +
-                $"resourceSize=0x{loadDef.ResourceSize:X}, platformWords=[0x{image.PlatformControlWords[0]:X},0x{image.PlatformControlWords[1]:X}]).",
+                $"mapType={image.MapType}, textureSemantic={image.TextureSemantic}, category={image.Category}, multiFace=0x{image.MultiFaceControl:X2}, " +
+                $"resourceSize=0x{loadDef.ResourceSize:X}, cardMemoryWords=[0x{image.CardMemoryPlatformWords[0]:X},0x{image.CardMemoryPlatformWords[1]:X}]).",
                 ex);
         }
 
@@ -720,7 +720,7 @@ public sealed class MaterialAssetReader : XAssetReadHandler
 
     private static XFILE_BLOCK GetGfxImagePayloadBlock(GfxImage image)
     {
-        return image.Semantic == MaterialTextureSemantic.TS_WATER_MAP
+        return image.TextureSemantic == MaterialTextureSemantic.TS_WATER_MAP
             ? XFILE_BLOCK.RUNTIME
             : XFILE_BLOCK.PHYSICAL;
     }

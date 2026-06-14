@@ -375,23 +375,23 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
 
     public byte FormatByte { get; set; }
     public byte LevelCount { get; set; }
-    public byte TextureControl { get; set; }
+    public byte Unknown02 { get; set; }
     public byte MultiFaceControl { get; set; }
     public int TextureFlags { get; set; }
     public ushort Width { get; set; }
     public ushort Height { get; set; }
     public ushort Depth { get; set; }
-    public byte[] PlatformTextureHeader { get; set; } = new byte[0x0A];
+    public byte[] TexturePlatformBytes0E { get; set; } = new byte[0x0A];
     public GfxImageMapType MapType { get; set; }
-    public MaterialTextureSemantic Semantic { get; set; }
+    public MaterialTextureSemantic TextureSemantic { get; set; }
     public GfxImageCategory Category { get; set; }
-    public byte UseSrgbReads { get; set; }
-    public byte[] Picmip { get; set; } = new byte[2];
+    public byte Unknown1B { get; set; }
+    public byte[] PicmipPlatformBytes { get; set; } = new byte[2];
     public byte NoPicmip { get; set; }
-    public byte Track { get; set; }
-    public int[] PlatformControlWords { get; set; } = new int[2];
-    public byte[] PlatformTextureTail { get; set; } = new byte[0x1C];
-    public byte DelayLoadPixels { get; set; }
+    public byte Unknown1F { get; set; }
+    public int[] CardMemoryPlatformWords { get; set; } = new int[2];
+    public byte[] PlatformTailBytes2C { get; set; } = new byte[0x1C];
+    public byte Unknown48 { get; set; }
     public byte[] NamePadding { get; set; } = new byte[3];
 
     [XField(Offset = EBOOT_NAME_POINTER_OFFSET)]

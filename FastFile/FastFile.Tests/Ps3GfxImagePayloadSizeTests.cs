@@ -55,4 +55,18 @@ public sealed class Ps3GfxImagePayloadSizeTests
 
         Assert.Equal(1536, size);
     }
+
+    [Fact]
+    public void ComputeByteCount_FallsBackToFirstPositiveCardMemoryWord()
+    {
+        var image = new GfxImage
+        {
+            LevelCount = 0,
+            CardMemoryPlatformWords = [0, 0x050002D0]
+        };
+
+        var size = Ps3GfxImagePayloadSize.ComputeByteCount(image);
+
+        Assert.Equal(0x050002D0, size);
+    }
 }

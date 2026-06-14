@@ -11,7 +11,7 @@ internal static class Ps3GfxImagePayloadSize
     internal static int ComputeByteCount(GfxImage image)
     {
         if (image.LevelCount == 0)
-            return FirstPositivePlatformControlWord(image);
+            return FirstPositiveCardMemoryWord(image);
 
         var formatKey = BuildFormatKey(image.FormatByte, image.TextureFlags);
         var totalBytes = AccumulateMipChainByteCount(
@@ -28,7 +28,7 @@ internal static class Ps3GfxImagePayloadSize
 
         return alignedBytes > 0
             ? alignedBytes
-            : FirstPositivePlatformControlWord(image);
+            : FirstPositiveCardMemoryWord(image);
     }
 
     internal static int BuildFormatKey(byte formatByte, int textureFlags)
@@ -116,12 +116,12 @@ internal static class Ps3GfxImagePayloadSize
         return (value + alignment - 1) & ~(alignment - 1);
     }
 
-    private static int FirstPositivePlatformControlWord(GfxImage image)
+    private static int FirstPositiveCardMemoryWord(GfxImage image)
     {
-        for (var i = 0; i < image.PlatformControlWords.Length; i++)
+        for (var i = 0; i < image.CardMemoryPlatformWords.Length; i++)
         {
-            if (image.PlatformControlWords[i] > 0)
-                return image.PlatformControlWords[i];
+            if (image.CardMemoryPlatformWords[i] > 0)
+                return image.CardMemoryPlatformWords[i];
         }
 
         return 0;
