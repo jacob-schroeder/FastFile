@@ -64,6 +64,7 @@ public sealed class CommonMpPrefixTests
         Assert.Equal(XFILE_BLOCK.PHYSICAL, image.LoadDef.Address?.Block);
         Assert.NotNull(image.LoadDef.Value);
         Assert.NotEmpty(image.LoadDef.Value!.Data);
+        Assert.Equal(image.LoadDef.Value.ResourceSize, image.LoadDef.Value.Data.Length);
     }
 
     private static string FindRepositoryFile(string relativePath)

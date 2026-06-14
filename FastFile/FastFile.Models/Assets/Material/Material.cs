@@ -127,7 +127,6 @@ public class GfxStateBits
         Target = XPointerTarget.ObjectArray,
         UseCurrentStream = true,
         Alignment = 4,
-        OffsetIsAliasCell = true,
         CountMember = nameof(LoadBitsCount))]
     public XPointer<int[]> LoadBits { get; set; } // Direct
 
@@ -220,7 +219,7 @@ public enum MaterialTextureSemantic : byte
     TS_2D = 0x0,
     TS_FUNCTION = 0x1,
     TS_COLOR_MAP = 0x2,
-    TS_UNUSED_1 = 0x3,
+    TS_DETAIL_MAP = 0x3,
     TS_UNUSED_2 = 0x4,
     TS_NORMAL_MAP = 0x5,
     TS_UNUSED_3 = 0x6,
@@ -229,6 +228,51 @@ public enum MaterialTextureSemantic : byte
     TS_UNUSED_5 = 0x9,
     TS_UNUSED_6 = 0xA,
     TS_WATER_MAP = 0xB,
+}
+
+public enum GfxImageMapType : byte
+{
+    MAPTYPE_NONE = 0x0,
+    MAPTYPE_INVALID1 = 0x1,
+    MAPTYPE_1D = 0x2,
+    MAPTYPE_2D = 0x3,
+    MAPTYPE_3D = 0x4,
+    MAPTYPE_CUBE = 0x5,
+}
+
+public enum GfxImageCategory : byte
+{
+    IMG_CATEGORY_UNKNOWN = 0x0,
+    IMG_CATEGORY_AUTO_GENERATED = 0x1,
+    IMG_CATEGORY_LIGHTMAP = 0x2,
+    IMG_CATEGORY_LOAD_FROM_FILE = 0x3,
+    IMG_CATEGORY_RAW = 0x4,
+    IMG_CATEGORY_FIRST_UNMANAGED = 0x5,
+    IMG_CATEGORY_WATER = 0x5,
+    IMG_CATEGORY_RENDERTARGET = 0x6,
+    IMG_CATEGORY_TEMP = 0x7,
+}
+
+public static class GfxImageFormats
+{
+    public const int D3dFormatA8R8G8B8 = 21;
+    public const int D3dFormatX8R8G8B8 = 22;
+    public const int D3dFormatR5G6B5 = 23;
+    public const int D3dFormatA1R5G5B5 = 25;
+    public const int D3dFormatA4R4G4B4 = 26;
+    public const int D3dFormatA8 = 28;
+    public const int D3dFormatL8 = 50;
+    public const int D3dFormatA8L8 = 51;
+    public const int D3dFormatDxt1Le = 0x31545844;
+    public const int D3dFormatDxt3Le = 0x33545844;
+    public const int D3dFormatDxt5Le = 0x35545844;
+    public const int D3dFormatDxt1Be = 0x44585431;
+    public const int D3dFormatDxt3Be = 0x44585433;
+    public const int D3dFormatDxt5Be = 0x44585435;
+    public const int GcmFormatA8R8G8B8 = 0x85;
+    public const int GcmFormatDxt1 = 0x86;
+    public const int GcmFormatDxt23 = 0x87;
+    public const int GcmFormatDxt45 = 0x88;
 }
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x04)]
@@ -324,27 +368,36 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
 
     [XField(Offset = EBOOT_LOAD_DEF_POINTER_OFFSET)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
-    public XPointer<GfxImageLoadDef> LoadDef { get; set; } // PS3 payload cell, surfaced as semantic overlay
+    public XPointer<GfxImageLoadDef> LoadDef { get; set; } // PS3 payload cell, surfaced as a semantic overlay
 
     [XField(Offset = EBOOT_LOAD_DEF_POINTER_OFFSET + 4)]
     public byte[] EbootRootSuffix { get; set; } = new byte[EBOOT_NAME_POINTER_OFFSET - EBOOT_LOAD_DEF_POINTER_OFFSET - 4];
-    public byte MapType { get; set; }
-    public byte Semantic { get; set; }
-    public byte Category { get; set; }
+
+    public byte FormatByte { get; set; }
+    public byte LevelCount { get; set; }
+    public byte TextureControl { get; set; }
+    public byte MultiFaceControl { get; set; }
+    public int TextureFlags { get; set; }
+    public ushort Width { get; set; }
+    public ushort Height { get; set; }
+    public ushort Depth { get; set; }
+    public byte[] PlatformTextureHeader { get; set; } = new byte[0x0A];
+    public GfxImageMapType MapType { get; set; }
+    public MaterialTextureSemantic Semantic { get; set; }
+    public GfxImageCategory Category { get; set; }
     public byte UseSrgbReads { get; set; }
     public byte[] Picmip { get; set; } = new byte[2];
     public byte NoPicmip { get; set; }
     public byte Track { get; set; }
-    public int[] CardMemory { get; set; } = new int[2];
+    public int[] PlatformControlWords { get; set; } = new int[2];
+    public byte[] PlatformTextureTail { get; set; } = new byte[0x1C];
+    public byte DelayLoadPixels { get; set; }
+    public byte[] NamePadding { get; set; } = new byte[3];
+
     [XField(Offset = EBOOT_NAME_POINTER_OFFSET)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string?> NamePtr { get; set; } // Direct
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
-    public ushort Width { get; set; }
-    public ushort Height { get; set; }
-    public ushort Depth { get; set; }
-    public byte DelayLoadPixels { get; set; }
-    public byte[] Pad { get; set; } = new byte[3];
 
     public override string? GetDisplayName => Name;
 }
@@ -352,7 +405,7 @@ public class GfxImage() : BaseAsset(XAssetType.Image)
 public class GfxImageLoadDef
 {
     public byte LevelCount { get; set; }
-    public byte[] Pad { get; set; } = new byte[3];
+    public byte[] Reserved { get; set; } = new byte[3];
     public int Flags { get; set; }
     public int Format { get; set; }
     public int ResourceSize { get; set; }

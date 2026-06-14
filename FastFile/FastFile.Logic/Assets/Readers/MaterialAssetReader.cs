@@ -76,7 +76,6 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         Target = XPointerTarget.ObjectArray,
         UseCurrentStream = true,
         Alignment = 4,
-        OffsetIsAliasCell = true,
         CountMember = nameof(GfxStateBits.LoadBitsCount)
     };
 
@@ -617,10 +616,10 @@ public sealed class MaterialAssetReader : XAssetReadHandler
 
         var loadDef = new GfxImageLoadDef
         {
-            LevelCount = image.EbootRootPrefix[0x01],
-            Flags = ReadInt32(image.EbootRootPrefix, 0x04),
-            Format = image.EbootRootPrefix[0x00] & 0x9F,
-            ResourceSize = GetGfxImageResourceSize(image)
+            LevelCount = image.LevelCount,
+            Flags = image.TextureFlags,
+            Format = Ps3GfxImagePayloadSize.NormalizeFormatByte(image.FormatByte),
+            ResourceSize = Ps3GfxImagePayloadSize.ComputeByteCount(image)
         };
 
         var payload = MaterializeGfxImagePayload(image.LoadDef, image, loadDef, context);
@@ -641,66 +640,26 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     {
         var root = image.EbootRootPrefix;
 
+        image.FormatByte = root[0x00];
+        image.LevelCount = root[0x01];
+        image.TextureControl = root[0x02];
+        image.MultiFaceControl = root[0x03];
+        image.TextureFlags = ReadInt32(root, 0x04);
         image.Width = ReadUInt16(root, 0x08);
         image.Height = ReadUInt16(root, 0x0A);
         image.Depth = ReadUInt16(root, 0x0C);
-        image.MapType = root[0x18];
-        image.Semantic = root[0x19];
-        image.Category = root[0x1A];
+        image.PlatformTextureHeader = root.AsSpan(0x0E, 0x0A).ToArray();
+        image.MapType = (GfxImageMapType)root[0x18];
+        image.Semantic = (MaterialTextureSemantic)root[0x19];
+        image.Category = (GfxImageCategory)root[0x1A];
         image.UseSrgbReads = root[0x1B];
         image.Picmip = [root[0x1C], root[0x1D]];
         image.NoPicmip = root[0x1E];
         image.Track = root[0x1F];
-        image.CardMemory = [ReadInt32(root, 0x20), ReadInt32(root, 0x24)];
-
-        if (image.EbootRootSuffix.Length > 0x1C)
-            image.DelayLoadPixels = image.EbootRootSuffix[0x1C];
-    }
-
-    private static int GetGfxImageResourceSize(GfxImage image)
-    {
-        var format = image.EbootRootPrefix[0x00] & 0x9F;
-        var levelCount = image.EbootRootPrefix[0x01];
-        if (levelCount == 0)
-            return 0;
-
-        var width = Math.Max(1, (int)image.Width);
-        var height = Math.Max(1, (int)image.Height);
-        var depth = Math.Max(1, (int)image.Depth);
-        var totalSize = 0;
-
-        for (var level = 0; level < levelCount; level++)
-        {
-            totalSize = checked(totalSize + GetGfxImageLevelSize(format, width, height, depth));
-
-            width = Math.Max(1, width >> 1);
-            height = Math.Max(1, height >> 1);
-            depth = Math.Max(1, depth >> 1);
-        }
-
-        var alignedSize = Align(totalSize, 0x80);
-        if (image.EbootRootPrefix[0x03] != 0)
-            alignedSize = checked(alignedSize * 6);
-
-        if (alignedSize > 0)
-            return alignedSize;
-
-        return image.CardMemory.FirstOrDefault(size => size > 0);
-    }
-
-    private static int GetGfxImageLevelSize(
-        int format,
-        int width,
-        int height,
-        int depth)
-    {
-        return format switch
-        {
-            0x86 => checked(((width + 3) / 4) * ((height + 3) / 4) * depth * 8),
-            0x87 or 0x88 => checked(((width + 3) / 4) * ((height + 3) / 4) * depth * 16),
-            0x85 => checked(width * height * depth * 4),
-            _ => 0
-        };
+        image.PlatformControlWords = [ReadInt32(root, 0x20), ReadInt32(root, 0x24)];
+        image.PlatformTextureTail = image.EbootRootSuffix.AsSpan(0x00, 0x1C).ToArray();
+        image.DelayLoadPixels = image.EbootRootSuffix[0x1C];
+        image.NamePadding = image.EbootRootSuffix.AsSpan(0x1D, 0x03).ToArray();
     }
 
     private static ushort ReadUInt16(byte[] data, int offset)
@@ -711,11 +670,6 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     private static int ReadInt32(byte[] data, int offset)
     {
         return BinaryPrimitives.ReadInt32BigEndian(data.AsSpan(offset, sizeof(int)));
-    }
-
-    private static int Align(int value, int alignment)
-    {
-        return (value + alignment - 1) & ~(alignment - 1);
     }
 
     private static XPointer<byte[]> MaterializeGfxImagePayload(
@@ -735,24 +689,38 @@ public sealed class MaterialAssetReader : XAssetReadHandler
             PatchAddress = payloadCell.PatchAddress
         };
 
-        context.ResolvePointerValue(
-            forcedInline,
-            new XPointerFieldAttribute
-            {
-                ResolutionKind = PointerResolutionKind.Direct,
-                Target = XPointerTarget.ByteArray,
-                PayloadBlock = GetGfxImagePayloadBlock(image),
-                Alignment = GfxImage.EBOOT_PAYLOAD_ALIGNMENT,
-                CountMember = nameof(GfxImageLoadDef.ResourceSize)
-            },
-            loadDef);
+        try
+        {
+            context.ResolvePointerValue(
+                forcedInline,
+                new XPointerFieldAttribute
+                {
+                    ResolutionKind = PointerResolutionKind.Direct,
+                    Target = XPointerTarget.ByteArray,
+                    PayloadBlock = GetGfxImagePayloadBlock(image),
+                    Alignment = GfxImage.EBOOT_PAYLOAD_ALIGNMENT,
+                    CountMember = nameof(GfxImageLoadDef.ResourceSize)
+                },
+                loadDef);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            var formatKey = Ps3GfxImagePayloadSize.BuildFormatKey(image.FormatByte, image.TextureFlags);
+            throw new InvalidDataException(
+                $"Failed to materialize GfxImage payload for '{image.Name}' " +
+                $"(formatByte=0x{image.FormatByte:X2}, formatKey=0x{formatKey:X8}, flags=0x{image.TextureFlags:X8}, " +
+                $"width={image.Width}, height={image.Height}, depth={image.Depth}, levels={image.LevelCount}, " +
+                $"mapType={image.MapType}, semantic={image.Semantic}, category={image.Category}, multiFace=0x{image.MultiFaceControl:X2}, " +
+                $"resourceSize=0x{loadDef.ResourceSize:X}, platformWords=[0x{image.PlatformControlWords[0]:X},0x{image.PlatformControlWords[1]:X}]).",
+                ex);
+        }
 
         return forcedInline;
     }
 
     private static XFILE_BLOCK GetGfxImagePayloadBlock(GfxImage image)
     {
-        return image.Semantic == (byte)MaterialTextureSemantic.TS_WATER_MAP
+        return image.Semantic == MaterialTextureSemantic.TS_WATER_MAP
             ? XFILE_BLOCK.RUNTIME
             : XFILE_BLOCK.PHYSICAL;
     }
