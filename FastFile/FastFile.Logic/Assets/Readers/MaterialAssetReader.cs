@@ -4,21 +4,58 @@ using FastFile.Models.Assets.Material;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
 using FastFile.Models.Zone.Attributes;
+using FastFile.Logic.Zone;
 
 namespace FastFile.Logic.Assets.Readers;
 
 public sealed class MaterialAssetReader : XAssetReadHandler
 {
+    private sealed class FixedCountOwner
+    {
+        public required int Count { get; init; }
+    }
+
+    public override bool TryResolveLoadedObjectPointers(
+        object value,
+        IXAssetReaderContext context)
+    {
+        switch (value)
+        {
+            case MaterialTechniqueSet techset:
+                Load_MaterialTechniqueSet(techset, context);
+                return true;
+
+            case MaterialTechnique technique:
+                Load_MaterialTechnique(technique, context);
+                return true;
+
+            case MaterialPass pass:
+                Load_MaterialPass(pass, context);
+                return true;
+
+            case MaterialVertexShader vertexShader:
+                Load_MaterialVertexShader(vertexShader, context);
+                return true;
+
+            case MaterialPixelShader pixelShader:
+                Load_MaterialPixelShader(pixelShader, context);
+                return true;
+
+            case MaterialShaderArgument argument:
+                Load_MaterialShaderArgument(argument, context);
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     public override bool TryResolvePointers(
         object value,
         IXAssetReaderContext context)
     {
         switch (value)
         {
-            case MaterialTechnique technique:
-                ResolveMaterialTechniquePointers(technique, context);
-                return true;
-
             case MaterialTextureDef texture:
                 ResolveMaterialTextureDef(texture, context);
                 return true;
@@ -32,7 +69,25 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         }
     }
 
-    private static void ResolveMaterialTechniquePointers(
+    // PS3 0x107e80 / Xbox Load_MaterialTechniqueSet
+    private static void Load_MaterialTechniqueSet(
+        MaterialTechniqueSet techniqueSet,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(techniqueSet, nameof(MaterialTechniqueSet.NamePtr));
+        Load_MaterialTechniquePtrArray(techniqueSet, context);
+    }
+
+    // PS3 0x107df8 -> 0x107cf0 / Xbox Load_MaterialTechniquePtrArray / Ptr
+    private static void Load_MaterialTechniquePtrArray(
+        MaterialTechniqueSet techniqueSet,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(techniqueSet, nameof(MaterialTechniqueSet.Techniques));
+    }
+
+    // PS3 0x107c88 / Xbox Load_MaterialTechnique
+    private static void Load_MaterialTechnique(
         MaterialTechnique technique,
         IXAssetReaderContext context)
     {
@@ -55,7 +110,197 @@ public sealed class MaterialAssetReader : XAssetReadHandler
             technique);
 
         technique.Passes = passes.Value ?? [];
-        context.MaterializeCStringPointer(technique.NamePtr);
+        context.ResolvePointerProperty(technique, nameof(MaterialTechnique.NamePtr));
+    }
+
+    // PS3 0x107a80 / Xbox Load_MaterialPass
+    private static void Load_MaterialPass(
+        MaterialPass pass,
+        IXAssetReaderContext context)
+    {
+        Load_MaterialVertexDeclarationPtr(pass, context);
+        Load_MaterialVertexShaderPtr(pass, context);
+        Load_MaterialPixelShaderPtr(pass, context);
+        Load_MaterialShaderArgumentArray(pass, context);
+    }
+
+    // PS3 pass child +0x00
+    private static void Load_MaterialVertexDeclarationPtr(
+        MaterialPass pass,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(pass, nameof(MaterialPass.VertexDecl));
+    }
+
+    // PS3 0x107968 / Xbox Load_MaterialVertexShaderPtr
+    private static void Load_MaterialVertexShaderPtr(
+        MaterialPass pass,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(pass, nameof(MaterialPass.VertexShader));
+    }
+
+    // PS3 0x1075e8 / Xbox Load_MaterialPixelShaderPtr
+    private static void Load_MaterialPixelShaderPtr(
+        MaterialPass pass,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(pass, nameof(MaterialPass.PixelShader));
+    }
+
+    // PS3 0xf8280 / Xbox Load_MaterialShaderArgumentArray
+    private static void Load_MaterialShaderArgumentArray(
+        MaterialPass pass,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(pass, nameof(MaterialPass.Args));
+    }
+
+    // PS3 0x1078f8 / Xbox Load_MaterialVertexShader
+    private static void Load_MaterialVertexShader(
+        MaterialVertexShader shader,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(shader, nameof(MaterialVertexShader.NamePtr));
+        Load_MaterialVertexShaderProgram(shader.Program, context);
+    }
+
+    // PS3 0xfb498 / Xbox Load_MaterialVertexShaderProgram
+    private static void Load_MaterialVertexShaderProgram(
+        MaterialVertexShaderProgram program,
+        IXAssetReaderContext context)
+    {
+        Load_GfxVertexShaderLoadDef(program, context);
+    }
+
+    // PS3 0xfb368 / Xbox Load_GfxVertexShaderLoadDef
+    private static void Load_GfxVertexShaderLoadDef(
+        MaterialVertexShaderProgram program,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(program, nameof(MaterialVertexShaderProgram.Data));
+    }
+
+    // PS3 0x107578 / Xbox Load_MaterialPixelShader
+    private static void Load_MaterialPixelShader(
+        MaterialPixelShader shader,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(shader, nameof(MaterialPixelShader.NamePtr));
+        Load_MaterialPixelShaderProgram(shader.Program, context);
+    }
+
+    // PS3 0xfb128 / Xbox Load_MaterialPixelShaderProgram
+    private static void Load_MaterialPixelShaderProgram(
+        MaterialPixelShaderProgram program,
+        IXAssetReaderContext context)
+    {
+        Load_GfxPixelShaderLoadDef(program, context);
+    }
+
+    // PS3 0xfaff8 / Xbox Load_GfxPixelShaderLoadDef
+    private static void Load_GfxPixelShaderLoadDef(
+        MaterialPixelShaderProgram program,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(program, nameof(MaterialPixelShaderProgram.Data));
+    }
+
+    // PS3 0xf81c8 / Xbox Load_MaterialShaderArgument
+    private static void Load_MaterialShaderArgument(
+        MaterialShaderArgument argument,
+        IXAssetReaderContext context)
+    {
+        Load_MaterialArgumentDef(argument, context);
+    }
+
+    // PS3 0xf80a0 / Xbox Load_MaterialArgumentDef family
+    private static void Load_MaterialArgumentDef(
+        MaterialShaderArgument argument,
+        IXAssetReaderContext context)
+    {
+        var def = argument.Argument;
+        var raw = unchecked((uint)def.Raw);
+
+        switch (argument.Type)
+        {
+            case MaterialShaderArgumentType.MTL_ARG_LITERAL_VERTEX_CONST:
+            case MaterialShaderArgumentType.MTL_ARG_LITERAL_PIXEL_CONST:
+                def.LiteralConst = Load_LiteralFloat4(def.Raw, context);
+                break;
+
+            case MaterialShaderArgumentType.MTL_ARG_CODE_VERTEX_CONST:
+            case MaterialShaderArgumentType.MTL_ARG_CODE_PIXEL_CONST:
+                Load_MaterialArgumentCodeConst(def, raw);
+                break;
+
+            case MaterialShaderArgumentType.MTL_ARG_CODE_PIXEL_SAMPLER:
+                def.CodeSampler = raw;
+                break;
+
+            case MaterialShaderArgumentType.MTL_ARG_MATERIAL_VERTEX_CONST:
+            case MaterialShaderArgumentType.MTL_ARG_MATERIAL_PIXEL_SAMPLER:
+            case MaterialShaderArgumentType.MTL_ARG_MATERIAL_PIXEL_CONST:
+                def.NameHash = raw;
+                break;
+        }
+    }
+
+    // PS3 0xec970 / Xbox Load_MaterialArgumentCodeConst
+    private static void Load_MaterialArgumentCodeConst(
+        MaterialArgumentDef def,
+        uint raw)
+    {
+        def.CodeConst = new MaterialArgumentCodeConst
+        {
+            Index = (ushort)(raw >> 16),
+            FirstRow = (byte)(raw >> 8),
+            RowCount = (byte)raw
+        };
+    }
+
+    // PS3 0xec610 with count=4, inline align mask 0x0f
+    private static XPointer<float[]> Load_LiteralFloat4(
+        int raw,
+        IXAssetReaderContext context)
+    {
+        var bytePointer = XPointerCodec.CreatePointer<byte[]>(
+            raw,
+            PointerResolutionKind.Direct);
+        var owner = new FixedCountOwner { Count = 16 };
+
+        context.ResolvePointerValue(
+            bytePointer,
+            new XPointerFieldAttribute
+            {
+                ResolutionKind = PointerResolutionKind.Direct,
+                Target = XPointerTarget.ByteArray,
+                UseCurrentStream = true,
+                Alignment = 16,
+                CountMember = nameof(FixedCountOwner.Count)
+            },
+            owner);
+
+        var bytes = bytePointer.Value ?? [];
+        if (bytes.Length != 16)
+        {
+            throw new InvalidDataException(
+                $"Material shader literal expected 16 bytes but got {bytes.Length}.");
+        }
+
+        var values = new float[4];
+        for (var i = 0; i < values.Length; i++)
+            values[i] = BinaryPrimitives.ReadSingleBigEndian(bytes.AsSpan(i * 4, 4));
+
+        return new XPointer<float[]>
+        {
+            Raw = raw,
+            Kind = bytePointer.Kind,
+            ResolutionKind = PointerResolutionKind.Direct,
+            PatchAddress = bytePointer.PatchAddress,
+            Address = bytePointer.Address,
+            Value = values
+        };
     }
 
     private static void ResolveMaterialTextureDef(

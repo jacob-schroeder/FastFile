@@ -348,16 +348,9 @@ public partial class XFileReader : IXAssetReaderContext
 
     private XFILE_BLOCK GetAssetTablePayloadBlock(XAssetList list)
     {
-        var tempBlock = XFILE_BLOCK.TEMP;
-        var tempPosition = _blocks.GetPosition(tempBlock);
-        var assetTableSize = checked(list.AssetCount * 8);
-
-        if (list.ScriptStringsPtr.Kind == PointerKind.Null &&
-            tempPosition + assetTableSize <= _header.BlockSize[(int)tempBlock])
-        {
-            return tempBlock;
-        }
-
+        // PS3 EBOOT 0x1167c0 keeps the XAsset array under the surrounding LARGE
+        // push after the script-string TEMP subpath returns; there is no TEMP/LARGE
+        // heuristic here.
         return XFILE_BLOCK.LARGE;
     }
 
@@ -407,7 +400,7 @@ public partial class XFileReader : IXAssetReaderContext
             XAssetType.Material => LoadAssetRoot<Material>(ptr),
             XAssetType.PixelShader => LoadAssetRoot<MaterialPixelShader>(ptr),
             XAssetType.VertexShader => LoadAssetRoot<MaterialVertexShader>(ptr),
-            XAssetType.Techset => LoadAssetRoot<MaterialTechniqueSet>(ptr),
+            XAssetType.Techset => Load_MaterialTechniqueSetAsset(ptr),
             XAssetType.Image => LoadAssetRoot<GfxImage>(ptr),
             XAssetType.Sound => LoadAssetRoot<SndAliasList>(ptr),
             XAssetType.SndCurve => LoadAssetRoot<SndCurve>(ptr),
@@ -475,6 +468,13 @@ public partial class XFileReader : IXAssetReaderContext
 
             return obj;
         });
+    }
+
+    // PS3 top-level Techset asset family entrypoint.
+    private MaterialTechniqueSet Load_MaterialTechniqueSetAsset(
+        XPointer<BaseAsset> assetPtr)
+    {
+        return LoadAssetRoot<MaterialTechniqueSet>(assetPtr);
     }
 
     private void MaterializeCStringPointer(XPointer<string?> ptr)

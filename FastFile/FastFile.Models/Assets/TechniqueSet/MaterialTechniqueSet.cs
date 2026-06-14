@@ -63,11 +63,17 @@ public class MaterialPass
     public XPointer<MaterialVertexDeclaration> VertexDecl { get; set; } // Direct
 
     [XField(Offset = 0x04)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        OffsetIsAliasCell = true)]
     public XPointer<MaterialVertexShader> VertexShader { get; set; } // Alias
 
     [XField(Offset = 0x08)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        OffsetIsAliasCell = true)]
     public XPointer<MaterialPixelShader> PixelShader { get; set; } // Alias
 
     [XField(Offset = 0x0C)]
@@ -190,9 +196,12 @@ public class MaterialVertexShaderProgram
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ByteArray,
-        PayloadBlock = XFILE_BLOCK.XFILE_BLOCK_VERTEX,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        Alignment = 16,
+        OffsetIsAliasCell = true,
+        UseCurrentStream = true,
         CountMember = nameof(DataSize))]
-    public XPointer<byte[]> Data { get; set; } // Direct
+    public XPointer<byte[]> Data { get; set; } // Alias via load-def cell, inline payload in current TEMP stream
 
     [XField(Offset = 0x04)]
     public int DataSize { get; set; }
@@ -207,9 +216,12 @@ public class MaterialPixelShaderProgram
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ByteArray,
-        PayloadBlock = XFILE_BLOCK.XFILE_BLOCK_VERTEX,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        Alignment = 16,
+        OffsetIsAliasCell = true,
+        UseCurrentStream = true,
         CountMember = nameof(DataSize))]
-    public XPointer<byte[]> Data { get; set; } // Direct
+    public XPointer<byte[]> Data { get; set; } // Alias via load-def cell, inline payload in current TEMP stream
 
     [XField(Offset = 0x04)]
     public int DataSize { get; set; }

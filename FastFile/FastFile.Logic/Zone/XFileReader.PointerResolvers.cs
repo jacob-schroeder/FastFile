@@ -208,7 +208,9 @@ public partial class XFileReader
             XPointerMaterializationPlan.AtBlockPosition(
                 XPointerTarget.CString,
                 attr.ResolutionKind,
-                attr.PayloadBlock));
+                attr.PayloadBlock,
+                alignment: attr.Alignment,
+                offsetIsAliasCell: attr.OffsetIsAliasCell));
     }
 
     private void ResolveCurrentStreamObjectPointer<T>(XPointer<T> ptr)
@@ -256,10 +258,18 @@ public partial class XFileReader
 
         var materialization = MaterializePointer(
             ptr,
-            XPointerMaterializationPlan.AtBlockPosition(
-                XPointerTarget.ByteArray,
-                attr.ResolutionKind,
-                attr.PayloadBlock));
+            attr.UseCurrentStream
+                ? XPointerMaterializationPlan.CurrentStream(
+                    XPointerTarget.ByteArray,
+                    attr.ResolutionKind,
+                    attr.Alignment,
+                    offsetIsAliasCell: attr.OffsetIsAliasCell)
+                : XPointerMaterializationPlan.AtBlockPosition(
+                    XPointerTarget.ByteArray,
+                    attr.ResolutionKind,
+                    attr.PayloadBlock,
+                    alignment: attr.Alignment,
+                    offsetIsAliasCell: attr.OffsetIsAliasCell));
 
         if (materialization.IsNull)
         {
@@ -561,7 +571,8 @@ public partial class XFileReader
         return XPointerMaterializationPlan.AtBlockPosition(
             XPointerTarget.Object,
             attr.ResolutionKind,
-            payloadBlock);
+            payloadBlock,
+            offsetIsAliasCell: attr.OffsetIsAliasCell);
     }
 
     private static XPointerMaterializationPlan CreateArrayMaterializationPlan(
@@ -571,7 +582,12 @@ public partial class XFileReader
     {
         return attr.ResolutionKind == PointerResolutionKind.CurrentStream
             ? XPointerMaterializationPlan.CurrentStream(target, attr.ResolutionKind, alignment)
-            : XPointerMaterializationPlan.AllocatedBlock(target, attr.ResolutionKind, attr.PayloadBlock, alignment);
+            : XPointerMaterializationPlan.AllocatedBlock(
+                target,
+                attr.ResolutionKind,
+                attr.PayloadBlock,
+                alignment,
+                offsetIsAliasCell: attr.OffsetIsAliasCell);
     }
 
     private static bool ShouldUseCachedOffsetReference(XPointerFieldAttribute attr)

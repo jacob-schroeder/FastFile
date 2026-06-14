@@ -41,6 +41,25 @@ Menu item branch continuation (from EBOOT disassembly)
 - 0x109b10 consumes a 0x198 object and loads an XString at +0x04. 0x109cb0 is a wrapper for the sound-alias +0x50 pointer and consumes a 0x88 object through 0x109c50 for inline/insert values.
 - 0x10a4a8 consumes a 0x10 entry then pushes stream block 4 and delegates the +0x04 field through 0x10a468. 0x10a468 dispatches by the entry's first dword; observed branches point to 0x10a030, 0x10a420, 0x10a2e0, and 0x10a380 depending on that tag.
 
+Sound loader block map from common_mp investigation
+- Core stream helpers: 0x11da90 pushes the block id in r3, 0x11db00 pops, 0x11db50 aligns the active block by mask r3, and 0x11dd00 is Load_Stream(size in r5, target pointer in r4). Load_Stream with r3=1 consumes/copies source bytes and advances the active block; r3=0 resolves an existing cell without consuming source bytes.
+- Offset patch helpers differ by pointer kind: 0x11dc00 patches a cell to base+offset and is used by XString/direct-address pointers; 0x11dbd0 patches a cell by dereferencing a prior pointer cell and is used by wrapper loaders such as snd_alias_list_t*, SndCurve*, and LoadedSound*.
+- Block ids observed in these loaders: TEMP=0, PHYSICAL=1, LARGE=4, VERTEX=6.
+- 0x116328 dispatch type 0x0a (Sound) to 0x10a9d8, not directly to 0x10a900. 0x10a9d8 is the snd_alias_list_t* wrapper: Load_Stream 4 bytes for the asset pointer cell, push TEMP (0), align via 0xf2e18, then call 0x10a900 for inline/insert roots. Non-inline offsets use 0x11dbd0.
+- 0x1167c0 (`Load_XAssetList`) pushes LARGE (4) around the top-level script-string and XAsset table families. The nested script-string root temporarily pushes TEMP (0), but the `XAsset` row array itself is consumed by 0x116738 while LARGE is still active, so the serialized asset table payload block is LARGE rather than TEMP.
+- 0x10a900 is the snd_alias_list_t body: Load_Stream 0x0c, push LARGE (4), Load_XString at +0x00, then resolve +0x04 aliases. Inline aliases align via 0xf2e48 and 0x10a878 consumes count(+0x08) * 0x64 entries.
+- 0x10a600 is the snd_alias_t body: Load_Stream 0x64, Load_XString at +0x00,+0x04,+0x08,+0x0c,+0x10 in the current LARGE context. It pushes TEMP (0) only around +0x14 sound-file array resolution, then pops before resolving +0x50 and +0x60.
+- 0x10a578 consumes the +0x14 sound-file array: count * 0x10 SoundFile entries in TEMP, each through 0x10a4a8. The count helper at 0x116f08 normally returns 1.
+- 0x10a4a8 is the SoundFile body: Load_Stream 0x10 in TEMP, then push LARGE (4) for the +0x04 union. 0x10a468 dispatches loaded entries through 0x10a030 and streamed/primed entries through 0x10a420/0x10a3d8 style wrappers.
+- 0x10a030 is the LoadedSound* wrapper: Load_Stream 4 bytes for the union pointer cell, push TEMP (0), align via 0xf2ff8, then call 0x109fc0 for inline/insert roots. Non-inline offsets use 0x11dbd0.
+- 0x109fc0 is the LoadedSound body: Load_Stream 0x1c in TEMP, push LARGE (4), Load_XString at +0x00, then call 0xf62d0 for the embedded MssSound fields.
+- 0xf62d0 runs while LARGE is active for the sound-info fields. It aligns +0x10 seek-table payload via 0xf5408 (4-byte alignment) and consumes lhz(+0x0e) * 4 bytes through 0xec970. It then pushes PHYSICAL (1), aligns +0x14 audio payload via 0xf54f8 (64-byte alignment), consumes the physical byte count through 0xecec8, and pops PHYSICAL.
+- 0x109cb0 is the SndCurve* wrapper at snd_alias_t +0x50: Load_Stream 4 bytes for the pointer cell, push TEMP (0), align via 0xf2f08/f2fxx family, then call 0x109c50 for inline/insert roots. Non-inline offsets use 0x11dbd0.
+- 0x109c50 is the SndCurve body: Load_Stream 0x88 in TEMP, push LARGE (4), then Load_XString at +0x00 for the filename.
+- 0x10a600 resolves snd_alias_t +0x60 SpeakerMap without pushing a new block. Inline speaker maps align current LARGE via 0xf2e78 and branch to 0x109b10. Non-inline offsets use 0x11dc00.
+- 0x109b10 is the SpeakerMap body: Load_Stream 0x198 in the current block (LARGE in the snd_alias_t path), then Load_XString at +0x04.
+- Current common_mp validation stop after applying emitted-string-only name validation: asset[501] Sound starts at source 0x63FA55. Its name pointer is 0x40020F29, which decodes to LARGE:0x20F28, but the current C# reconstruction has non-string seek/speaker-map bytes there and emits "ambience" at LARGE:0x210C9. This indicates a remaining pre-asset block-placement or offset-wrapper mismatch before asset[501], not a source-position drift.
+
 Menu statement branch investigation after validation stop at item[1].onFocus
 - Current validation still stops at position 0x468D1 with an invalid count in MenuFile.menus[0].items[1].onFocus.entries, so the next mismatch is before item +0x150.
 - The relevant EBOOT chain is 0x10c4c0 -> 0x10c340 -> 0x10c2b8 -> 0x10c1c8 -> 0x10c180, plus expression dispatch helpers 0x10cef8/0x10ceb8.

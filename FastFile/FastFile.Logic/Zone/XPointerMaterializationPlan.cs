@@ -16,14 +16,16 @@ internal readonly record struct XPointerMaterializationPlan(
     XPointerPayloadAddressMode AddressMode,
     XFILE_BLOCK PayloadBlock,
     int Alignment,
-    bool ReadOffsetPayload)
+    bool ReadOffsetPayload,
+    bool OffsetIsAliasCell)
 {
     public static XPointerMaterializationPlan AtBlockPosition(
         XPointerTarget target,
         PointerResolutionKind resolutionKind,
         XFILE_BLOCK payloadBlock,
         bool readOffsetPayload = false,
-        int alignment = 4)
+        int alignment = 4,
+        bool offsetIsAliasCell = false)
     {
         return new XPointerMaterializationPlan(
             target,
@@ -31,7 +33,8 @@ internal readonly record struct XPointerMaterializationPlan(
             XPointerPayloadAddressMode.BlockPosition,
             payloadBlock,
             alignment,
-            readOffsetPayload);
+            readOffsetPayload,
+            offsetIsAliasCell);
     }
 
     public static XPointerMaterializationPlan AllocatedBlock(
@@ -39,7 +42,8 @@ internal readonly record struct XPointerMaterializationPlan(
         PointerResolutionKind resolutionKind,
         XFILE_BLOCK payloadBlock,
         int alignment,
-        bool readOffsetPayload = false)
+        bool readOffsetPayload = false,
+        bool offsetIsAliasCell = false)
     {
         return new XPointerMaterializationPlan(
             target,
@@ -47,14 +51,16 @@ internal readonly record struct XPointerMaterializationPlan(
             XPointerPayloadAddressMode.AllocatedBlock,
             payloadBlock,
             alignment,
-            readOffsetPayload);
+            readOffsetPayload,
+            offsetIsAliasCell);
     }
 
     public static XPointerMaterializationPlan CurrentStream(
         XPointerTarget target,
         PointerResolutionKind resolutionKind,
         int alignment = 4,
-        bool readOffsetPayload = false)
+        bool readOffsetPayload = false,
+        bool offsetIsAliasCell = false)
     {
         return new XPointerMaterializationPlan(
             target,
@@ -62,7 +68,8 @@ internal readonly record struct XPointerMaterializationPlan(
             XPointerPayloadAddressMode.CurrentStream,
             XFILE_BLOCK.TEMP,
             alignment,
-            readOffsetPayload);
+            readOffsetPayload,
+            offsetIsAliasCell);
     }
 }
 

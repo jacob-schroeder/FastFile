@@ -39,6 +39,12 @@ public class XBlock
         _stream.Position = oldPosition;
     }
 
+    public int ReadInt32(int offset)
+    {
+        EnsureCanWrite(offset, sizeof(int));
+        return BinaryPrimitives.ReadInt32BigEndian(BlockSpan.Slice(offset, sizeof(int)));
+    }
+
     public void WriteInt32(int value)
     {
         EnsureCanWrite(Position, sizeof(int));

@@ -85,6 +85,11 @@ internal sealed class XBlockStream
         GetBlock(address.Block).PatchInt32(address.Offset, value);
     }
 
+    public int ReadInt32(XBlockAddress address)
+    {
+        return GetBlock(address.Block).ReadInt32(address.Offset);
+    }
+
     public void SeekOrVerify(int expectedOffset)
     {
         int currentOffset = ActiveBlock.Position;
@@ -140,7 +145,7 @@ internal sealed class XBlockStream
                 return new XPointerMaterializationResult(pointer.Kind, null, ShouldReadPayload: false);
 
             case PointerKind.Offset:
-                pointer.Address = XPointerCodec.DecodeOffset(pointer.Raw);
+                pointer.Address = ResolveOffsetPointerAddress(pointer.Raw, plan);
                 PatchPointer(pointer);
                 return new XPointerMaterializationResult(pointer.Kind, pointer.Address, plan.ReadOffsetPayload);
 
@@ -185,6 +190,22 @@ internal sealed class XBlockStream
     {
         ActiveBlock.Align(alignment);
         return ActiveBlock.Address;
+    }
+
+    private XBlockAddress ResolveOffsetPointerAddress(int raw, XPointerMaterializationPlan plan)
+    {
+        var address = XPointerCodec.DecodeOffset(raw);
+        if (!plan.OffsetIsAliasCell)
+            return address;
+
+        int aliasedRaw = ReadInt32(address);
+        if (XPointerCodec.GetKind(aliasedRaw) != PointerKind.Offset)
+        {
+            throw new InvalidDataException(
+                $"Expected alias cell at {address.Block}:0x{address.Offset:X} to contain a packed offset, got 0x{aliasedRaw:X8}.");
+        }
+
+        return XPointerCodec.DecodeOffset(aliasedRaw);
     }
 
     public XBlockAddress AllocateInsertPointerCell()
