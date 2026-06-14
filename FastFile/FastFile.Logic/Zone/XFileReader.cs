@@ -64,6 +64,7 @@ public partial class XFileReader : IXAssetReaderContext
         new MenuAssetReader(),
         new FontAssetReader(),
         new MaterialAssetReader(),
+        new SoundAssetReader(),
         new XSurfaceAssetReader()
     ];
     private readonly bool _traceAssets = Environment.GetEnvironmentVariable("FF_TRACE_ASSETS") == "1";

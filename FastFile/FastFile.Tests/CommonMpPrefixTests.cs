@@ -2,9 +2,11 @@ using FastFile.Logic.Archive;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Fonts;
 using FastFile.Models.Assets.Material;
+using FastFile.Models.Assets.SoundAliasList;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
+using System.Reflection;
 
 namespace FastFile.Tests;
 
@@ -114,6 +116,64 @@ public sealed class CommonMpPrefixTests
         Assert.Equal(font.GlyphCount, font.Glyphs.Value!.Length);
     }
 
+    [Fact]
+    public void CommonMpSound493UsesPs3SoundWrapperSemantics()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 493);
+        var assetList = reader.GetAssetList();
+
+        var sound = Assert.IsType<SndAliasList>(assetList.Assets[493].XAssetPtr.Value);
+
+        Assert.Equal("ab_defeat_music", sound.AliasName);
+        Assert.Equal(1, sound.Count);
+        Assert.Equal(PointerKind.Inline, sound.Aliases.Kind);
+        Assert.Equal(XFILE_BLOCK.LARGE, sound.Aliases.Address?.Block);
+
+        var alias = Assert.Single(sound.Aliases.Value ?? []);
+        Assert.Equal(1, alias.SoundFileCount);
+        Assert.NotNull(alias.SoundFiles.Value);
+        Assert.Single(alias.SoundFiles.Value!);
+    }
+
+    [Fact]
+    public void CommonMpSoundPrefixThrough510HasValidMaterializedPointers()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 520);
+        var assetList = reader.GetAssetList();
+        var blockSizes = reader.GetHeader().BlockSize;
+        var issues = new List<string>();
+
+        for (var i = 493; i <= 510; i++)
+        {
+            var sound = Assert.IsType<SndAliasList>(assetList.Assets[i].XAssetPtr.Value);
+            if (string.IsNullOrWhiteSpace(sound.AliasName))
+            {
+                issues.Add(
+                    $"asset[{i}].AliasNamePtr: raw=0x{sound.AliasNamePtr.Raw:X8} kind={sound.AliasNamePtr.Kind} " +
+                    $"target={FormatAddress(sound.AliasNamePtr.Address)} patch={FormatAddress(sound.AliasNamePtr.PatchAddress)} " +
+                    $"value=\"{sound.AliasName}\"");
+            }
+
+            ValidateMaterializedPointers($"asset[{i}]", sound, blockSizes, issues);
+        }
+
+        Assert.True(issues.Count == 0, string.Join(Environment.NewLine, issues.Take(20)));
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -127,5 +187,107 @@ public sealed class CommonMpPrefixTests
         }
 
         throw new FileNotFoundException($"Could not find repository file '{relativePath}'.");
+    }
+
+    private static void ValidateMaterializedPointers(
+        string path,
+        object? value,
+        IReadOnlyList<int> blockSizes,
+        List<string> issues,
+        HashSet<object>? visited = null)
+    {
+        if (value is null or string)
+            return;
+
+        if (value is Array array)
+        {
+            for (var i = 0; i < array.Length; i++)
+                ValidateMaterializedPointers($"{path}[{i}]", array.GetValue(i), blockSizes, issues, visited);
+
+            return;
+        }
+
+        visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
+        if (!visited.Add(value))
+            return;
+
+        if (value is FastFile.Models.Zone.Pointer pointer)
+        {
+            ValidatePointer(path, pointer, blockSizes, issues);
+            return;
+        }
+
+        foreach (var prop in value.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (prop.GetIndexParameters().Length != 0)
+                continue;
+
+            object? propValue;
+            try
+            {
+                propValue = prop.GetValue(value);
+            }
+            catch
+            {
+                continue;
+            }
+
+            ValidateMaterializedPointers($"{path}.{prop.Name}", propValue, blockSizes, issues, visited);
+        }
+    }
+
+    private static void ValidatePointer(
+        string path,
+        FastFile.Models.Zone.Pointer pointer,
+        IReadOnlyList<int> blockSizes,
+        List<string> issues)
+    {
+        if (pointer.IsNull)
+            return;
+
+        if (!pointer.IsResolved || pointer.Address is null)
+        {
+            issues.Add($"{path}: unresolved raw=0x{pointer.Raw:X8} kind={pointer.Kind}");
+            return;
+        }
+
+        ValidateAddress($"{path}.target", pointer.Address.Value, blockSizes, issues);
+
+        if (pointer.PatchAddress is { } patchAddress)
+            ValidateAddress($"{path}.patch", patchAddress, blockSizes, issues);
+
+        if (pointer.GetType().GetGenericArguments().FirstOrDefault() == typeof(string))
+        {
+            var value = pointer.GetType().GetProperty(nameof(XPointer<string>.Value))?.GetValue(pointer);
+            if (value is null)
+                issues.Add($"{path}: string raw=0x{pointer.Raw:X8} resolved to {FormatAddress(pointer.Address)} but Value was null.");
+        }
+    }
+
+    private static void ValidateAddress(
+        string path,
+        XBlockAddress address,
+        IReadOnlyList<int> blockSizes,
+        List<string> issues)
+    {
+        var blockIndex = (int)address.Block;
+        if (blockIndex < 0 || blockIndex >= blockSizes.Count)
+        {
+            issues.Add($"{path}: invalid block {address.Block}.");
+            return;
+        }
+
+        if (address.Offset < 0 || address.Offset >= blockSizes[blockIndex])
+        {
+            issues.Add(
+                $"{path}: {address.Block}:0x{address.Offset:X} outside block size 0x{blockSizes[blockIndex]:X}.");
+        }
+    }
+
+    private static string FormatAddress(XBlockAddress? address)
+    {
+        return address is { } value
+            ? $"{value.Block}:0x{value.Offset:X}"
+            : "<null>";
     }
 }
