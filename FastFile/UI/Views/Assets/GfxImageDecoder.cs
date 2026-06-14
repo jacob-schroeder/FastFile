@@ -19,13 +19,13 @@ internal static class GfxImageDecoder
             return new ImageDecodeResult(null, "No load definition", "No pixel data pointer is present.");
         }
 
-        if (loadDef.Kind == PointerKind.Offset)
-        {
-            return new ImageDecodeResult(null, "Offset/streamed", "Pixel data is referenced by an offset pointer or streamed data slot.");
-        }
-
         if (!loadDef.IsResolved || loadDef.Value is null)
         {
+            if (loadDef.Kind == PointerKind.Offset)
+            {
+                return new ImageDecodeResult(null, "Offset/streamed", "Pixel data is referenced by an offset pointer or streamed data slot.");
+            }
+
             return new ImageDecodeResult(null, "Unresolved", "Pixel data was not resolved by the image reader.");
         }
 

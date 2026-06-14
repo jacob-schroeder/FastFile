@@ -56,6 +56,7 @@ public partial class XFileReader : IXAssetReaderContext
     private XAssetList? _assetList;
     private readonly Dictionary<XBlockAddress, string?> _stringsByAddress = new();
     private readonly Dictionary<XBlockAddress, object> _objectsByAddress = new();
+    private readonly Dictionary<XBlockAddress, object> _objectsByAliasCell = new();
     private readonly List<XPointer<string?>> _deferredCStringPointers = [];
     private readonly IXAssetReadHandler[] _assetReadHandlers =
     [
@@ -202,6 +203,17 @@ public partial class XFileReader : IXAssetReaderContext
         return this;
     }
 
+    public XFileReader ReadAssetPrefix(Func<int, XAsset, bool> shouldMaterialize)
+    {
+        Load_Header();
+        ReportAssetReadProgress(force: true);
+        Load_XAssetList(shouldMaterialize);
+        ResolveDeferredCStringPointers();
+        ReportAssetReadProgress(force: true);
+
+        return this;
+    }
+
     private void Load_Header()
     {
         const int blockCount = (int)XFILE_BLOCK.MAX_XFILE_COUNT;
@@ -228,7 +240,7 @@ public partial class XFileReader : IXAssetReaderContext
         _blocks = new XBlockStream(_header.BlockSize, (XFILE_BLOCK)tempBlock);
     }
 
-    private void Load_XAssetList()
+    private void Load_XAssetList(Func<int, XAsset, bool>? shouldMaterialize = null)
     {
         _assetList = new XAssetList
         {
@@ -239,7 +251,7 @@ public partial class XFileReader : IXAssetReaderContext
         };
 
         MaterializeScriptStrings(_assetList);
-        MaterializeAssets(_assetList);
+        MaterializeAssets(_assetList, shouldMaterialize);
     }
 
     private void ValidateSourcePosition()
@@ -265,10 +277,11 @@ public partial class XFileReader : IXAssetReaderContext
 
         var materialization = MaterializePointer(
             ptr,
-            XPointerMaterializationPlan.AtBlockPosition(
+            XPointerMaterializationPlan.AllocatedBlock(
                 XPointerTarget.PointerArray,
                 ptr.ResolutionKind,
                 XFILE_BLOCK.LARGE,
+                alignment: 4,
                 readOffsetPayload: true));
 
         if (materialization.IsNull)
@@ -293,17 +306,20 @@ public partial class XFileReader : IXAssetReaderContext
         });
     }
 
-    private void MaterializeAssets(XAssetList list)
+    private void MaterializeAssets(
+        XAssetList list,
+        Func<int, XAsset, bool>? shouldMaterialize = null)
     {
         var ptr = list.AssetsPtr;
         var payloadBlock = GetAssetTablePayloadBlock(list);
 
         var materialization = MaterializePointer(
             ptr,
-            XPointerMaterializationPlan.AtBlockPosition(
+            XPointerMaterializationPlan.AllocatedBlock(
                 XPointerTarget.ObjectArray,
                 ptr.ResolutionKind,
                 payloadBlock,
+                alignment: 4,
                 readOffsetPayload: true));
 
         if (materialization.IsNull)
@@ -333,6 +349,12 @@ public partial class XFileReader : IXAssetReaderContext
             // Phase 2: now _position points at the first asset payload.
             for (int i = 0; i < assets.Length; i++)
             {
+                if (shouldMaterialize is not null &&
+                    !shouldMaterialize(i, assets[i]))
+                {
+                    break;
+                }
+
                 MaterializeAsset(assets[i], i);
                 ReportAssetReadProgress();
             }
@@ -453,7 +475,10 @@ public partial class XFileReader : IXAssetReaderContext
         {
             var address = assetPtr.Address.Value;
             if (TryGetCachedObject<T>(address, out var cached))
+            {
+                CacheAliasCellObject(assetPtr.PatchAddress, cached);
                 return cached;
+            }
 
             SeekOrVerify(address.Offset);
 
@@ -464,6 +489,7 @@ public partial class XFileReader : IXAssetReaderContext
 
             ReadObjectFields(obj);
             CacheObject(address, obj);
+            CacheAliasCellObject(assetPtr.PatchAddress, obj);
             ResolveLoadedObjectPointers(obj);
 
             return obj;
@@ -619,6 +645,14 @@ public partial class XFileReader : IXAssetReaderContext
         _objectsByAddress[address] = value;
     }
 
+    private void CacheAliasCellObject(XBlockAddress? aliasCellAddress, object value)
+    {
+        if (aliasCellAddress is not { } address)
+            return;
+
+        _objectsByAliasCell[address] = value;
+    }
+
     private bool TryGetCachedObject<T>(XBlockAddress address, out T value)
         where T : class
     {
@@ -647,6 +681,26 @@ public partial class XFileReader : IXAssetReaderContext
         }
 
         if (_objectsByAddress.TryGetValue(address, out var cached) &&
+            targetType.IsInstanceOfType(cached))
+        {
+            value = cached;
+            return true;
+        }
+
+        value = null!;
+        return false;
+    }
+
+    private bool TryGetCachedAliasedObject(Type targetType, Pointer pointer, out object value)
+    {
+        if (pointer.Kind != PointerKind.Offset)
+        {
+            value = null!;
+            return false;
+        }
+
+        var aliasCellAddress = XPointerCodec.DecodeOffset(pointer.Raw);
+        if (_objectsByAliasCell.TryGetValue(aliasCellAddress, out var cached) &&
             targetType.IsInstanceOfType(cached))
         {
             value = cached;

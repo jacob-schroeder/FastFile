@@ -15,12 +15,109 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         public required int Count { get; init; }
     }
 
+    private static readonly XPointerFieldAttribute MaterialUshortArrayAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        PayloadBlock = XFILE_BLOCK.RUNTIME,
+        UseCurrentStream = true,
+        Alignment = 2,
+        CountMember = nameof(Material.TechniqueSlotCount)
+    };
+
+    private static readonly XPointerFieldAttribute MaterialTechniqueSetWrapperAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true
+    };
+
+    private static readonly XPointerFieldAttribute MaterialTextureTableAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        Alignment = 4,
+        CountMember = nameof(Material.TextureCount)
+    };
+
+    private static readonly XPointerFieldAttribute MaterialConstantTableAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        Alignment = 16,
+        CountMember = nameof(Material.ConstantCount)
+    };
+
+    private static readonly XPointerFieldAttribute MaterialStateBitTableAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        Alignment = 4,
+        CountMember = nameof(Material.StateBitsCount)
+    };
+
+    private static readonly XPointerFieldAttribute MaterialUnknownXStringArrayAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.PointerArray,
+        ElementResolutionKind = PointerResolutionKind.Direct,
+        ElementTarget = XPointerTarget.CString,
+        UseCurrentStream = true,
+        Alignment = 4,
+        CountMember = nameof(Material.UnknownXStringCount)
+    };
+
+    private static readonly XPointerFieldAttribute GfxStateBitsLoadBitsAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true,
+        CountMember = nameof(GfxStateBits.LoadBitsCount)
+    };
+
+    private static readonly XPointerFieldAttribute GfxImageWrapperAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true
+    };
+
+    private static readonly XPointerFieldAttribute WaterWrapperAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.LARGE,
+        UseCurrentStream = true,
+        Alignment = 4
+    };
+
+    private static readonly XPointerFieldAttribute WaterSpectrumArrayAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        CountMember = nameof(Water.ElementCount)
+    };
+
     public override bool TryResolveLoadedObjectPointers(
         object value,
         IXAssetReaderContext context)
     {
         switch (value)
         {
+            case Material material:
+                Load_Material(material, context);
+                return true;
+
             case MaterialTechniqueSet techset:
                 Load_MaterialTechniqueSet(techset, context);
                 return true;
@@ -45,6 +142,14 @@ public sealed class MaterialAssetReader : XAssetReadHandler
                 Load_MaterialShaderArgument(argument, context);
                 return true;
 
+            case GfxStateBits stateBits:
+                Load_GfxStateBits(stateBits, context);
+                return true;
+
+            case Water water:
+                Load_Water(water, context);
+                return true;
+
             default:
                 return false;
         }
@@ -67,6 +172,106 @@ public sealed class MaterialAssetReader : XAssetReadHandler
             default:
                 return false;
         }
+    }
+
+    // PS3 0x10d798 / Xbox Load_Material
+    private static void Load_Material(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            Load_MaterialInfo(material.Info, context);
+
+            Load_MaterialUshortArray(material, context);
+            Load_MaterialTechniqueSetPtr(material, context);
+            Load_MaterialTextureDefArray(material, context);
+            Load_MaterialConstantDefArray(material, context);
+            Load_GfxStateBitsArray(material, context);
+            Load_MaterialXStringArray(material, context);
+        });
+    }
+
+    // PS3 0x1099c8
+    private static void Load_MaterialInfo(
+        MaterialInfo info,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerProperty(info, nameof(MaterialInfo.NamePtr));
+    }
+
+    // PS3 Material +0x90 runtime child
+    private static void Load_MaterialUshortArray(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        context.WithStreamBlock(XFILE_BLOCK.RUNTIME, () =>
+        {
+            ResolveNonNullCurrentStreamPointer(
+                material.UshortArray,
+                context,
+                MaterialUshortArrayAttribute,
+                material);
+        });
+    }
+
+    // PS3 0x107ef8 / Xbox Load_MaterialTechniqueSetPtr
+    private static void Load_MaterialTechniqueSetPtr(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.ResolvePointerValue(
+                material.TechniqueSet,
+                MaterialTechniqueSetWrapperAttribute,
+                material);
+        });
+    }
+
+    // PS3 0x1091d0 / Xbox Load_MaterialTextureDefArray
+    private static void Load_MaterialTextureDefArray(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerValue(
+            material.TextureTable,
+            MaterialTextureTableAttribute,
+            material);
+    }
+
+    // PS3 0xe88d0 / Xbox Load_MaterialConstantDefArray
+    private static void Load_MaterialConstantDefArray(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerValue(
+            material.ConstantTable,
+            MaterialConstantTableAttribute,
+            material);
+    }
+
+    // PS3 0xfaf70 / Xbox Load_GfxStateBitsArray
+    private static void Load_GfxStateBitsArray(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        context.ResolvePointerValue(
+            material.StateBitTable,
+            MaterialStateBitTableAttribute,
+            material);
+    }
+
+    // PS3 0x10b518 via 0xf3d20
+    private static void Load_MaterialXStringArray(
+        Material material,
+        IXAssetReaderContext context)
+    {
+        ResolveNonNullCurrentStreamPointer(
+            material.UnknownXStringArray,
+            context,
+            MaterialUnknownXStringArrayAttribute,
+            material);
     }
 
     // PS3 0x107e80 / Xbox Load_MaterialTechniqueSet
@@ -259,6 +464,52 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         };
     }
 
+    // PS3 0xfadc0
+    private static void Load_GfxStateBits(
+        GfxStateBits stateBits,
+        IXAssetReaderContext context)
+    {
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.ResolvePointerValue(
+                stateBits.LoadBits,
+                GfxStateBitsLoadBitsAttribute,
+                stateBits);
+        });
+    }
+
+    // PS3 0x108f50
+    private static void Load_Water(
+        Water water,
+        IXAssetReaderContext context)
+    {
+        ResolveNonNullCurrentStreamPointer(
+            water.H0X,
+            context,
+            WaterSpectrumArrayAttribute,
+            water);
+
+        ResolveNonNullCurrentStreamPointer(
+            water.H0Y,
+            context,
+            WaterSpectrumArrayAttribute,
+            water);
+
+        ResolveNonNullCurrentStreamPointer(
+            water.WTerm,
+            context,
+            WaterSpectrumArrayAttribute,
+            water);
+
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.ResolvePointerValue(
+                water.Image,
+                GfxImageWrapperAttribute,
+                water);
+        });
+    }
+
     // PS3 0xec610 with count=4, inline align mask 0x0f
     private static XPointer<float[]> Load_LiteralFloat4(
         int raw,
@@ -307,23 +558,49 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         MaterialTextureDef texture,
         IXAssetReaderContext context)
     {
-        var dataPtr = texture.Info?.DataPtr;
-        if (dataPtr is null || dataPtr.IsNull)
+        if (texture.Info is null)
             return;
 
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
-            throw new NotSupportedException("Water material texture payloads are not implemented yet.");
+        {
+            Load_WaterPtr(texture.Info, context);
+            return;
+        }
 
-        texture.Info!.Image = context.ReinterpretPointer<GfxImage>(dataPtr, PointerResolutionKind.Direct);
+        Load_GfxImagePtr(texture.Info, context);
+    }
+
+    // PS3 0x109118 -> 0x109060 / Xbox Load_MaterialTextureDef / Info
+    private static void Load_GfxImagePtr(
+        MaterialTextureDefInfo info,
+        IXAssetReaderContext context)
+    {
+        if (info.DataPtr.IsNull)
+            return;
+
+        info.Image = context.ReinterpretPointer<GfxImage>(info.DataPtr, PointerResolutionKind.Direct);
+        context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+        {
+            context.ResolvePointerValue(
+                info.Image,
+                GfxImageWrapperAttribute,
+                info);
+        });
+    }
+
+    // PS3 0x109118 -> 0x109060 -> 0x108f50
+    private static void Load_WaterPtr(
+        MaterialTextureDefInfo info,
+        IXAssetReaderContext context)
+    {
+        if (info.DataPtr.IsNull)
+            return;
+
+        info.Water = context.ReinterpretPointer<Water>(info.DataPtr, PointerResolutionKind.Direct);
         context.ResolvePointerValue(
-            texture.Info.Image,
-            new XPointerFieldAttribute
-            {
-                ResolutionKind = PointerResolutionKind.Direct,
-                Target = XPointerTarget.Object,
-                PayloadBlock = XFILE_BLOCK.TEMP
-            },
-            texture.Info);
+            info.Water,
+            WaterWrapperAttribute,
+            info);
     }
 
     private static void ResolveGfxImagePointers(
@@ -346,29 +623,18 @@ public sealed class MaterialAssetReader : XAssetReadHandler
             ResourceSize = GetGfxImageResourceSize(image)
         };
 
-        var data = new XPointer<byte[]>
+        var payload = MaterializeGfxImagePayload(image.LoadDef, image, loadDef, context);
+        loadDef.Data = payload.Value ?? [];
+
+        image.LoadDef = new XPointer<GfxImageLoadDef>
         {
             Raw = image.LoadDef.Raw,
-            Kind = image.LoadDef.Kind,
-            ResolutionKind = PointerResolutionKind.Direct,
+            Kind = PointerKind.Inline,
+            ResolutionKind = image.LoadDef.ResolutionKind,
             PatchAddress = image.LoadDef.PatchAddress,
-            Address = image.LoadDef.Address
+            Address = payload.Address,
+            Value = loadDef
         };
-
-        context.ResolvePointerValue(
-            data,
-            new XPointerFieldAttribute
-            {
-                ResolutionKind = PointerResolutionKind.Direct,
-                Target = XPointerTarget.ByteArray,
-                PayloadBlock = XFILE_BLOCK.PHYSICAL,
-                CountMember = nameof(GfxImageLoadDef.ResourceSize)
-            },
-            loadDef);
-
-        loadDef.Data = data.Value ?? [];
-        image.LoadDef.Address = data.Address;
-        image.LoadDef.Value = loadDef;
     }
 
     private static void PopulateGfxImageRootFields(GfxImage image)
@@ -450,5 +716,66 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     private static int Align(int value, int alignment)
     {
         return (value + alignment - 1) & ~(alignment - 1);
+    }
+
+    private static XPointer<byte[]> MaterializeGfxImagePayload(
+        XPointer<GfxImageLoadDef> payloadCell,
+        GfxImage image,
+        GfxImageLoadDef loadDef,
+        IXAssetReaderContext context)
+    {
+        var forcedInline = new XPointer<byte[]>
+        {
+            // PS3 0xfd7d0 treats any non-null value at GfxImage+0x28 as
+            // "payload follows here"; it does not use direct packed-offset
+            // semantics in the Material -> GfxImage path.
+            Raw = -1,
+            Kind = PointerKind.Inline,
+            ResolutionKind = PointerResolutionKind.Direct,
+            PatchAddress = payloadCell.PatchAddress
+        };
+
+        context.ResolvePointerValue(
+            forcedInline,
+            new XPointerFieldAttribute
+            {
+                ResolutionKind = PointerResolutionKind.Direct,
+                Target = XPointerTarget.ByteArray,
+                PayloadBlock = GetGfxImagePayloadBlock(image),
+                Alignment = GfxImage.EBOOT_PAYLOAD_ALIGNMENT,
+                CountMember = nameof(GfxImageLoadDef.ResourceSize)
+            },
+            loadDef);
+
+        return forcedInline;
+    }
+
+    private static XFILE_BLOCK GetGfxImagePayloadBlock(GfxImage image)
+    {
+        return image.Semantic == (byte)MaterialTextureSemantic.TS_WATER_MAP
+            ? XFILE_BLOCK.RUNTIME
+            : XFILE_BLOCK.PHYSICAL;
+    }
+
+    private static void ResolveNonNullCurrentStreamPointer<T>(
+        XPointer<T> pointer,
+        IXAssetReaderContext context,
+        XPointerFieldAttribute attribute,
+        object owner)
+    {
+        if (pointer.IsNull)
+            return;
+
+        var forcedInline = new XPointer<T>
+        {
+            Raw = -1,
+            Kind = PointerKind.Inline,
+            ResolutionKind = pointer.ResolutionKind,
+            PatchAddress = pointer.PatchAddress
+        };
+
+        context.ResolvePointerValue(forcedInline, attribute, owner);
+        pointer.Address = forcedInline.Address;
+        pointer.Value = forcedInline.Value;
     }
 }

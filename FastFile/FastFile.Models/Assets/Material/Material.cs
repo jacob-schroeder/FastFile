@@ -50,17 +50,24 @@ public class Material() : BaseAsset(XAssetType.Material)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        PayloadBlock = XFILE_BLOCK.RUNTIME,
+        UseCurrentStream = true,
+        Alignment = 2,
         CountMember = nameof(TechniqueSlotCount))]
     public XPointer<ushort[]> UshortArray { get; set; } // Direct
 
     [XField(Offset = 0x94)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        OffsetIsAliasCell = true)]
     public XPointer<MaterialTechniqueSet> TechniqueSet { get; set; } // Alias
 
     [XField(Offset = 0x98)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        Alignment = 4,
         CountMember = nameof(TextureCount))]
     public XPointer<MaterialTextureDef[]> TextureTable { get; set; } // Direct
 
@@ -68,6 +75,7 @@ public class Material() : BaseAsset(XAssetType.Material)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        Alignment = 16,
         CountMember = nameof(ConstantCount))]
     public XPointer<MaterialConstantDef[]> ConstantTable { get; set; } // Direct
 
@@ -75,6 +83,7 @@ public class Material() : BaseAsset(XAssetType.Material)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        Alignment = 4,
         CountMember = nameof(StateBitsCount))]
     public XPointer<GfxStateBits[]> StateBitTable { get; set; } // Direct
 
@@ -83,6 +92,9 @@ public class Material() : BaseAsset(XAssetType.Material)
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.PointerArray,
         ElementResolutionKind = PointerResolutionKind.Direct,
+        ElementTarget = XPointerTarget.CString,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(UnknownXStringCount))]
     public XPointer<XPointer<string>[]> UnknownXStringArray { get; set; } // Direct
 
@@ -113,6 +125,9 @@ public class GfxStateBits
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true,
         CountMember = nameof(LoadBitsCount))]
     public XPointer<int[]> LoadBits { get; set; } // Direct
 
@@ -120,26 +135,83 @@ public class GfxStateBits
     public int Unknown { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x04)]
 public class WaterWritable
 {
+    [XField(Offset = 0x00)]
     public float FloatTime { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x48)]
 public class Water
 {
+    public int ElementCount => checked(M * N);
+
+    [XField(Offset = 0x00)]
     public WaterWritable Writable { get; set; }
+
+    [XField(Offset = 0x04)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        CountMember = nameof(ElementCount))]
     public XPointer<float[]> H0X { get; set; } // Direct
+
+    [XField(Offset = 0x08)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        CountMember = nameof(ElementCount))]
     public XPointer<float[]> H0Y { get; set; } // Direct
+
+    [XField(Offset = 0x0C)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        CountMember = nameof(ElementCount))]
     public XPointer<float[]> WTerm { get; set; } // Direct
+
+    [XField(Offset = 0x10)]
     public int M { get; set; }
+
+    [XField(Offset = 0x14)]
     public int N { get; set; }
+
+    [XField(Offset = 0x18)]
     public float Lx { get; set; }
+
+    [XField(Offset = 0x1C)]
     public float Lz { get; set; }
+
+    [XField(Offset = 0x20)]
     public float Gravity { get; set; }
+
+    [XField(Offset = 0x24)]
     public float Windvel { get; set; }
+
+    [XField(Offset = 0x28, Count = 2)]
     public float[] Winddir { get; set; } = new float[2];
+
+    [XField(Offset = 0x30)]
     public float Amplitude { get; set; }
+
+    [XField(Offset = 0x34, Count = 4)]
     public float[] CodeConstant { get; set; } = new float[4];
+
+    [XField(Offset = 0x44)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true)]
     public XPointer<GfxImage> Image { get; set; } // Alias
 }
 
@@ -239,19 +311,20 @@ public class MaterialInfo
     public int Padding { get; set; }
 }
 
-[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x50)]
+[XStruct(Block = XFILE_BLOCK.TEMP, Size = 0x50)]
 public class GfxImage() : BaseAsset(XAssetType.Image)
 {
     public const int EBOOT_ROOT_SIZE = 0x50;
     public const int EBOOT_LOAD_DEF_POINTER_OFFSET = 0x28;
     public const int EBOOT_NAME_POINTER_OFFSET = 0x4C;
+    public const int EBOOT_PAYLOAD_ALIGNMENT = 0x80;
 
     [XField(Offset = 0x00)]
     public byte[] EbootRootPrefix { get; set; } = new byte[EBOOT_LOAD_DEF_POINTER_OFFSET];
 
     [XField(Offset = EBOOT_LOAD_DEF_POINTER_OFFSET)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
-    public XPointer<GfxImageLoadDef> LoadDef { get; set; } // Direct
+    public XPointer<GfxImageLoadDef> LoadDef { get; set; } // PS3 payload cell, surfaced as semantic overlay
 
     [XField(Offset = EBOOT_LOAD_DEF_POINTER_OFFSET + 4)]
     public byte[] EbootRootSuffix { get; set; } = new byte[EBOOT_NAME_POINTER_OFFSET - EBOOT_LOAD_DEF_POINTER_OFFSET - 4];

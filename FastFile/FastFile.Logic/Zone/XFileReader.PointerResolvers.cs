@@ -325,11 +325,20 @@ public partial class XFileReader
 
         if (!materialization.ShouldReadPayload)
         {
+            object? aliasedObject = null;
+
             if (ShouldUseCachedOffsetReference(attr) &&
                 ((XBlockAddress?)materialization.Address) is { } offsetAddress &&
                 TryGetCachedObject(targetType, offsetAddress, out var cached))
             {
                 ptr.Value = (dynamic)cached;
+                CacheAliasCellObject(ptr.PatchAddress, cached);
+            }
+            else if (attr.OffsetIsAliasCell &&
+                     TryGetCachedAliasedObject(targetType, ptr, out aliasedObject))
+            {
+                ptr.Value = (dynamic)aliasedObject!;
+                CacheAliasCellObject(ptr.PatchAddress, aliasedObject!);
             }
             else
             {
@@ -347,6 +356,7 @@ public partial class XFileReader
             if (TryGetCachedObject(targetType, address, out var cached))
             {
                 ptr.Value = (dynamic)cached;
+                CacheAliasCellObject(ptr.PatchAddress, cached);
                 return;
             }
 
@@ -357,6 +367,7 @@ public partial class XFileReader
 
             ReadObjectFields(value);
             CacheObject(address, value);
+            CacheAliasCellObject(ptr.PatchAddress, value);
             ResolveLoadedObjectPointers(value);
             ptr.Value = (dynamic)value;
         });
@@ -560,8 +571,14 @@ public partial class XFileReader
         XPointerFieldAttribute attr,
         Type targetType)
     {
-        if (attr.ResolutionKind == PointerResolutionKind.CurrentStream)
-            return XPointerMaterializationPlan.CurrentStream(XPointerTarget.Object, attr.ResolutionKind);
+        if (attr.ResolutionKind == PointerResolutionKind.CurrentStream || attr.UseCurrentStream)
+        {
+            return XPointerMaterializationPlan.CurrentStream(
+                XPointerTarget.Object,
+                attr.ResolutionKind,
+                attr.Alignment,
+                offsetIsAliasCell: attr.OffsetIsAliasCell);
+        }
 
         var payloadBlock = attr.ResolutionKind == PointerResolutionKind.Alias &&
                            typeof(BaseAsset).IsAssignableFrom(targetType)
@@ -580,13 +597,17 @@ public partial class XFileReader
         XPointerFieldAttribute attr,
         int alignment)
     {
-        return attr.ResolutionKind == PointerResolutionKind.CurrentStream
-            ? XPointerMaterializationPlan.CurrentStream(target, attr.ResolutionKind, alignment)
+        return attr.ResolutionKind == PointerResolutionKind.CurrentStream || attr.UseCurrentStream
+            ? XPointerMaterializationPlan.CurrentStream(
+                target,
+                attr.ResolutionKind,
+                attr.Alignment > 0 ? attr.Alignment : alignment,
+                offsetIsAliasCell: attr.OffsetIsAliasCell)
             : XPointerMaterializationPlan.AllocatedBlock(
                 target,
                 attr.ResolutionKind,
                 attr.PayloadBlock,
-                alignment,
+                attr.Alignment > 0 ? attr.Alignment : alignment,
                 offsetIsAliasCell: attr.OffsetIsAliasCell);
     }
 
