@@ -7,6 +7,10 @@ using FastFile.Models.Zone.Attributes;
 namespace FastFile.Models.Assets.Tracers;
 
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x70)]
+[XEbootEvidence(
+    "0x10e148",
+    "Data/eboot/graph/tracer_loader_map.md",
+    Detail = "Load_TracerDef body: Load_Stream size 0x70; PushStreamPos(4); Load_XString at +0x00; Load_MaterialPtr at +0x04, whose pointer wrapper pushes block 0; PopStreamPos. XAsset type 0x27 dispatch branches to 0x10e1b8.")]
 public class TracerDef() : BaseAsset(XAssetType.Tracer)
 {
     [XField(Offset = 0x00)]
@@ -15,7 +19,13 @@ public class TracerDef() : BaseAsset(XAssetType.Tracer)
     public string Name => NamePtr is { IsResolved: true } ? NamePtr.Value ?? string.Empty : string.Empty;
 
     [XField(Offset = 0x04)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true)]
     public XPointer<Material.Material> Material { get; set; } // Alias
 
     [XField(Offset = 0x08)]

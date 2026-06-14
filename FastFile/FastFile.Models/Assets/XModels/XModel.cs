@@ -37,41 +37,53 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 2,
         CountMember = nameof(BoneNameCount))]
     public XPointer<ushort[]> BoneNames { get; set; } // Direct
 
     [XField(Offset = 0x28)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
-        Target = XPointerTarget.ObjectArray,
+        Target = XPointerTarget.ByteArray,
+        UseCurrentStream = true,
+        Alignment = 1,
         CountMember = nameof(ParentCount))]
-    public XPointer<XModelParent[]> ParentList { get; set; } // Direct
+    public XPointer<byte[]> ParentList { get; set; } // Direct
 
     [XField(Offset = 0x2C)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
-        CountMember = nameof(PartCount))]
-    public XPointer<XModelQuat[]> Quats { get; set; } // Direct
+        UseCurrentStream = true,
+        Alignment = 2,
+        CountMember = nameof(QuatComponentCount))]
+    public XPointer<short[]> Quats { get; set; } // Direct
 
     [XField(Offset = 0x30)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(PartCount))]
     public XPointer<Vec3[]> Trans { get; set; } // Direct
 
     [XField(Offset = 0x34)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
-        Target = XPointerTarget.ObjectArray,
+        Target = XPointerTarget.ByteArray,
+        UseCurrentStream = true,
+        Alignment = 1,
         CountMember = nameof(BoneNameCount))]
-    public XPointer<XModelPartClassification[]> PartClassification { get; set; } // Direct
+    public XPointer<byte[]> PartClassification { get; set; } // Direct
 
     [XField(Offset = 0x38)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(BoneNameCount))]
     public XPointer<DObjAnimMat[]> BaseMat { get; set; } // Direct
 
@@ -80,6 +92,8 @@ public class XModel() : BaseAsset(XAssetType.XModel)
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.PointerArray,
         ElementResolutionKind = PointerResolutionKind.Alias,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(MaterialHandleCount))]
     public XPointer<XPointer<MaterialAsset>[]> MaterialHandles { get; set; } // Direct -> ?
 
@@ -102,6 +116,8 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(NumCollSurfs))]
     public XPointer<XModelCollSurf[]> CollSurfs { get; set; } // Direct
 
@@ -115,6 +131,8 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(BoneNameCount))]
     public XPointer<XBoneInfo[]> BoneInfo { get; set; } // Direct
 
@@ -128,6 +146,8 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 2,
         CountMember = nameof(MaterialHandleCount))]
     public XPointer<ushort[]> InvHighMipRadius { get; set; } // Direct
 
@@ -135,16 +155,29 @@ public class XModel() : BaseAsset(XAssetType.XModel)
     public int MemUsage { get; set; }
 
     [XField(Offset = 0x118)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true)]
     public XPointer<PhysPreset> PhysPreset { get; set; } // Alias
 
     [XField(Offset = 0x11C)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true)]
     public XPointer<PhysCollmap> PhysCollmap { get; set; } // Alias
 
     public int BoneNameCount => NumBones;
     public int ParentCount => Math.Max(0, NumBones - NumRootBones);
     public int PartCount => Math.Max(0, NumBones - NumRootBones);
+    public int QuatComponentCount => PartCount * 4;
     public int MaterialHandleCount => NumSurfs;
 
     public override string? GetDisplayName => Name;
@@ -168,10 +201,16 @@ public readonly struct XModelQuat(short x, short y, short z, short w)
     public short W { get; } = w;
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x20)]
 public sealed class DObjAnimMat
 {
+    [XField(Offset = 0x00)]
     public Vec4 Quat { get; set; }
+
+    [XField(Offset = 0x10)]
     public Vec3 Trans { get; set; }
+
+    [XField(Offset = 0x1C)]
     public float TransWeight { get; set; }
 }
 
@@ -188,7 +227,13 @@ public sealed class XModelLodInfo
     public ushort SurfIndex { get; set; }
 
     [XField(Offset = 0x08)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true)]
     public XPointer<XModelSurfs> ModelSurfs { get; set; } // Alias
 
     [XField(Offset = 0x0C)]
@@ -197,7 +242,7 @@ public sealed class XModelLodInfo
     [XField(Offset = 0x24)]
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
-        Target = XPointerTarget.ObjectArray,
+        Target = XPointerTarget.None,
         CountMember = nameof(NumSurfs))]
     public XPointer<XSurface[]> Surfs { get; set; } // Direct
 }
@@ -366,15 +411,11 @@ public sealed class XSurfaceCollisionLeaf
     public ushort TriangleBeginIndex { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x24)]
 public sealed class XModelCollSurf
 {
-    public byte[] RawBytes { get; set; } = [];
-    public XPointer<XModelCollTri[]> CollTris { get; set; } // Direct
-    public int NumCollTris { get; set; }
-    public Bounds Bounds { get; set; }
-    public int BoneIdx { get; set; }
-    public int Contents { get; set; }
-    public int SurfFlags { get; set; }
+    [XField(Offset = 0x00, Count = 0x24)]
+    public byte[] RawBytes { get; set; } = new byte[0x24];
 }
 
 public sealed class XModelCollTri
@@ -384,8 +425,12 @@ public sealed class XModelCollTri
     public Vec4 TVec { get; set; }
 }
 
+[XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x1C)]
 public sealed class XBoneInfo
 {
+    [XField(Offset = 0x00)]
     public Bounds Bounds { get; set; }
+
+    [XField(Offset = 0x18)]
     public float RadiusSquared { get; set; }
 }

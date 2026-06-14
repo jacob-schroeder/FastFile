@@ -65,8 +65,11 @@ public partial class XFileReader : IXAssetReaderContext
         new MenuAssetReader(),
         new FontAssetReader(),
         new MaterialAssetReader(),
+        new TracerAssetReader(),
         new SoundAssetReader(),
         new FxAssetReader(),
+        new WeaponAssetReader(),
+        new XModelAssetReader(),
         new XSurfaceAssetReader()
     ];
     private readonly bool _traceAssets = Environment.GetEnvironmentVariable("FF_TRACE_ASSETS") == "1";
@@ -90,6 +93,15 @@ public partial class XFileReader : IXAssetReaderContext
         _assetReadProgress = assetReadProgress;
     }
 
+    int IXAssetReaderContext.SourcePosition => _position;
+
+    XFILE_BLOCK IXAssetReaderContext.ActiveStreamBlock => _blocks.ActiveBlockType;
+
+    int IXAssetReaderContext.GetStreamPosition(XFILE_BLOCK block)
+    {
+        return _blocks.GetPosition(block);
+    }
+
     XPointer<T> IXAssetReaderContext.ReadPointer<T>(PointerResolutionKind resolutionKind)
     {
         return ReadPointer<T>(resolutionKind);
@@ -105,6 +117,11 @@ public partial class XFileReader : IXAssetReaderContext
     void IXAssetReaderContext.MaterializeCStringPointer(XPointer<string?> pointer)
     {
         MaterializeCStringPointer(pointer);
+    }
+
+    void IXAssetReaderContext.ResolveSndAliasCustomName(XPointer<string> pointer)
+    {
+        ResolveSndAliasCustomName(pointer);
     }
 
     void IXAssetReaderContext.ResolveObjectPointers(object value)
@@ -584,6 +601,102 @@ public partial class XFileReader : IXAssetReaderContext
             ptr.Value = ReadCString();
             _stringsByAddress[payloadAddress] = ptr.Value;
         });
+    }
+
+    // PS3 0xfedd8 -> 0x2613b0 -> 0x10b318:
+    // snd_alias_list_name is an XString-style pointer cell. Weapon loaders pass
+    // streamStart=0 for the root field, so inline roots allocate/read only the
+    // child XString cell here before resolving that XString.
+    private void ResolveSndAliasCustomName(XPointer<string> ptr)
+    {
+        var materialization = MaterializePointer(
+            ptr,
+            XPointerMaterializationPlan.CurrentStream(
+                XPointerTarget.CString,
+                ptr.ResolutionKind,
+                alignment: 4));
+
+        if (materialization.IsNull)
+        {
+            ptr.Value = null!;
+            return;
+        }
+
+        if (!materialization.ShouldReadPayload)
+        {
+            TryResolveSndAliasCustomNameFromCell(ptr, materialization.Address);
+            return;
+        }
+
+        XBlockAddress cellAddress = materialization.Address
+                                    ?? throw new InvalidDataException("snd_alias_list_name materialized without an address.");
+
+        WithStreamBlock(cellAddress.Block, () =>
+        {
+            SeekOrVerify(cellAddress.Offset);
+            var namePointer = ReadPointer<string>(PointerResolutionKind.Direct);
+            ResolveSndAliasXStringPointer(namePointer, cellAddress.Block);
+            ptr.Value = namePointer.Value!;
+        });
+    }
+
+    private void TryResolveSndAliasCustomNameFromCell(
+        XPointer<string> ptr,
+        XBlockAddress? cellAddress)
+    {
+        if (cellAddress is null)
+        {
+            ptr.Value = null!;
+            return;
+        }
+
+        if (!TryReadEmittedInt32(cellAddress.Value, out int raw))
+        {
+            ptr.Value = null!;
+            return;
+        }
+
+        var namePointer = XPointerCodec.CreatePointer<string>(
+            raw,
+            PointerResolutionKind.Direct,
+            cellAddress);
+
+        ResolveSndAliasXStringPointer(namePointer, cellAddress.Value.Block);
+        ptr.Value = namePointer.Value!;
+    }
+
+    private void ResolveSndAliasXStringPointer(
+        XPointer<string> namePointer,
+        XFILE_BLOCK payloadBlock)
+    {
+        MaterializeCStringPointer(
+            namePointer,
+            XPointerMaterializationPlan.AtBlockPosition(
+                XPointerTarget.CString,
+                PointerResolutionKind.Direct,
+                payloadBlock,
+                alignment: 1));
+    }
+
+    private bool TryReadEmittedInt32(
+        XBlockAddress address,
+        out int value)
+    {
+        if (address.Offset < 0)
+        {
+            value = 0;
+            return false;
+        }
+
+        ReadOnlySpan<byte> written = _blocks.GetWrittenSpan(address.Block);
+        if (address.Offset + sizeof(int) > written.Length)
+        {
+            value = 0;
+            return false;
+        }
+
+        value = _blocks.ReadInt32(address);
+        return true;
     }
 
     private void ResolveDeferredCStringPointers()

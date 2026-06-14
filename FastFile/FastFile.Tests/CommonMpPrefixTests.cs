@@ -5,6 +5,9 @@ using FastFile.Models.Assets.Fonts;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.SoundAliasList;
 using FastFile.Models.Assets.TechniqueSet;
+using FastFile.Models.Assets.Tracers;
+using FastFile.Models.Assets.Weapons;
+using FastFile.Models.Assets.XModels;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
@@ -246,6 +249,86 @@ public sealed class CommonMpPrefixTests
                 });
     }
 
+    [Fact]
+    public void CommonMpPrefixThrough5535LoadsFxNestedXModelPayloads()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5535);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Fx, assetList.Assets[5530].Type);
+        Assert.Equal(XAssetType.Fx, assetList.Assets[5531].Type);
+
+        var models = assetList.Assets
+            .Take(5536)
+            .Select(asset => asset.XAssetPtr.Value)
+            .OfType<FxEffectDef>()
+            .SelectMany(EnumerateResolvedFxModels)
+            .ToArray();
+
+        Assert.NotEmpty(models);
+        Assert.Contains(models, model => model.PartClassification.IsResolved);
+
+        foreach (var model in models)
+        {
+            AssertXModelArrayPointer(model.BoneNames, model.BoneNameCount);
+            AssertXModelBytePointer(model.ParentList, model.ParentCount);
+            AssertXModelArrayPointer(model.Quats, model.QuatComponentCount);
+            AssertXModelArrayPointer(model.Trans, model.PartCount);
+            AssertXModelBytePointer(model.PartClassification, model.BoneNameCount);
+            AssertXModelArrayPointer(model.BaseMat, model.BoneNameCount);
+            AssertXModelArrayPointer(model.InvHighMipRadius, model.MaterialHandleCount);
+        }
+    }
+
+    [Fact]
+    public void CommonMpFirstWeapon5536ResolvesPs3NestedPointerWrappers()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5536);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Weapon, assetList.Assets[5536].Type);
+
+        var weapon = Assert.IsType<WeaponVariantDef>(assetList.Assets[5536].XAssetPtr.Value);
+        Assert.Equal("sentry_minigun_mp", weapon.InternalName);
+        Assert.Equal(PointerKind.Inline, weapon.WeaponDefPtr.Kind);
+        Assert.Equal(XFILE_BLOCK.LARGE, weapon.WeaponDefPtr.Address?.Block);
+
+        Assert.NotNull(weapon.WeaponDef);
+        var def = weapon.WeaponDef;
+
+        Assert.Equal(PointerKind.Inline, def.SoundAliases[0].Kind);
+        Assert.Equal(XFILE_BLOCK.LARGE, def.SoundAliases[0].Address?.Block);
+        Assert.Equal(PointerKind.Inline, def.MaterialPointersA[0].Kind);
+
+        var reticleMaterial = Assert.IsType<Material>(def.MaterialPointersA[0].Value);
+        Assert.Equal("gfx/reticle/mg42_cross.tga", reticleMaterial.Info.Name);
+        Assert.Equal(",2d", reticleMaterial.TechniqueSet.Value?.Name);
+
+        Assert.Equal(PointerKind.Inline, def.Tracer.Kind);
+        Assert.Equal(XFILE_BLOCK.TEMP, def.Tracer.Address?.Block);
+
+        var tracer = Assert.IsType<TracerDef>(def.Tracer.Value);
+        Assert.Equal(PointerKind.Inline, tracer.NamePtr.Kind);
+        Assert.False(string.IsNullOrWhiteSpace(tracer.Name));
+        Assert.Equal(PointerKind.Insert, tracer.Material.Kind);
+        var tracerMaterial = Assert.IsType<Material>(tracer.Material.Value);
+        Assert.False(string.IsNullOrWhiteSpace(tracerMaterial.Info.Name));
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -271,6 +354,60 @@ public sealed class CommonMpPrefixTests
         Assert.True(pointer.IsResolved);
         Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
         Assert.NotNull(pointer.Value);
+        Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static IEnumerable<XModel> EnumerateResolvedFxModels(FxEffectDef fx)
+    {
+        foreach (var elem in fx.ElemDefs.Value ?? [])
+        {
+            foreach (var visual in EnumerateFxVisuals(elem))
+            {
+                if (visual.Model?.Value is { } model)
+                    yield return model;
+            }
+        }
+    }
+
+    private static IEnumerable<FxElemDefVisuals> EnumerateFxVisuals(FxElemDef elem)
+    {
+        if (elem.ElemType == FxElemType.Decal)
+            yield break;
+
+        if (elem.VisualCount > 1)
+        {
+            foreach (var visual in elem.VisualArray?.Value ?? [])
+                yield return visual;
+
+            yield break;
+        }
+
+        yield return elem.Visuals;
+    }
+
+    private static void AssertXModelArrayPointer<T>(
+        XPointer<T[]> pointer,
+        int expectedCount)
+    {
+        if (pointer.IsNull)
+            return;
+
+        Assert.True(pointer.IsResolved);
+        Assert.NotNull(pointer.Value);
+        Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
+        Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static void AssertXModelBytePointer(
+        XPointer<byte[]> pointer,
+        int expectedCount)
+    {
+        if (pointer.IsNull)
+            return;
+
+        Assert.True(pointer.IsResolved);
+        Assert.NotNull(pointer.Value);
+        Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
         Assert.Equal(expectedCount, pointer.Value!.Length);
     }
 

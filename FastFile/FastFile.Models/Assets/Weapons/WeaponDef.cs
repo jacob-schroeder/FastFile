@@ -72,7 +72,7 @@ public sealed class WeaponDef
 
     [XField(Offset = 0x050, Count = WeaponSoundAliasCount)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string>[] SoundAliases { get; set; } = new XPointer<string>[WeaponSoundAliasCount]; // Direct
+    public XPointer<string>[] SoundAliases { get; set; } = new XPointer<string>[WeaponSoundAliasCount]; // Load_SndAliasCustom name
 
     [XField(Offset = 0x10C)]
     [XPointerField(
@@ -164,7 +164,7 @@ public sealed class WeaponDef
 
     [XField(Offset = 0x430, Count = 2)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string>[] ProjectileSoundAliases { get; set; } = new XPointer<string>[2]; // Direct
+    public XPointer<string>[] ProjectileSoundAliases { get; set; } = new XPointer<string>[2]; // Load_SndAliasCustom name
     public int[] ProjectileFieldsA { get; set; } = new int[3];
 
     [XField(Offset = 0x444)]
@@ -194,7 +194,7 @@ public sealed class WeaponDef
 
     [XField(Offset = 0x470)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> ShellEjectSound { get; set; } = null!; // Direct
+    public XPointer<string> ShellEjectSound { get; set; } = null!; // Load_SndAliasCustom name
     public int[] ShellEjectFields { get; set; } = new int[3];
     public int[] AdsHipGunKickAiDistanceFields { get; set; } = new int[35];
 
@@ -206,25 +206,72 @@ public sealed class WeaponDef
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
     public XPointer<string> AccuracyGraphName1 { get; set; } = null!; // Direct
 
+    [XField(Offset = 0x514)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(accuracyGraphKnotCount))]
     public XPointer<Vec2[]> accuracyGraphKnots { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x518)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        CountMember = nameof(originalAccuracyGraphKnotCount))]
     public XPointer<Vec2[]> originalAccuracyGraphKnots { get; set; } = null!; // Direct
+
+    [XField(Offset = 0x51C)]
     public ushort accuracyGraphKnotCount { get; set; }
+
+    [XField(Offset = 0x51E)]
     public ushort originalAccuracyGraphKnotCount { get; set; }
+
+    [XField(Offset = 0x520)]
     public int AccuracyGraphField { get; set; }
+
+    [XField(Offset = 0x524)]
     public float LeftArc { get; set; }
+
+    [XField(Offset = 0x528)]
     public float RightArc { get; set; }
+
+    [XField(Offset = 0x52C)]
     public float TopArc { get; set; }
+
+    [XField(Offset = 0x530)]
     public float BottomArc { get; set; }
+
+    [XField(Offset = 0x534)]
     public float Accuracy { get; set; }
+
+    [XField(Offset = 0x538)]
     public float AiSpread { get; set; }
+
+    [XField(Offset = 0x53C)]
     public float PlayerSpread { get; set; }
+
+    [XField(Offset = 0x540, Count = 2)]
     public float[] MinTurnSpeed { get; set; } = new float[2];
+
+    [XField(Offset = 0x548, Count = 2)]
     public float[] MaxTurnSpeed { get; set; } = new float[2];
+
+    [XField(Offset = 0x550)]
     public float PitchConvergenceTime { get; set; }
+
+    [XField(Offset = 0x554)]
     public float YawConvergenceTime { get; set; }
+
+    [XField(Offset = 0x558)]
     public float SuppressTime { get; set; }
+
+    [XField(Offset = 0x55C)]
     public float MaxRange { get; set; }
+
+    [XField(Offset = 0x560)]
     public float AnimHorizontalRotateInc { get; set; }
+
+    [XField(Offset = 0x564)]
     public float PlayerPositionDist { get; set; }
 
     [XField(Offset = 0x568)]
@@ -267,7 +314,7 @@ public sealed class WeaponDef
 
     [XField(Offset = 0x5DC)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> TurretOverheatSound { get; set; } = null!; // Direct
+    public XPointer<string> TurretOverheatSound { get; set; } = null!; // Load_SndAliasCustom name
 
     [XField(Offset = 0x5E0)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
@@ -280,7 +327,7 @@ public sealed class WeaponDef
 
     [XField(Offset = 0x5F4)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> TurretBarrelSpinMaxSnd { get; set; } = null!; // Direct
+    public XPointer<string> TurretBarrelSpinMaxSnd { get; set; } = null!; // Load_SndAliasCustom name
 
     [XField(Offset = 0x5F8)]
     [XPointerField(
@@ -289,7 +336,7 @@ public sealed class WeaponDef
         ElementResolutionKind = PointerResolutionKind.Direct,
         ElementTarget = XPointerTarget.CString,
         CountMember = nameof(TurretBarrelSpinSoundCount))]
-    public XPointer<XPointer<string>[]> TurretBarrelSpinUpSnd { get; set; } = null!; // Direct
+    public XPointer<XPointer<string>[]> TurretBarrelSpinUpSnd { get; set; } = null!; // Load_SndAliasCustom name array
 
     [XField(Offset = 0x608)]
     [XPointerField(
@@ -298,15 +345,15 @@ public sealed class WeaponDef
         ElementResolutionKind = PointerResolutionKind.Direct,
         ElementTarget = XPointerTarget.CString,
         CountMember = nameof(TurretBarrelSpinSoundCount))]
-    public XPointer<XPointer<string>[]> TurretBarrelSpinDownSnd { get; set; } = null!; // Direct
+    public XPointer<XPointer<string>[]> TurretBarrelSpinDownSnd { get; set; } = null!; // Load_SndAliasCustom name array
 
     [XField(Offset = 0x618)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> MissileConeSoundAlias { get; set; } = null!; // Direct
+    public XPointer<string> MissileConeSoundAlias { get; set; } = null!; // Load_SndAliasCustom name
 
     [XField(Offset = 0x61C)]
     [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.CString)]
-    public XPointer<string> MissileConeSoundAliasAtBase { get; set; } = null!; // Direct
+    public XPointer<string> MissileConeSoundAliasAtBase { get; set; } = null!; // Load_SndAliasCustom name
     public float MissileConeSoundRadiusAtTop { get; set; }
     public float MissileConeSoundRadiusAtBase { get; set; }
     public float MissileConeSoundHeight { get; set; }

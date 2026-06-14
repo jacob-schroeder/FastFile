@@ -180,15 +180,37 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     {
         context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
         {
+            TraceMaterial("begin", material);
             Load_MaterialInfo(material.Info, context);
 
+            TraceMaterial("ushortArray", material);
             Load_MaterialUshortArray(material, context);
+            TraceMaterial("techset", material);
             Load_MaterialTechniqueSetPtr(material, context);
+            TraceMaterial("textureTable", material);
             Load_MaterialTextureDefArray(material, context);
+            TraceMaterial("constantTable", material);
             Load_MaterialConstantDefArray(material, context);
+            TraceMaterial("stateBits", material);
             Load_GfxStateBitsArray(material, context);
+            TraceMaterial("xstrings", material);
             Load_MaterialXStringArray(material, context);
+            TraceMaterial("end", material);
         });
+    }
+
+    private static void TraceMaterial(
+        string phase,
+        Material material)
+    {
+        if (Environment.GetEnvironmentVariable("FF_TRACE_MATERIAL") != "1")
+            return;
+
+        Console.Error.WriteLine(
+            $"Material {phase}: nameRaw=0x{material.Info?.NamePtr?.Raw ?? 0:X8} " +
+            $"techsetRaw=0x{material.TechniqueSet?.Raw ?? 0:X8} " +
+            $"textures={material.TextureCount} constants={material.ConstantCount} " +
+            $"stateBits={material.StateBitsCount} xstrings={material.UnknownXStringCount}");
     }
 
     // PS3 0x1099c8

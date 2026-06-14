@@ -6,6 +6,12 @@ namespace FastFile.Logic.Assets.Readers;
 
 public interface IXAssetReaderContext
 {
+    int SourcePosition { get; }
+
+    XFILE_BLOCK ActiveStreamBlock { get; }
+
+    int GetStreamPosition(XFILE_BLOCK block);
+
     XPointer<T> ReadPointer<T>(PointerResolutionKind resolutionKind);
 
     XPointer<T> ReinterpretPointer<T>(
@@ -13,6 +19,8 @@ public interface IXAssetReaderContext
         PointerResolutionKind resolutionKind);
 
     void MaterializeCStringPointer(XPointer<string?> pointer);
+
+    void ResolveSndAliasCustomName(XPointer<string> pointer);
 
     void ResolveObjectPointers(object value);
 

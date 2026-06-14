@@ -46,6 +46,15 @@ public sealed class MaterialLiteralTests
 
     private sealed class DeferredLiteralContext(byte[] emittedBytes) : IXAssetReaderContext
     {
+        public int SourcePosition => 0;
+
+        public XFILE_BLOCK ActiveStreamBlock => XFILE_BLOCK.LARGE;
+
+        public int GetStreamPosition(XFILE_BLOCK block)
+        {
+            return 0;
+        }
+
         public XPointer<T> ReadPointer<T>(PointerResolutionKind resolutionKind)
         {
             throw new NotSupportedException();
@@ -59,6 +68,11 @@ public sealed class MaterialLiteralTests
         }
 
         public void MaterializeCStringPointer(XPointer<string?> pointer)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void ResolveSndAliasCustomName(XPointer<string> pointer)
         {
             throw new NotSupportedException();
         }

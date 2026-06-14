@@ -16,6 +16,8 @@ public class XModelSurfs() : BaseAsset(XAssetType.XModelSurfs)
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
         CountMember = nameof(NumSurfs))]
     public XPointer<XSurface[]> Surfs { get; set; } // Direct
 
