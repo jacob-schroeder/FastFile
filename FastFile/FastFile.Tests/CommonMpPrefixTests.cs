@@ -1,5 +1,6 @@
 using FastFile.Logic.Archive;
 using FastFile.Logic.Zone;
+using FastFile.Models.Assets.Fonts;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
@@ -83,6 +84,34 @@ public sealed class CommonMpPrefixTests
         Assert.NotNull(assetList.Assets[40].XAssetPtr.Value);
         Assert.IsType<Material>(assetList.Assets[40].XAssetPtr.Value);
         Assert.NotNull(assetList.Assets[384].XAssetPtr.Value);
+    }
+
+    [Fact]
+    public void CommonMpFont492UsesPs3FontWrapperSemantics()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 492);
+        var assetList = reader.GetAssetList();
+
+        var font = Assert.IsType<FontAsset>(assetList.Assets[492].XAssetPtr.Value);
+
+        Assert.Equal("fonts/bigDevFont", font.Name);
+        Assert.Equal(24, font.PixelHeight);
+        Assert.Equal(96, font.GlyphCount);
+        Assert.Equal(PointerKind.Insert, font.Material.Kind);
+        Assert.Equal(PointerKind.Insert, font.GlowMaterial.Kind);
+        Assert.Equal(PointerKind.Inline, font.Glyphs.Kind);
+        Assert.Equal(XFILE_BLOCK.LARGE, font.Glyphs.Address?.Block);
+        Assert.NotNull(font.Material.Value);
+        Assert.NotNull(font.GlowMaterial.Value);
+        Assert.NotNull(font.Glyphs.Value);
+        Assert.Equal(font.GlyphCount, font.Glyphs.Value!.Length);
     }
 
     private static string FindRepositoryFile(string relativePath)

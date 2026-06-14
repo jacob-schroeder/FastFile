@@ -5,7 +5,7 @@ using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
 namespace FastFile.Models.Assets.Fonts;
 
-[XStruct(Block = XFILE_BLOCK.LARGE, Size = RootSize)]
+[XStruct(Block = XFILE_BLOCK.TEMP, Size = RootSize)]
 public sealed class FontAsset() : BaseAsset(XAssetType.Font)
 {
     public const int RootSize = 0x18;
@@ -23,11 +23,17 @@ public sealed class FontAsset() : BaseAsset(XAssetType.Font)
     public int GlyphCount { get; set; }
 
     [XField(Offset = 0x0C)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        OffsetIsAliasCell = true)]
     public XPointer<MaterialAsset> Material { get; set; } // Alias
 
     [XField(Offset = 0x10)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Alias, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        OffsetIsAliasCell = true)]
     public XPointer<MaterialAsset> GlowMaterial { get; set; } // Alias
 
     [XField(Offset = 0x14)]

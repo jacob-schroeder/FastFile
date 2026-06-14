@@ -62,6 +62,7 @@ public partial class XFileReader : IXAssetReaderContext
     private readonly IXAssetReadHandler[] _assetReadHandlers =
     [
         new MenuAssetReader(),
+        new FontAssetReader(),
         new MaterialAssetReader(),
         new XSurfaceAssetReader()
     ];
