@@ -323,8 +323,8 @@ public sealed class XSurfaceVertexInfo
 
     public int BlendVertCount =>
         VertCount[0] +
-        (VertCount[1] * 5) +
-        (VertCount[2] * 3) +
+        (VertCount[1] * 3) +
+        (VertCount[2] * 5) +
         (VertCount[3] * 7);
 }
 
@@ -354,7 +354,11 @@ public sealed class XRigidVertList
     public ushort TriCount { get; set; }
 
     [XField(Offset = 0x08)]
-    [XPointerField(ResolutionKind = PointerResolutionKind.Direct, Target = XPointerTarget.Object)]
+    [XPointerField(
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.Object,
+        UseCurrentStream = true,
+        Alignment = 4)]
     public XPointer<XSurfaceCollisionTree> CollisionTree { get; set; } = null!; // Direct
 }
 
@@ -374,6 +378,8 @@ public sealed class XSurfaceCollisionTree
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 16,
         CountMember = nameof(NodeCount))]
     public XPointer<XSurfaceCollisionNode[]> Nodes { get; set; } = null!; // Direct
 
@@ -384,6 +390,8 @@ public sealed class XSurfaceCollisionTree
     [XPointerField(
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 2,
         CountMember = nameof(LeafCount))]
     public XPointer<XSurfaceCollisionLeaf[]> Leafs { get; set; } = null!; // Direct
 }

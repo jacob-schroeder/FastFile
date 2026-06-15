@@ -76,18 +76,29 @@ public class XBlock
         _stream.Write(value, 0, value.Length);
     }
 
-    public void Align(int alignment)
+    public void DB_AllocStreamPos(int alignmentMask)
     {
-        if (alignment <= 0)
-            throw new ArgumentOutOfRangeException(nameof(alignment));
+        if (alignmentMask < 0)
+            throw new ArgumentOutOfRangeException(nameof(alignmentMask));
 
-        var padding = (alignment - (Position % alignment)) % alignment;
+        var alignedPosition = (Position + alignmentMask) & ~alignmentMask;
+        var padding = alignedPosition - Position;
         if (padding == 0)
             return;
 
         EnsureCanWrite(Position, padding);
         Span<byte> buffer = padding <= 16 ? stackalloc byte[padding] : new byte[padding];
         _stream.Write(buffer);
+    }
+
+    public void DB_IncStreamPos(int count)
+    {
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
+
+        var target = Position + count;
+        EnsureCanWrite(Position, count);
+        _stream.Position = target;
     }
 
     public void Seek(int offset)

@@ -69,6 +69,8 @@ public partial class XFileReader : IXAssetReaderContext
         new SoundAssetReader(),
         new FxAssetReader(),
         new WeaponAssetReader(),
+        new PhysCollmapAssetReader(),
+        new XAnimAssetReader(),
         new XModelAssetReader(),
         new XSurfaceAssetReader()
     ];
@@ -112,6 +114,18 @@ public partial class XFileReader : IXAssetReaderContext
         PointerResolutionKind resolutionKind)
     {
         return ReinterpretPointer<T>(pointer, resolutionKind);
+    }
+
+    byte[] IXAssetReaderContext.ReadCurrentStreamBytes(int count)
+    {
+        return ReadBytes(count);
+    }
+
+    T IXAssetReaderContext.ReadCurrentStreamObject<T>()
+    {
+        var value = new T();
+        ReadObjectFields(value);
+        return value;
     }
 
     void IXAssetReaderContext.MaterializeCStringPointer(XPointer<string?> pointer)
@@ -634,7 +648,7 @@ public partial class XFileReader : IXAssetReaderContext
         WithStreamBlock(cellAddress.Block, () =>
         {
             SeekOrVerify(cellAddress.Offset);
-            var namePointer = ReadPointer<string>(PointerResolutionKind.Direct);
+            var namePointer = ReadPointer<string?>(PointerResolutionKind.Direct);
             ResolveSndAliasXStringPointer(namePointer, cellAddress.Block);
             ptr.Value = namePointer.Value!;
         });
@@ -656,7 +670,7 @@ public partial class XFileReader : IXAssetReaderContext
             return;
         }
 
-        var namePointer = XPointerCodec.CreatePointer<string>(
+        var namePointer = XPointerCodec.CreatePointer<string?>(
             raw,
             PointerResolutionKind.Direct,
             cellAddress);
@@ -666,7 +680,7 @@ public partial class XFileReader : IXAssetReaderContext
     }
 
     private void ResolveSndAliasXStringPointer(
-        XPointer<string> namePointer,
+        XPointer<string?> namePointer,
         XFILE_BLOCK payloadBlock)
     {
         MaterializeCStringPointer(

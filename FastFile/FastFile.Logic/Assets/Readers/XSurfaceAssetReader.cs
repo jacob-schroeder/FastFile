@@ -22,20 +22,10 @@ public sealed class XSurfaceAssetReader : XAssetReadHandler
         XSurface surface,
         IXAssetReaderContext context)
     {
-        // EBOOT 0xf8400/0xf8628/0xf8838 keep the inline payload in the
-        // current stream when the matching stream flag is set. Otherwise these
-        // RSX-read surface buffers live in the PS3 vertex stream block.
-        context.ResolvePointerValue(
-            surface.TriIndices,
-            new XPointerFieldAttribute
-            {
-                ResolutionKind = PointerResolutionKind.Direct,
-                Target = XPointerTarget.ObjectArray,
-                CountMember = nameof(XSurface.TriIndexCount),
-                PayloadBlock = surface.TriIndicesInCurrentBlock ? XFILE_BLOCK.LARGE : XFILE_BLOCK.XFILE_BLOCK_VERTEX
-            },
-            surface);
-
+        // PS3 Load_XSurface 0xfda50 resolves child payloads in engine order:
+        // VertInfo, Verts0, Vb0 helper, Verts1, Vb1 helper, VertList,
+        // TriIndices, then IndexBuffer helper. GPU buffer helpers only revisit
+        // fixed root fields, so there is no extra child pointer payload here.
         context.ResolvePointerValue(
             surface.VertInfo.VertsBlend,
             new XPointerFieldAttribute
@@ -77,6 +67,20 @@ public sealed class XSurfaceAssetReader : XAssetReadHandler
                 Target = XPointerTarget.ObjectArray,
                 CountMember = nameof(XSurface.VertListCount),
                 PayloadBlock = XFILE_BLOCK.LARGE
+            },
+            surface);
+
+        // EBOOT 0xf8400/0xf8628/0xf8838 keep the inline payload in the
+        // current stream when the matching stream flag is set. Otherwise these
+        // RSX-read surface buffers live in the PS3 vertex stream block.
+        context.ResolvePointerValue(
+            surface.TriIndices,
+            new XPointerFieldAttribute
+            {
+                ResolutionKind = PointerResolutionKind.Direct,
+                Target = XPointerTarget.ObjectArray,
+                CountMember = nameof(XSurface.TriIndexCount),
+                PayloadBlock = surface.TriIndicesInCurrentBlock ? XFILE_BLOCK.LARGE : XFILE_BLOCK.XFILE_BLOCK_VERTEX
             },
             surface);
     }

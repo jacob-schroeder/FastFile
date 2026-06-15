@@ -104,7 +104,7 @@ internal sealed class XBlockStream
 
     public void WithBlock(XFILE_BLOCK block, Action action)
     {
-        PushBlock(block);
+        DB_PushStreamPos(block);
 
         try
         {
@@ -112,13 +112,13 @@ internal sealed class XBlockStream
         }
         finally
         {
-            PopBlock();
+            DB_PopStreamPos();
         }
     }
 
     public T WithBlock<T>(XFILE_BLOCK block, Func<T> func)
     {
-        PushBlock(block);
+        DB_PushStreamPos(block);
 
         try
         {
@@ -126,7 +126,7 @@ internal sealed class XBlockStream
         }
         finally
         {
-            PopBlock();
+            DB_PopStreamPos();
         }
     }
 
@@ -170,7 +170,7 @@ internal sealed class XBlockStream
     public XBlockAddress AllocatePointerPayload(XFILE_BLOCK block, int alignment)
     {
         var streamBlock = GetBlock(block);
-        streamBlock.Align(alignment);
+        streamBlock.DB_AllocStreamPos(ToDBAllocStreamPosMask(alignment));
 
         return streamBlock.Address;
     }
@@ -188,7 +188,7 @@ internal sealed class XBlockStream
 
     private XBlockAddress AllocateCurrentStreamPayload(int alignment)
     {
-        ActiveBlock.Align(alignment);
+        ActiveBlock.DB_AllocStreamPos(ToDBAllocStreamPosMask(alignment));
         return ActiveBlock.Address;
     }
 
@@ -215,7 +215,7 @@ internal sealed class XBlockStream
     public XBlockAddress AllocateInsertPointerCell()
     {
         var block = GetBlock(XFILE_BLOCK.LARGE);
-        block.Align(4);
+        block.DB_AllocStreamPos(ToDBAllocStreamPosMask(4));
 
         var address = block.Address;
         block.WriteInt32(0);
@@ -276,7 +276,15 @@ internal sealed class XBlockStream
         return [.._blocks.Select(block => block.WrittenSpan.Length)];
     }
 
-    private void PushBlock(XFILE_BLOCK block)
+    private static int ToDBAllocStreamPosMask(int alignment)
+    {
+        if (alignment <= 0)
+            throw new ArgumentOutOfRangeException(nameof(alignment));
+
+        return alignment - 1;
+    }
+
+    private void DB_PushStreamPos(XFILE_BLOCK block)
     {
         _blockStack.Push(new StreamBlockFrame(
             ActiveBlock.BlockType,
@@ -285,7 +293,7 @@ internal sealed class XBlockStream
         ActiveBlock = GetBlock(block);
     }
 
-    private void PopBlock()
+    private void DB_PopStreamPos()
     {
         var frame = _blockStack.Pop();
 

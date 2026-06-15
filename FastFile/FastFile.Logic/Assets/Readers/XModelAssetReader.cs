@@ -66,9 +66,14 @@ public sealed class XModelAssetReader : XAssetReadHandler
         XModel model,
         IXAssetReaderContext context)
     {
+        TraceXModel(
+            context,
+            $"Load_XModel begin nameRaw=0x{model.NamePtr.Raw:X8} numSurfs={model.NumSurfs} numLods={model.NumLods}");
+
         context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
         {
             context.ResolvePointerProperty(model, nameof(XModel.NamePtr));
+            TraceXModel(context, $"Load_XModel name=\"{model.Name}\"");
 
             context.ResolvePointerProperty(model, nameof(XModel.BoneNames));
             context.ResolvePointerProperty(model, nameof(XModel.ParentList));
@@ -88,10 +93,17 @@ public sealed class XModelAssetReader : XAssetReadHandler
 
             context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
             {
+                TraceXModel(
+                    context,
+                    $"Load_XModel phys begin physPresetRaw=0x{model.PhysPreset.Raw:X8} physCollmapRaw=0x{model.PhysCollmap.Raw:X8}");
                 context.ResolvePointerValue(model.PhysPreset, PhysWrapperAttribute, model);
+                TraceXModel(context, "Load_XModel phys preset done");
                 context.ResolvePointerValue(model.PhysCollmap, PhysWrapperAttribute, model);
+                TraceXModel(context, "Load_XModel phys collmap done");
             });
         });
+
+        TraceXModel(context, "Load_XModel end");
     }
 
     // PS3 0x106990 / Xbox Load_XModelLodInfo
@@ -108,7 +120,11 @@ public sealed class XModelAssetReader : XAssetReadHandler
 
         context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
         {
+            TraceXModel(context, "Load_XModelLodInfo modelSurfs begin");
             context.ResolvePointerValue(lodInfo.ModelSurfs, XModelSurfsWrapperAttribute, lodInfo);
+            TraceXModel(
+                context,
+                $"Load_XModelLodInfo modelSurfs end name=\"{lodInfo.ModelSurfs.Value?.Name}\"");
         });
     }
 
@@ -117,11 +133,19 @@ public sealed class XModelAssetReader : XAssetReadHandler
         XModelSurfs modelSurfs,
         IXAssetReaderContext context)
     {
+        TraceXModel(
+            context,
+            $"Load_XModelSurfs begin nameRaw=0x{modelSurfs.NamePtr.Raw:X8} surfsRaw=0x{modelSurfs.Surfs.Raw:X8} numSurfs={modelSurfs.NumSurfs}");
+
         context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
         {
             context.ResolvePointerProperty(modelSurfs, nameof(XModelSurfs.NamePtr));
+            TraceXModel(context, $"Load_XModelSurfs name=\"{modelSurfs.Name}\"");
             context.ResolvePointerProperty(modelSurfs, nameof(XModelSurfs.Surfs));
+            TraceXModel(context, "Load_XModelSurfs surfs done");
         });
+
+        TraceXModel(context, "Load_XModelSurfs end");
     }
 
     // PS3 0x1104a0 loops Load_MaterialPtr for each pointer cell.
@@ -144,5 +168,18 @@ public sealed class XModelAssetReader : XAssetReadHandler
                 context.ResolvePointerValue(material, MaterialWrapperAttribute, model);
             });
         }
+    }
+
+    private static void TraceXModel(
+        IXAssetReaderContext context,
+        string message)
+    {
+        if (Environment.GetEnvironmentVariable("FF_TRACE_XMODEL") != "1")
+            return;
+
+        Console.Error.WriteLine(
+            $"XModelTrace: src=0x{context.SourcePosition:X} active={context.ActiveStreamBlock} " +
+            $"temp=0x{context.GetStreamPosition(XFILE_BLOCK.TEMP):X} " +
+            $"large=0x{context.GetStreamPosition(XFILE_BLOCK.LARGE):X} {message}");
     }
 }

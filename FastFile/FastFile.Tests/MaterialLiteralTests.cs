@@ -67,6 +67,17 @@ public sealed class MaterialLiteralTests
             throw new NotSupportedException();
         }
 
+        public byte[] ReadCurrentStreamBytes(int count)
+        {
+            throw new NotSupportedException();
+        }
+
+        public T ReadCurrentStreamObject<T>()
+            where T : class, new()
+        {
+            throw new NotSupportedException();
+        }
+
         public void MaterializeCStringPointer(XPointer<string?> pointer)
         {
             throw new NotSupportedException();

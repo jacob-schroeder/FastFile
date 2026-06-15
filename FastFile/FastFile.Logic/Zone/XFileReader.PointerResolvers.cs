@@ -329,6 +329,9 @@ public partial class XFileReader
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{targetType.Name} pointer has unknown resolution semantics.");
 
+        if (TryResolveAliasCellSentinelPointer(pointerObj, attr, owner, targetType))
+            return;
+
         var materialization = MaterializePointer(
             ptr,
             CreateObjectMaterializationPlan(attr, targetType));
@@ -391,6 +394,87 @@ public partial class XFileReader
         });
     }
 
+    private bool TryResolveAliasCellSentinelPointer(
+        object pointerObj,
+        XPointerFieldAttribute attr,
+        object owner,
+        Type targetType)
+    {
+        if (!attr.OffsetIsAliasCell ||
+            pointerObj is not FastFile.Models.Zone.Pointer pointer ||
+            pointer.Kind != PointerKind.Offset)
+        {
+            return false;
+        }
+
+        var aliasCellAddress = XPointerCodec.DecodeOffset(pointer.Raw);
+        if (!TryReadEmittedInt32(aliasCellAddress, out int aliasRaw))
+            return false;
+
+        var aliasKind = XPointerCodec.GetKind(aliasRaw);
+        if (aliasKind is not (PointerKind.Inline or PointerKind.Insert))
+            return false;
+
+        // Some wrapper offsets point to a second-stage pointer cell. If that cell
+        // is still a sentinel, the engine loads through the cell and patches both
+        // references to the same materialized object.
+        var aliasPointer = CreateTypedPointer(
+            targetType,
+            aliasRaw,
+            attr.ResolutionKind,
+            aliasCellAddress);
+
+        ResolvePointerDynamic(aliasPointer, attr, owner);
+
+        var resolvedPointer = (FastFile.Models.Zone.Pointer)aliasPointer;
+        var resolvedValue = GetPointerValue(aliasPointer);
+        pointer.Address = resolvedPointer.Address;
+        SetPointerValue(pointerObj, resolvedValue);
+
+        if (pointer.PatchAddress is { } patchAddress &&
+            pointer.Address is { } address)
+        {
+            _blocks.PatchPointerCell(patchAddress, address);
+        }
+
+        if (resolvedValue is { } value)
+        {
+            CacheAliasCellObject(aliasCellAddress, value);
+            CacheAliasCellObject(pointer.PatchAddress, value);
+        }
+
+        return true;
+    }
+
+    private static object CreateTypedPointer(
+        Type targetType,
+        int raw,
+        PointerResolutionKind resolutionKind,
+        XBlockAddress patchAddress)
+    {
+        var method = typeof(XPointerCodec)
+            .GetMethod(nameof(XPointerCodec.CreatePointer), BindingFlags.Public | BindingFlags.Static)!
+            .MakeGenericMethod(targetType);
+
+        return method.Invoke(null, [raw, resolutionKind, patchAddress])!;
+    }
+
+    private static object? GetPointerValue(object pointerObj)
+    {
+        return pointerObj.GetType()
+            .GetProperty(nameof(XPointer<object>.Value))!
+            .GetValue(pointerObj);
+    }
+
+    private static void SetPointerValue(
+        object pointerObj,
+        object? value)
+    {
+        pointerObj.GetType()
+            .GetProperty(nameof(XPointer<object>.Value))!
+            .SetValue(pointerObj, value);
+    }
+
     private void ResolveObjectArrayPointerDynamic(
         object pointerObj,
         XPointerFieldAttribute attr,
@@ -405,12 +489,11 @@ public partial class XFileReader
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{elementType.Name} array pointer has unknown resolution semantics.");
 
-        var materialization = MaterializePointer(
-            ptr,
-            CreateArrayMaterializationPlan(
-                XPointerTarget.ObjectArray,
-                attr,
-                GetArrayPayloadAlignment(elementType)));
+        var plan = CreateArrayMaterializationPlan(
+            XPointerTarget.ObjectArray,
+            attr,
+            GetArrayPayloadAlignment(elementType));
+        var materialization = MaterializePointer(ptr, plan);
 
         if (!materialization.ShouldReadPayload)
         {
@@ -506,12 +589,11 @@ public partial class XFileReader
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{arrayType.Name} pointer array has unknown resolution semantics.");
 
-        var materialization = MaterializePointer(
-            ptr,
-            CreateArrayMaterializationPlan(
-                XPointerTarget.PointerArray,
-                attr,
-                alignment: 4));
+        var plan = CreateArrayMaterializationPlan(
+            XPointerTarget.PointerArray,
+            attr,
+            alignment: 4);
+        var materialization = MaterializePointer(ptr, plan);
 
         if (!materialization.ShouldReadPayload)
         {

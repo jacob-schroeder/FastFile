@@ -3,10 +3,12 @@ using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Effects;
 using FastFile.Models.Assets.Fonts;
 using FastFile.Models.Assets.Material;
+using FastFile.Models.Assets.Physics;
 using FastFile.Models.Assets.SoundAliasList;
 using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Assets.Tracers;
 using FastFile.Models.Assets.Weapons;
+using FastFile.Models.Assets.XAnim;
 using FastFile.Models.Assets.XModels;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
@@ -329,6 +331,137 @@ public sealed class CommonMpPrefixTests
         Assert.False(string.IsNullOrWhiteSpace(tracerMaterial.Info.Name));
     }
 
+    [Fact]
+    public void CommonMpFirstXModel5538UsesPs3SurfacePayloadOrder()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5538);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.XModel, assetList.Assets[5538].Type);
+
+        var model = Assert.IsType<XModel>(assetList.Assets[5538].XAssetPtr.Value);
+        Assert.Equal("sentry_minigun", model.Name);
+
+        AssertXModelArrayPointer(model.BoneNames, model.BoneNameCount);
+        AssertXModelBytePointer(model.ParentList, model.ParentCount);
+        AssertXModelArrayPointer(model.Quats, model.QuatComponentCount);
+        AssertXModelArrayPointer(model.Trans, model.PartCount);
+        AssertXModelBytePointer(model.PartClassification, model.BoneNameCount);
+        AssertXModelArrayPointer(model.BaseMat, model.BoneNameCount);
+        AssertXModelArrayPointer(model.InvHighMipRadius, model.MaterialHandleCount);
+
+        Assert.Equal(PointerKind.Insert, model.PhysPreset.Kind);
+        Assert.Equal(XFILE_BLOCK.TEMP, model.PhysPreset.Address?.Block);
+        var physPreset = Assert.IsType<PhysPreset>(model.PhysPreset.Value);
+        Assert.False(string.IsNullOrWhiteSpace(physPreset.Name));
+        Assert.True(model.PhysCollmap.IsNull);
+
+        var modelSurfs = model.LodInfo
+            .Select(lod => lod.ModelSurfs.Value)
+            .OfType<XModelSurfs>()
+            .ToArray();
+
+        Assert.NotEmpty(modelSurfs);
+        Assert.Contains(modelSurfs, surfs => surfs.Surfs.Value is { Length: > 0 });
+
+        foreach (var surfs in modelSurfs)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(surfs.Name));
+            AssertXModelArrayPointer(surfs.Surfs, surfs.NumSurfs);
+
+            foreach (var surface in surfs.Surfs.Value ?? [])
+            {
+                Assert.Equal(surface.VertCount * 0x10, surface.VertexByteCount);
+                Assert.Equal(surface.TriCount * 3, surface.TriIndexCount);
+
+                AssertSurfaceArrayPointer(surface.VertInfo.VertsBlend, surface.VertInfo.BlendVertCount);
+                AssertSurfaceBytePointer(surface.Verts0, surface.VertexByteCount);
+                AssertSurfaceBytePointer(surface.Verts1, surface.VertexByteCount);
+                AssertSurfaceArrayPointer(surface.VertList, surface.VertListCount);
+                AssertSurfaceArrayPointer(surface.TriIndices, surface.TriIndexCount);
+            }
+        }
+    }
+
+    [Fact]
+    public void CommonMpFirstXAnim5546UsesPs3XAnimPartsSemantics()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5547);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.XAnim, assetList.Assets[5546].Type);
+        Assert.Equal(XAssetType.Fx, assetList.Assets[5547].Type);
+
+        var anim = Assert.IsType<XAnimParts>(assetList.Assets[5546].XAssetPtr.Value);
+        Assert.Equal("minigun_spin_loop", anim.Name);
+
+        Assert.Equal(PointerKind.Inline, anim.Names.Kind);
+        Assert.Equal(XFILE_BLOCK.LARGE, anim.Names.Address?.Block);
+        Assert.NotNull(anim.Names.Value);
+        Assert.Equal(anim.BoneNameCount, anim.Names.Value!.Length);
+
+        Assert.Equal(PointerKind.Inline, anim.Notify.Kind);
+        Assert.Equal(XFILE_BLOCK.LARGE, anim.Notify.Address?.Block);
+        Assert.NotNull(anim.Notify.Value);
+        Assert.Equal(anim.NotifyCount, anim.Notify.Value!.Length);
+
+        Assert.Equal(PointerKind.Inline, anim.DataByte.Kind);
+        Assert.NotNull(anim.DataByte.Value);
+        Assert.Equal(anim.DataByteCount, anim.DataByte.Value!.Length);
+
+        Assert.True(anim.DeltaPart.IsNull);
+        Assert.NotNull(assetList.Assets[5547].XAssetPtr.Value);
+    }
+
+    [Fact]
+    public void CommonMpFx5558LoadsNestedPhysCollmapSemantics()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5570);
+        var assetList = reader.GetAssetList();
+        var blockSizes = reader.GetHeader().BlockSize;
+
+        Assert.Equal(XAssetType.Fx, assetList.Assets[5558].Type);
+        var fx = Assert.IsType<FxEffectDef>(assetList.Assets[5558].XAssetPtr.Value);
+        Assert.Equal("explosions/sentry_gun_explosion", fx.Name);
+
+        var collmaps = EnumerateResolvedFxModels(fx)
+            .Select(model => model.PhysCollmap.Value)
+            .OfType<PhysCollmap>()
+            .ToArray();
+
+        Assert.NotEmpty(collmaps);
+
+        var issues = new List<string>();
+        foreach (var collmap in collmaps)
+        {
+            AssertPhysCollmap(collmap);
+            ValidateMaterializedPointers($"physCollmap[{collmap.Name}]", collmap, blockSizes, issues);
+        }
+
+        Assert.True(issues.Count == 0, string.Join(Environment.NewLine, issues.Take(20)));
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -409,6 +542,40 @@ public sealed class CommonMpPrefixTests
         Assert.NotNull(pointer.Value);
         Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
         Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static void AssertSurfaceArrayPointer<T>(
+        XPointer<T[]> pointer,
+        int expectedCount)
+    {
+        if (pointer.IsNull)
+            return;
+
+        Assert.True(pointer.IsResolved);
+        Assert.NotNull(pointer.Value);
+        AssertSurfacePayloadBlock(pointer.Address);
+        Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static void AssertSurfaceBytePointer(
+        XPointer<byte[]> pointer,
+        int expectedCount)
+    {
+        if (pointer.IsNull)
+            return;
+
+        Assert.True(pointer.IsResolved);
+        Assert.NotNull(pointer.Value);
+        AssertSurfacePayloadBlock(pointer.Address);
+        Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static void AssertSurfacePayloadBlock(XBlockAddress? address)
+    {
+        Assert.NotNull(address);
+        Assert.True(
+            address!.Value.Block is XFILE_BLOCK.LARGE or XFILE_BLOCK.XFILE_BLOCK_VERTEX,
+            $"Expected surface payload in LARGE or VERTEX, got {FormatAddress(address)}.");
     }
 
     private static void AssertFxVisualBranch(FxElemDef elem)
@@ -522,6 +689,48 @@ public sealed class CommonMpPrefixTests
         Assert.Equal(XFILE_BLOCK.LARGE, pointer.Address?.Block);
         Assert.NotNull(pointer.Value);
         Assert.Equal(expectedCount, pointer.Value!.Length);
+    }
+
+    private static void AssertPhysCollmap(PhysCollmap collmap)
+    {
+        Assert.True(collmap.NamePtr.IsResolved);
+        Assert.True(collmap.Geoms.IsResolved);
+        Assert.Equal(XFILE_BLOCK.LARGE, collmap.Geoms.Address?.Block);
+        Assert.NotNull(collmap.Geoms.Value);
+        Assert.Equal(collmap.Count, collmap.Geoms.Value!.Length);
+
+        foreach (var geom in collmap.Geoms.Value)
+        {
+            if (geom.BrushWrapper.IsNull)
+                continue;
+
+            Assert.True(geom.BrushWrapper.IsResolved);
+            Assert.NotNull(geom.BrushWrapper.Value);
+
+            var wrapper = geom.BrushWrapper.Value!;
+            Assert.Equal(wrapper.Brush.NumSides, wrapper.PlaneCount);
+
+            Assert.True(wrapper.Brush.Sides.IsNull || wrapper.Brush.Sides.IsResolved);
+            if (!wrapper.Brush.Sides.IsNull)
+            {
+                Assert.NotNull(wrapper.Brush.Sides.Value);
+                Assert.Equal(wrapper.Brush.NumSides, wrapper.Brush.Sides.Value!.Length);
+            }
+
+            Assert.True(wrapper.Brush.BaseAdjacentSide.IsNull || wrapper.Brush.BaseAdjacentSide.IsResolved);
+            if (!wrapper.Brush.BaseAdjacentSide.IsNull)
+            {
+                Assert.NotNull(wrapper.Brush.BaseAdjacentSide.Value);
+                Assert.Equal(wrapper.TotalEdgeCount, wrapper.Brush.BaseAdjacentSide.Value!.Length);
+            }
+
+            Assert.True(wrapper.Planes.IsNull || wrapper.Planes.IsResolved);
+            if (!wrapper.Planes.IsNull)
+            {
+                Assert.NotNull(wrapper.Planes.Value);
+                Assert.Equal(wrapper.PlaneCount, wrapper.Planes.Value!.Length);
+            }
+        }
     }
 
     private static void ValidateMaterializedPointers(

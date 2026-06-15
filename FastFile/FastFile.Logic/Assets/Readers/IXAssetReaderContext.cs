@@ -18,6 +18,11 @@ public interface IXAssetReaderContext
         XPointer<object> pointer,
         PointerResolutionKind resolutionKind);
 
+    byte[] ReadCurrentStreamBytes(int count);
+
+    T ReadCurrentStreamObject<T>()
+        where T : class, new();
+
     void MaterializeCStringPointer(XPointer<string?> pointer);
 
     void ResolveSndAliasCustomName(XPointer<string> pointer);
