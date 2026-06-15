@@ -266,6 +266,6 @@ public sealed class XAnimAssetReader : XAssetReadHandler
             $"temp=0x{context.GetStreamPosition(XFILE_BLOCK.TEMP):X} " +
             $"large=0x{context.GetStreamPosition(XFILE_BLOCK.LARGE):X} " +
             $"physical=0x{context.GetStreamPosition(XFILE_BLOCK.PHYSICAL):X} " +
-            $"vertex=0x{context.GetStreamPosition(XFILE_BLOCK.XFILE_BLOCK_VERTEX):X} {message}");
+            $"vertex=0x{context.GetStreamPosition(XFILE_BLOCK.VERTEX):X} {message}");
     }
 }

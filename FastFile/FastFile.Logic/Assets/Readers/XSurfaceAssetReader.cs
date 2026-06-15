@@ -113,7 +113,7 @@ public sealed class XSurfaceAssetReader : XAssetReadHandler
             $"XSurfaceTrace {phase}: src=0x{context.SourcePosition:X} active={context.ActiveStreamBlock} " +
             $"temp=0x{context.GetStreamPosition(XFILE_BLOCK.TEMP):X} " +
             $"large=0x{context.GetStreamPosition(XFILE_BLOCK.LARGE):X} " +
-            $"vertex=0x{context.GetStreamPosition(XFILE_BLOCK.XFILE_BLOCK_VERTEX):X} " +
+            $"vertex=0x{context.GetStreamPosition(XFILE_BLOCK.VERTEX):X} " +
             $"off=0x{surface.Offset:X} flags=0x{surface.StreamFlags:X2} verts={surface.VertCount} tris={surface.TriCount} " +
             $"vBlendRaw=0x{surface.VertInfo.VertsBlend.Raw:X8} v0Raw=0x{surface.Verts0.Raw:X8} " +
             $"v1Raw=0x{surface.Verts1.Raw:X8} vListRaw=0x{surface.VertList.Raw:X8} triRaw=0x{surface.TriIndices.Raw:X8} " +

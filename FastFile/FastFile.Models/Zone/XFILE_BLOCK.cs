@@ -8,6 +8,6 @@ public enum XFILE_BLOCK : int
   VIRTUAL	= 3,
   LARGE	= 4,
   CALLBACK	= 5,
-  XFILE_BLOCK_VERTEX	= 6,
+  VERTEX	= 6,
   MAX_XFILE_COUNT
 }
