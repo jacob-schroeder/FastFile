@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
@@ -85,6 +87,8 @@ public sealed class XModelViewport : Control
         var projectedCenter = Transform(Vector3.Zero, mesh.Center, viewportCenter, scale);
 
         DrawAxes(context, mesh, viewportCenter, scale);
+
+        DrawTriangles(context, mesh, viewportCenter, scale);
 
         foreach (var edge in mesh.Edges)
         {
@@ -199,12 +203,96 @@ public sealed class XModelViewport : Control
         context.DrawLine(AxisZPen, origin, Transform(mesh.Center + new Vector3(0, 0, length), mesh.Center, center, scale));
     }
 
-    private Point Transform(Vector3 vertex, Vector3 modelCenter, Point viewportCenter, double scale)
+    private void DrawTriangles(DrawingContext context, XModelRenderMesh mesh, Point viewportCenter, double scale)
+    {
+        if (mesh.Triangles.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var triangle in ProjectTriangles(mesh, viewportCenter, scale).OrderBy(item => item.Depth))
+        {
+            var geometry = new StreamGeometry();
+            using (var geometryContext = geometry.Open())
+            {
+                geometryContext.BeginFigure(triangle.A, true);
+                geometryContext.LineTo(triangle.B);
+                geometryContext.LineTo(triangle.C);
+                geometryContext.EndFigure(true);
+            }
+
+            context.DrawGeometry(
+                new SolidColorBrush(ShadeColor(triangle.Material.Color, triangle.Light)),
+                null,
+                geometry);
+        }
+    }
+
+    private IEnumerable<ProjectedTriangle> ProjectTriangles(XModelRenderMesh mesh, Point viewportCenter, double scale)
+    {
+        foreach (var triangle in mesh.Triangles)
+        {
+            if (triangle.A >= mesh.Vertices.Count ||
+                triangle.B >= mesh.Vertices.Count ||
+                triangle.C >= mesh.Vertices.Count)
+            {
+                continue;
+            }
+
+            var material = triangle.MaterialIndex >= 0 && triangle.MaterialIndex < mesh.Materials.Count
+                ? mesh.Materials[triangle.MaterialIndex]
+                : new XModelRenderMaterial(
+                    "Fallback",
+                    Color.FromRgb(96, 132, 160),
+                    "fallback",
+                    IsDecodedTexture: false);
+
+            var a = Project(mesh.Vertices[triangle.A], mesh.Center, viewportCenter, scale);
+            var b = Project(mesh.Vertices[triangle.B], mesh.Center, viewportCenter, scale);
+            var c = Project(mesh.Vertices[triangle.C], mesh.Center, viewportCenter, scale);
+            var normal = Vector3.Cross(b.Rotated - a.Rotated, c.Rotated - a.Rotated);
+            var light = normal.LengthSquared() <= float.Epsilon
+                ? 0.65
+                : 0.58 + (Math.Abs(Vector3.Normalize(normal).Z) * 0.32);
+
+            yield return new ProjectedTriangle(
+                a.Point,
+                b.Point,
+                c.Point,
+                (a.Depth + b.Depth + c.Depth) / 3d,
+                material,
+                light);
+        }
+    }
+
+    private ProjectedVertex Project(Vector3 vertex, Vector3 modelCenter, Point viewportCenter, double scale)
     {
         var rotated = Rotate(vertex - modelCenter);
-        return new Point(
-            viewportCenter.X + (rotated.X * scale),
-            viewportCenter.Y - (rotated.Y * scale));
+        return new ProjectedVertex(
+            new Point(
+                viewportCenter.X + (rotated.X * scale),
+                viewportCenter.Y - (rotated.Y * scale)),
+            rotated,
+            rotated.Z);
+    }
+
+    private Point Transform(Vector3 vertex, Vector3 modelCenter, Point viewportCenter, double scale)
+    {
+        return Project(vertex, modelCenter, viewportCenter, scale).Point;
+    }
+
+    private static Color ShadeColor(Color color, double light)
+    {
+        light = Math.Clamp(light, 0.35, 1.05);
+        return Color.FromRgb(
+            ScaleChannel(color.R, light),
+            ScaleChannel(color.G, light),
+            ScaleChannel(color.B, light));
+    }
+
+    private static byte ScaleChannel(byte channel, double light)
+    {
+        return (byte)Math.Clamp((int)Math.Round(channel * light), 0, 255);
     }
 
     private Vector3 Rotate(Vector3 value)
@@ -233,4 +321,14 @@ public sealed class XModelViewport : Control
         value %= 360;
         return value < 0 ? value + 360 : value;
     }
+
+    private readonly record struct ProjectedVertex(Point Point, Vector3 Rotated, double Depth);
+
+    private readonly record struct ProjectedTriangle(
+        Point A,
+        Point B,
+        Point C,
+        double Depth,
+        XModelRenderMaterial Material,
+        double Light);
 }

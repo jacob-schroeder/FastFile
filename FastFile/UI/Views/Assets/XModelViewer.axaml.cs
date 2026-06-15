@@ -30,7 +30,7 @@ public partial class XModelViewer : UserControl
         var mesh = XModelMeshBuilder.Build(model);
         Viewport.Mesh = mesh;
         ModelNameTextBlock.Text = mesh.ModelName;
-        ModelMetaTextBlock.Text = $"{mesh.VertexCount:N0} vertices · {mesh.EdgeCount:N0} edges · {mesh.SurfaceCount:N0} surfaces · {mesh.Status}";
+        ModelMetaTextBlock.Text = $"{mesh.VertexCount:N0} vertices · {mesh.TriangleCount:N0} triangles · {mesh.SurfaceCount:N0} surfaces · {FormatMaterialSummary(mesh)} · {mesh.Status}";
         EmptyStateTextBlock.Text = mesh.HasGeometry
             ? string.Empty
             : mesh.SurfaceCount == 0
@@ -84,5 +84,15 @@ public partial class XModelViewer : UserControl
         {
             _isSyncingControls = false;
         }
+    }
+
+    private static string FormatMaterialSummary(XModelRenderMesh mesh)
+    {
+        if (mesh.MaterialCount == 0)
+        {
+            return "0 materials";
+        }
+
+        return $"{mesh.MaterialCount:N0} materials ({mesh.DecodedMaterialColorCount:N0} textured, {mesh.FallbackMaterialColorCount:N0} fallback)";
     }
 }

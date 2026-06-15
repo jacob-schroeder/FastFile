@@ -8,6 +8,7 @@ using FastFile.Models.Assets.Menufile;
 using FastFile.Models.Data;
 using FastFile.Models.Assets.RawFiles;
 using FastFile.Models.Assets.StringTables;
+using FastFile.Models.Assets.XModels;
 using FastFile.Models.Zone;
 using System.Collections.Generic;
 using System.Linq;
@@ -259,6 +260,7 @@ public partial class AssetsTab : UserControl
             XAssetType.Material when asset.Asset is MaterialAsset material => new MaterialAssetView(material),
             XAssetType.Image when asset.Asset is GfxImage image => new ImageAssetView(image),
             XAssetType.StructuredDataDef when asset.Asset is StructuredDataDefSet structuredDataDefSet => new StructuredDataAssetView(structuredDataDefSet),
+            XAssetType.XModel when asset.Asset is XModel xmodel => new XModelAssetView(xmodel),
             XAssetType.Weapon when asset.Asset is FastFile.Models.Assets.Weapons.WeaponVariantDef weapon => new WeaponAssetView(weapon),
             XAssetType.Techset when asset.Asset is TechsetAsset techset => new TechsetAssetView(techset),
             XAssetType.Techset => new TechsetAssetView(),

@@ -58,22 +58,17 @@ public partial class MaterialAssetView : UserControl
 
     private static MaterialTextureDisplayItem[] BuildTextureItems(MaterialAsset material)
     {
-        if (material.TextureTable is not { IsResolved: true, Value: not null })
-        {
-            return [];
-        }
-
-        return material.TextureTable.Value
+        return MaterialPreviewHelper.ResolveTextureTable(material)
             .Select((texture, index) => BuildTextureItem(texture, index))
             .ToArray();
     }
 
     private static MaterialTextureDisplayItem BuildTextureItem(MaterialTextureDef texture, int index)
     {
-        var image = GetTextureImage(texture);
+        var image = MaterialPreviewHelper.GetTextureImage(texture);
         var decoded = image is null ? null : GfxImageDecoder.Decode(image);
         var imageName = image is null
-            ? GetTexturePointerStatus(texture)
+            ? MaterialPreviewHelper.GetTexturePointerStatus(texture)
             : string.IsNullOrWhiteSpace(image.Name) ? "(unnamed image)" : image.Name;
 
         return new MaterialTextureDisplayItem
@@ -83,7 +78,7 @@ public partial class MaterialAssetView : UserControl
             ImageName = imageName,
             ImageSize = image is null ? string.Empty : $"{image.Width:N0} x {image.Height:N0}",
             Format = decoded?.Format ?? string.Empty,
-            Status = decoded?.Status ?? GetTexturePointerStatus(texture),
+            Status = decoded?.Status ?? MaterialPreviewHelper.GetTexturePointerStatus(texture),
             Pointer = $"0x{texture.Info.Raw:X8}",
             NameHash = $"0x{texture.NameHash:X8}",
             SampleState = $"0x{texture.SampleState:X2}",
@@ -176,26 +171,6 @@ public partial class MaterialAssetView : UserControl
                 Value = FormatVec4(constant.Literal)
             })
             .ToArray();
-    }
-
-    private static GfxImage? GetTextureImage(MaterialTextureDef texture)
-    {
-        if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
-        {
-            return texture.Info.Water?.Value?.Image?.Value;
-        }
-
-        return texture.Info.Image?.Value;
-    }
-
-    private static string GetTexturePointerStatus(MaterialTextureDef texture)
-    {
-        if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
-        {
-            return AssetViewFormatters.FormatPointerRaw(texture.Info.Water);
-        }
-
-        return AssetViewFormatters.FormatPointerRaw(texture.Info.Image);
     }
 
     private static string FormatTechniqueSet(XPointer<MaterialTechniqueSet>? pointer)

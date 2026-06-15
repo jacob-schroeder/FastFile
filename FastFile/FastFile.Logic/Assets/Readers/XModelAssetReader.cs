@@ -178,7 +178,7 @@ public sealed class XModelAssetReader : XAssetReadHandler
 
         foreach (XPointer<MaterialAsset>? material in materialHandles)
         {
-            if (material is not { IsResolved: false })
+            if (material is null || material.Kind == PointerKind.Null || material.Value is not null)
                 continue;
 
             context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>

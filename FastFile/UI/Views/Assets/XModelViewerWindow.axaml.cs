@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using FastFile.Models.Assets.XModels;
+using System;
 
 namespace UI.Views.Assets;
 
@@ -10,13 +11,15 @@ public partial class XModelViewerWindow : Window
         InitializeComponent();
     }
 
-    public XModelViewerWindow(XModel model, string weaponName) : this()
+    public XModelViewerWindow(XModel model, string? contextName = null) : this()
     {
-        var modelName = string.IsNullOrWhiteSpace(model.Name)
-            ? weaponName
-            : model.Name;
+        var modelName = XModelPreviewHelper.GetDisplayName(model);
+        var titleName = string.IsNullOrWhiteSpace(contextName) ||
+                        string.Equals(contextName, modelName, StringComparison.Ordinal)
+            ? modelName
+            : $"{contextName} - {modelName}";
 
-        Title = $"XModel Viewer - {modelName}";
+        Title = $"XModel Viewer - {titleName}";
         ViewerContent.SetModel(model);
     }
 }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
+using Avalonia.Media;
 
 namespace UI.Views.Assets;
 
@@ -10,6 +12,8 @@ public sealed class XModelRenderMesh
         string modelName,
         IReadOnlyList<Vector3> vertices,
         IReadOnlyList<XModelRenderEdge> edges,
+        IReadOnlyList<XModelRenderTriangle> triangles,
+        IReadOnlyList<XModelRenderMaterial> materials,
         int surfaceCount,
         int triangleCount,
         string status)
@@ -17,6 +21,8 @@ public sealed class XModelRenderMesh
         ModelName = modelName;
         Vertices = vertices;
         Edges = edges;
+        Triangles = triangles;
+        Materials = materials;
         SurfaceCount = surfaceCount;
         TriangleCount = triangleCount;
         Status = status;
@@ -29,6 +35,10 @@ public sealed class XModelRenderMesh
 
     public IReadOnlyList<XModelRenderEdge> Edges { get; }
 
+    public IReadOnlyList<XModelRenderTriangle> Triangles { get; }
+
+    public IReadOnlyList<XModelRenderMaterial> Materials { get; }
+
     public int SurfaceCount { get; }
 
     public int TriangleCount { get; }
@@ -36,6 +46,12 @@ public sealed class XModelRenderMesh
     public int VertexCount => Vertices.Count;
 
     public int EdgeCount => Edges.Count;
+
+    public int MaterialCount => Materials.Count;
+
+    public int DecodedMaterialColorCount => Materials.Count(material => material.IsDecodedTexture);
+
+    public int FallbackMaterialColorCount => Materials.Count - DecodedMaterialColorCount;
 
     public string Status { get; }
 
@@ -74,3 +90,11 @@ public sealed class XModelRenderMesh
 }
 
 public readonly record struct XModelRenderEdge(int A, int B);
+
+public readonly record struct XModelRenderTriangle(int A, int B, int C, int MaterialIndex);
+
+public readonly record struct XModelRenderMaterial(
+    string Name,
+    Color Color,
+    string ColorSource,
+    bool IsDecodedTexture);

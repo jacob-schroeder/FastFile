@@ -6,6 +6,7 @@ using System.Numerics;
 using FastFile.Models.Assets.XModels;
 using FastFile.Models.Utils;
 using FastFile.Models.Zone;
+using MaterialAsset = FastFile.Models.Assets.Material.Material;
 
 namespace UI.Views.Assets;
 
@@ -18,12 +19,17 @@ public static class XModelMeshBuilder
         var surfaces = ResolveSurfaces(model).ToArray();
         var vertices = new List<Vector3>();
         var edges = new List<XModelRenderEdge>();
+        var triangles = new List<XModelRenderTriangle>();
+        var materials = new List<XModelRenderMaterial>();
+        var materialIndices = new Dictionary<MaterialAsset, int>();
+        var fallbackMaterialIndices = new Dictionary<int, int>();
         var edgeKeys = new HashSet<long>();
         var triangleCount = 0;
         var decodeModes = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var surface in surfaces)
+        foreach (var resolvedSurface in surfaces)
         {
+            var surface = resolvedSurface.Surface;
             var surfaceVertexBytes = ResolveVertexBytes(surface);
             var firstVertex = vertices.Count;
             var decoded = DecodeVertices(model.Bounds, surface, surfaceVertexBytes);
@@ -39,9 +45,16 @@ public static class XModelMeshBuilder
 
             if (surface.TriIndices is { IsResolved: true, Value: { } indices } && indices.Length >= 3)
             {
+                var materialIndex = ResolveMaterialIndex(
+                    model,
+                    resolvedSurface.MaterialSlot,
+                    materials,
+                    materialIndices,
+                    fallbackMaterialIndices);
                 var indexCount = Math.Min(indices.Length, surface.TriIndexCount);
                 for (var i = 0; i + 2 < indexCount; i += 3)
                 {
+                    AddTriangle(triangles, firstVertex, decoded.Vertices.Count, indices[i], indices[i + 1], indices[i + 2], materialIndex);
                     AddEdge(edges, edgeKeys, firstVertex, decoded.Vertices.Count, indices[i], indices[i + 1]);
                     AddEdge(edges, edgeKeys, firstVertex, decoded.Vertices.Count, indices[i + 1], indices[i + 2]);
                     AddEdge(edges, edgeKeys, firstVertex, decoded.Vertices.Count, indices[i + 2], indices[i]);
@@ -62,12 +75,14 @@ public static class XModelMeshBuilder
             modelName,
             vertices,
             edges,
+            triangles,
+            materials,
             surfaces.Length,
             triangleCount,
             status);
     }
 
-    private static IEnumerable<XSurface> ResolveSurfaces(XModel model)
+    private static IEnumerable<ResolvedSurface> ResolveSurfaces(XModel model)
     {
         foreach (var lod in model.LodInfo ?? [])
         {
@@ -78,9 +93,13 @@ public static class XModelMeshBuilder
 
             if (TryGetResolved(lod.Surfs, out var directSurfs))
             {
-                foreach (var surface in directSurfs.Where(surface => surface is not null))
+                for (var i = 0; i < directSurfs.Length; i++)
                 {
-                    yield return surface;
+                    var surface = directSurfs[i];
+                    if (surface is not null)
+                    {
+                        yield return new ResolvedSurface(surface, lod.SurfIndex + i);
+                    }
                 }
 
                 yield break;
@@ -89,14 +108,75 @@ public static class XModelMeshBuilder
             if (TryGetResolved(lod.ModelSurfs, out var modelSurfs) &&
                 TryGetResolved(modelSurfs.Surfs, out var assetSurfs))
             {
-                foreach (var surface in assetSurfs.Where(surface => surface is not null))
+                for (var i = 0; i < assetSurfs.Length; i++)
                 {
-                    yield return surface;
+                    var surface = assetSurfs[i];
+                    if (surface is not null)
+                    {
+                        yield return new ResolvedSurface(surface, lod.SurfIndex + i);
+                    }
                 }
 
                 yield break;
             }
         }
+    }
+
+    private static int ResolveMaterialIndex(
+        XModel model,
+        int materialSlot,
+        IList<XModelRenderMaterial> materials,
+        IDictionary<MaterialAsset, int> materialIndices,
+        IDictionary<int, int> fallbackMaterialIndices)
+    {
+        var material = ResolveMaterial(model, materialSlot);
+        if (material is null)
+        {
+            if (fallbackMaterialIndices.TryGetValue(materialSlot, out var fallbackIndex))
+            {
+                return fallbackIndex;
+            }
+
+            fallbackIndex = materials.Count;
+            fallbackMaterialIndices.Add(materialSlot, fallbackIndex);
+            var color = MaterialPreviewHelper.ResolveSurfaceColor(null, materialSlot);
+            materials.Add(new XModelRenderMaterial(
+                $"Surface material {materialSlot:N0}",
+                color.Color,
+                color.Source,
+                color.IsDecodedTexture));
+            return fallbackIndex;
+        }
+
+        if (materialIndices.TryGetValue(material, out var index))
+        {
+            return index;
+        }
+
+        index = materials.Count;
+        materialIndices.Add(material, index);
+        var materialColor = MaterialPreviewHelper.ResolveSurfaceColor(material, materialSlot);
+        materials.Add(new XModelRenderMaterial(
+            string.IsNullOrWhiteSpace(material.GetDisplayName) ? $"Material {materialSlot:N0}" : material.GetDisplayName,
+            materialColor.Color,
+            materialColor.Source,
+            materialColor.IsDecodedTexture));
+        return index;
+    }
+
+    private static MaterialAsset? ResolveMaterial(XModel model, int materialSlot)
+    {
+        if (model.MaterialHandles is not { IsResolved: true, Value: { Length: > 0 } handles })
+        {
+            return null;
+        }
+
+        if (materialSlot < 0 || materialSlot >= handles.Length)
+        {
+            return null;
+        }
+
+        return handles[materialSlot].Value;
     }
 
     private static bool TryGetResolved<T>(XPointer<T>? pointer, out T value)
@@ -329,6 +409,34 @@ public static class XModelMeshBuilder
             edges.Add(new XModelRenderEdge(a, b));
         }
     }
+
+    private static void AddTriangle(
+        ICollection<XModelRenderTriangle> triangles,
+        int firstVertex,
+        int vertexCount,
+        ushort indexA,
+        ushort indexB,
+        ushort indexC,
+        int materialIndex)
+    {
+        if (indexA >= vertexCount ||
+            indexB >= vertexCount ||
+            indexC >= vertexCount ||
+            indexA == indexB ||
+            indexB == indexC ||
+            indexA == indexC)
+        {
+            return;
+        }
+
+        triangles.Add(new XModelRenderTriangle(
+            firstVertex + indexA,
+            firstVertex + indexB,
+            firstVertex + indexC,
+            materialIndex));
+    }
+
+    private sealed record ResolvedSurface(XSurface Surface, int MaterialSlot);
 
     private sealed record DecodedVertices(IReadOnlyList<Vector3> Vertices, string Mode);
 }

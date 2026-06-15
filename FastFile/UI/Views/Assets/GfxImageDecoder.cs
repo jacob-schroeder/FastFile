@@ -60,7 +60,13 @@ internal static class GfxImageDecoder
 
         var pixels = new byte[width * height * 4];
         DecodePixels(data.AsSpan(0, expectedSize), pixels, width, height, pixelFormat, loadDef.Value.Format);
-        return new ImageDecodeResult(CreateBitmap(pixels, width, height), formatName, "Decoded from inline pixel data.");
+        return new ImageDecodeResult(
+            CreateBitmap(pixels, width, height),
+            formatName,
+            "Decoded from inline pixel data.",
+            pixels,
+            width,
+            height);
     }
 
     private static int GetTopMipSize(int width, int height, ImagePixelFormat format)

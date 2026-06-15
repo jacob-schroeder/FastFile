@@ -15,6 +15,7 @@ using FastFile.Models.Assets.XModels;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
+using System.Buffers.Binary;
 using System.Reflection;
 
 namespace FastFile.Tests;
@@ -574,6 +575,67 @@ public sealed class CommonMpPrefixTests
         Assert.NotEmpty(rawFile.Buffer);
     }
 
+    [Fact]
+    public void CommonMpWeaponRpg7XModelMaterialHandlesMaterializeThroughPs3Wrapper()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 10090);
+        var assetList = reader.GetAssetList();
+
+        var model = assetList.Assets
+            .Select(asset => asset.XAssetPtr.Value)
+            .OfType<XModel>()
+            .Single(xmodel => xmodel.Name == "weapon_rpg7_stow");
+
+        Assert.Equal(3, model.NumSurfs);
+        Assert.True(model.MaterialHandles.IsResolved);
+        var materialHandles = Assert.IsType<XPointer<Material>[]>(model.MaterialHandles.Value);
+        Assert.Equal(model.MaterialHandleCount, materialHandles.Length);
+
+        var nonNullHandles = materialHandles
+            .Where(materialHandle => !materialHandle.IsNull)
+            .ToArray();
+
+        Assert.NotEmpty(nonNullHandles);
+        Assert.All(nonNullHandles, materialHandle =>
+        {
+            Assert.NotNull(materialHandle.Value);
+            Assert.False(string.IsNullOrWhiteSpace(materialHandle.Value!.GetDisplayName));
+            Assert.True(materialHandle.Value.TextureTable.IsResolved);
+        });
+    }
+
+    [Fact]
+    public void CommonMpRpg7AndFlareColorMapsHaveNullPs3GfxImagePayloadCells()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 10090);
+        var assetList = reader.GetAssetList();
+
+        AssertNullGfxImagePayloadCell(
+            assetList,
+            "weapon_rpg7_stow",
+            "m/mtl_weapon_rpg7",
+            "weapon_rpg7_2_col");
+        AssertNullGfxImagePayloadCell(
+            assetList,
+            "mil_emergency_flare",
+            "m/mtl_emergency_flare",
+            "emergency_flare_col");
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -587,6 +649,43 @@ public sealed class CommonMpPrefixTests
         }
 
         throw new FileNotFoundException($"Could not find repository file '{relativePath}'.");
+    }
+
+    private static void AssertNullGfxImagePayloadCell(
+        XAssetList assetList,
+        string modelName,
+        string materialName,
+        string imageName)
+    {
+        var model = assetList.Assets
+            .Select(asset => asset.XAssetPtr.Value)
+            .OfType<XModel>()
+            .Single(xmodel => xmodel.Name == modelName);
+
+        var material = model.MaterialHandles.Value?
+            .Select(pointer => pointer.Value)
+            .OfType<Material>()
+            .First(value => value.GetDisplayName == materialName);
+
+        Assert.NotNull(material);
+
+        var image = material!.TextureTable.Value?
+            .Where(texture => texture.Semantic == MaterialTextureSemantic.TS_COLOR_MAP)
+            .Select(texture => texture.Info.Image?.Value)
+            .Single(value => value?.Name == imageName);
+
+        Assert.NotNull(image);
+        Assert.Equal(0, image!.LoadDef.Raw);
+        Assert.Equal(PointerKind.Null, image.LoadDef.Kind);
+        Assert.Null(image.LoadDef.Address);
+        Assert.Null(image.LoadDef.Value);
+
+        // GfxImage root offset +0x28 is the PS3 Load_GfxImage payload cell.
+        // The object model splits the root around that cell, so the raw pointer
+        // value is the byte-for-byte value read from root +0x28.
+        Span<byte> raw = stackalloc byte[sizeof(int)];
+        BinaryPrimitives.WriteInt32BigEndian(raw, image.LoadDef.Raw);
+        Assert.Equal(new byte[] { 0x00, 0x00, 0x00, 0x00 }, raw.ToArray());
     }
 
     private static void AssertFxSampleArray<T>(

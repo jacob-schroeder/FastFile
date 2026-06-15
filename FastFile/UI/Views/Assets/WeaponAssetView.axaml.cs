@@ -4,7 +4,6 @@ using FastFile.Models.Assets.XModels;
 using FastFile.Models.Assets.Weapons;
 using FastFile.Models.Data;
 using UI.Models;
-using System.Collections.Generic;
 using System.Globalization;
 using FastFile.Models.Zone;
 
@@ -23,7 +22,7 @@ public partial class WeaponAssetView : UserControl
     public WeaponAssetView(WeaponVariantDef weapon) : this()
     {
         _weapon = weapon;
-        _previewModel = ResolvePreviewModel(weapon);
+        _previewModel = XModelPreviewHelper.ResolveWeaponPreviewModel(weapon);
 
         WeaponNameTextBlock.Text = GetDisplayName(weapon);
         WeaponSummaryTextBlock.Text = "Weapon variant asset";
@@ -39,14 +38,13 @@ public partial class WeaponAssetView : UserControl
             return;
         }
 
-        var window = new XModelViewerWindow(_previewModel, GetDisplayName(_weapon));
         if (VisualRoot is Window owner)
         {
-            window.Show(owner);
+            XModelPreviewHelper.Show(_previewModel, owner, GetDisplayName(_weapon));
             return;
         }
 
-        window.Show();
+        XModelPreviewHelper.Show(_previewModel, contextName: GetDisplayName(_weapon));
     }
 
     private static string GetDisplayName(WeaponVariantDef weapon)
@@ -58,7 +56,7 @@ public partial class WeaponAssetView : UserControl
 
     private static KeyValueListItem[] BuildSummaryItems(WeaponVariantDef weapon)
     {
-        var previewModel = ResolvePreviewModel(weapon);
+        var previewModel = XModelPreviewHelper.ResolveWeaponPreviewModel(weapon);
 
         return
         [
@@ -98,52 +96,6 @@ public partial class WeaponAssetView : UserControl
             new("Original Accuracy Knot Count", weapon.originalAccuracyGraphKnotCount.ToString("N0", CultureInfo.CurrentCulture)),
             new("WeaponDef Alt Ratio", weapon.dpadIconRatio.ToString())
         ];
-    }
-
-    private static XModel? ResolvePreviewModel(WeaponVariantDef weapon)
-    {
-        var weaponDef = weapon.WeaponDef;
-        if (weaponDef is null)
-        {
-            return null;
-        }
-
-        return ResolveFirstModel(weaponDef.gunXModel) ??
-               ResolveModel(weaponDef.handXModel) ??
-               ResolveFirstModel(weaponDef.WorldGunXModel) ??
-               ResolveFirstModel(weaponDef.WorldModelPointers) ??
-               ResolveModel(weaponDef.ProjectileModel);
-    }
-
-    private static XModel? ResolveFirstModel(XPointer<XPointer<XModel>[]>? pointerArray)
-    {
-        if (pointerArray is not { IsResolved: true, Value: { } pointers })
-        {
-            return null;
-        }
-
-        return ResolveFirstModel(pointers);
-    }
-
-    private static XModel? ResolveFirstModel(IEnumerable<XPointer<XModel>?> pointers)
-    {
-        foreach (var pointer in pointers)
-        {
-            var model = ResolveModel(pointer);
-            if (model is not null)
-            {
-                return model;
-            }
-        }
-
-        return null;
-    }
-
-    private static XModel? ResolveModel(XPointer<XModel>? pointer)
-    {
-        return pointer is { IsResolved: true, Value: { } model }
-            ? model
-            : null;
     }
 
     private static string GetResolvedString(XPointer<string>? pointer)
