@@ -2,8 +2,10 @@ using FastFile.Logic.Archive;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Effects;
 using FastFile.Models.Assets.Fonts;
+using FastFile.Models.Assets.GfxLightDef;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.Physics;
+using FastFile.Models.Assets.RawFiles;
 using FastFile.Models.Assets.SoundAliasList;
 using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Assets.Tracers;
@@ -523,6 +525,32 @@ public sealed class CommonMpPrefixTests
         Assert.NotNull(weapon.WeaponDefPtr.Value);
     }
 
+    [Fact]
+    public void CommonMpAllAssetsThrough10090ParsesCurrentPs3LoaderCoverage()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 10090);
+        var assetList = reader.GetAssetList();
+
+        var light = Assert.IsType<GfxLightDef>(assetList.Assets[10059].XAssetPtr.Value);
+        Assert.Equal("light_point_linear", light.Name);
+        Assert.Equal(unchecked((int)0x62000000), light.Unknown8);
+        Assert.Equal(1, light.UnknownC);
+        Assert.Equal(PointerKind.Insert, light.Image.Kind);
+        Assert.Equal(XFILE_BLOCK.TEMP, light.Image.Address?.Block);
+        Assert.Equal(",falloff_linear", light.Image.Value?.Name);
+
+        var rawFile = Assert.IsType<RawFile>(assetList.Assets[10090].XAssetPtr.Value);
+        Assert.Equal("common_mp", rawFile.Name);
+        Assert.NotEmpty(rawFile.Buffer);
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -635,8 +663,8 @@ public sealed class CommonMpPrefixTests
     {
         Assert.NotNull(address);
         Assert.True(
-            address!.Value.Block is XFILE_BLOCK.LARGE or XFILE_BLOCK.XFILE_BLOCK_VERTEX,
-            $"Expected surface payload in LARGE or VERTEX, got {FormatAddress(address)}.");
+            address!.Value.Block is XFILE_BLOCK.LARGE or XFILE_BLOCK.PHYSICAL or XFILE_BLOCK.XFILE_BLOCK_VERTEX,
+            $"Expected surface payload in LARGE, PHYSICAL, or VERTEX, got {FormatAddress(address)}.");
     }
 
     private static void AssertFxVisualBranch(FxElemDef elem)

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using FastFile.Logic.Zone;
 using FastFile.Models.Assets.Effects;
+using FastFile.Models.Assets.ImpactFx;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
 using FastFile.Models.Zone.Attributes;
@@ -78,6 +79,25 @@ public sealed class FxAssetReader : XAssetReadHandler
         OffsetIsAliasCell = true
     };
 
+    private static readonly XPointerFieldAttribute FxEffectDefWrapperAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Alias,
+        Target = XPointerTarget.Object,
+        PayloadBlock = XFILE_BLOCK.TEMP,
+        UseCurrentStream = true,
+        Alignment = 4,
+        OffsetIsAliasCell = true
+    };
+
+    private static readonly XPointerFieldAttribute FxImpactEntryArrayAttribute = new()
+    {
+        ResolutionKind = PointerResolutionKind.Direct,
+        Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
+        Alignment = 4,
+        CountMember = nameof(FxImpactTable.EntryCount)
+    };
+
     private static readonly XPointerFieldAttribute CStringAttribute = new()
     {
         ResolutionKind = PointerResolutionKind.Direct,
@@ -132,6 +152,14 @@ public sealed class FxAssetReader : XAssetReadHandler
     {
         switch (value)
         {
+            case FxImpactTable impactTable:
+                Load_FxImpactTable(impactTable, context);
+                return true;
+
+            case FxImpactEntry impactEntry:
+                Load_FxImpactEntry(impactEntry, context);
+                return true;
+
             case FxEffectDef effect:
                 Load_FxEffectDef(effect, context);
                 return true;
@@ -154,6 +182,42 @@ public sealed class FxAssetReader : XAssetReadHandler
 
             default:
                 return false;
+        }
+    }
+
+    // PS3 0x1140e8 / Xbox Load_FxImpactTable
+    private static void Load_FxImpactTable(
+        FxImpactTable table,
+        IXAssetReaderContext context)
+    {
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            context.ResolvePointerProperty(table, nameof(FxImpactTable.NamePtr));
+            ResolveNonNullCurrentStreamPointer(table.Entries, context, FxImpactEntryArrayAttribute, table);
+        });
+    }
+
+    // PS3 0x113f90 / Xbox Load_FxImpactEntry
+    private static void Load_FxImpactEntry(
+        FxImpactEntry entry,
+        IXAssetReaderContext context)
+    {
+        Load_FxEffectDefPtrArray(entry.EffectDefs0, context, entry);
+        Load_FxEffectDefPtrArray(entry.EffectDefs7C, context, entry);
+    }
+
+    // PS3 0x113f08 -> 0x1131d8 / Xbox Load_FxEffectDefPtrArray / Ptr
+    private static void Load_FxEffectDefPtrArray(
+        IEnumerable<XPointer<FxEffectDef>> pointers,
+        IXAssetReaderContext context,
+        object owner)
+    {
+        foreach (var pointer in pointers)
+        {
+            context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
+            {
+                context.ResolvePointerValue(pointer, FxEffectDefWrapperAttribute, owner);
+            });
         }
     }
 

@@ -209,6 +209,7 @@ public partial class XFileReader
                 XPointerTarget.CString,
                 attr.ResolutionKind,
                 attr.PayloadBlock,
+                readOffsetPayload: attr.ReadOffsetPayload,
                 alignment: attr.Alignment,
                 offsetIsAliasCell: attr.OffsetIsAliasCell));
     }
@@ -263,11 +264,13 @@ public partial class XFileReader
                     XPointerTarget.ByteArray,
                     attr.ResolutionKind,
                     attr.Alignment,
+                    readOffsetPayload: attr.ReadOffsetPayload,
                     offsetIsAliasCell: attr.OffsetIsAliasCell)
                 : XPointerMaterializationPlan.AtBlockPosition(
                     XPointerTarget.ByteArray,
                     attr.ResolutionKind,
                     attr.PayloadBlock,
+                    readOffsetPayload: attr.ReadOffsetPayload,
                     alignment: attr.Alignment,
                     offsetIsAliasCell: attr.OffsetIsAliasCell));
 
@@ -311,7 +314,7 @@ public partial class XFileReader
                 return;
             }
 
-            SeekOrVerify(address.Offset);
+            SeekOrPosition(address.Offset, materialization.IsOffset && attr.ReadOffsetPayload);
             ptr.Value = ReadBytes(count);
             CacheObject(address, ptr.Value);
         });
@@ -391,7 +394,7 @@ public partial class XFileReader
                 return;
             }
 
-            SeekOrVerify(address.Offset);
+            SeekOrPosition(address.Offset, materialization.IsOffset && attr.ReadOffsetPayload);
 
             var value = Activator.CreateInstance(targetType)
                         ?? throw new InvalidDataException($"Could not create {targetType.Name}.");
@@ -505,7 +508,7 @@ public partial class XFileReader
                 return;
             }
 
-            SeekOrVerify(address.Offset);
+            SeekOrPosition(address.Offset, materialization.IsOffset && attr.ReadOffsetPayload);
 
             var values = Array.CreateInstance(elementType, count);
             for (var i = 0; i < count; i++)
@@ -654,6 +657,7 @@ public partial class XFileReader
                 XPointerTarget.Object,
                 attr.ResolutionKind,
                 attr.Alignment,
+                readOffsetPayload: attr.ReadOffsetPayload,
                 offsetIsAliasCell: attr.OffsetIsAliasCell);
         }
 
@@ -666,6 +670,7 @@ public partial class XFileReader
             XPointerTarget.Object,
             attr.ResolutionKind,
             payloadBlock,
+            readOffsetPayload: attr.ReadOffsetPayload,
             offsetIsAliasCell: attr.OffsetIsAliasCell);
     }
 
@@ -679,12 +684,14 @@ public partial class XFileReader
                 target,
                 attr.ResolutionKind,
                 attr.Alignment > 0 ? attr.Alignment : alignment,
+                readOffsetPayload: attr.ReadOffsetPayload,
                 offsetIsAliasCell: attr.OffsetIsAliasCell)
             : XPointerMaterializationPlan.AllocatedBlock(
                 target,
                 attr.ResolutionKind,
                 attr.PayloadBlock,
                 attr.Alignment > 0 ? attr.Alignment : alignment,
+                readOffsetPayload: attr.ReadOffsetPayload,
                 offsetIsAliasCell: attr.OffsetIsAliasCell);
     }
 
@@ -765,6 +772,17 @@ public partial class XFileReader
             : string.Empty;
 
         return $"pointer raw 0x{pointer.Raw:X8}, kind {pointer.Kind}{address}";
+    }
+
+    private void SeekOrPosition(int offset, bool allowForwardSeek)
+    {
+        if (!allowForwardSeek)
+        {
+            SeekOrVerify(offset);
+            return;
+        }
+
+        _blocks.ActiveBlock.Seek(offset);
     }
 
     private void TraceWeaponResolve(Type type, PropertyInfo prop, object value, string phase)

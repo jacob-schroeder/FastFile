@@ -64,10 +64,12 @@ public partial class XFileReader : IXAssetReaderContext
     [
         new MenuAssetReader(),
         new FontAssetReader(),
+        new LightDefAssetReader(),
         new MaterialAssetReader(),
         new TracerAssetReader(),
         new SoundAssetReader(),
         new FxAssetReader(),
+        new VehicleAssetReader(),
         new WeaponAssetReader(),
         new PhysCollmapAssetReader(),
         new XAnimAssetReader(),

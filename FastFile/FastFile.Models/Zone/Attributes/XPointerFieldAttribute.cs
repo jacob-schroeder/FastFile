@@ -12,6 +12,7 @@ public sealed class XPointerFieldAttribute : Attribute
     public XFILE_BLOCK PayloadBlock { get; init; } = XFILE_BLOCK.LARGE;
     public bool OffsetIsAliasCell { get; init; }
     public bool UseCurrentStream { get; init; }
+    public bool ReadOffsetPayload { get; init; }
     public int Alignment { get; init; } = 4;
     public string? CountMember { get; init; }
 }
