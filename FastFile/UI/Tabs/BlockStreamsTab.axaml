@@ -78,7 +78,7 @@
                         Background="#252629"
                         BorderBrush="#3C3F44"
                         BorderThickness="0,0,0,1">
-                    <Grid ColumnDefinitions="*,Auto"
+                    <Grid ColumnDefinitions="*,Auto,Auto"
                           ColumnSpacing="16">
                         <StackPanel Spacing="3">
                             <TextBlock x:Name="SelectedBlockNameTextBlock"
@@ -92,7 +92,28 @@
                                        Foreground="#BFC0C9" />
                         </StackPanel>
 
-                        <Border Grid.Column="1"
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    VerticalAlignment="Center">
+                            <TextBox x:Name="OffsetJumpTextBox"
+                                     Width="132"
+                                     FontFamily="Menlo, Consolas, Courier New"
+                                     FontSize="12"
+                                     KeyDown="OffsetJumpTextBox_KeyDown"
+                                     PlaceholderText="0x00000000" />
+                            <Button Content="Jump"
+                                    Click="OffsetJumpButton_Click" />
+                            <TextBlock x:Name="OffsetJumpStatusTextBlock"
+                                       MinWidth="120"
+                                       FontSize="12"
+                                       Foreground="#DB5860"
+                                       IsVisible="False"
+                                       Text=""
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <Border Grid.Column="2"
                                 Padding="10,5"
                                 CornerRadius="999"
                                 Background="#1E1F22"
@@ -169,11 +190,19 @@
                                 Background="#151619"
                                 ClipToBounds="True"
                                 Padding="0,9,12,9">
-                            <TextBlock x:Name="AsciiTextBlock"
-                                       FontFamily="Menlo, Consolas, Courier New"
-                                       FontSize="12"
-                                       Foreground="#BFC0C9"
-                                       Text="" />
+                            <avaloniaEdit:TextEditor x:Name="AsciiTextEditor"
+                                                     Background="#151619"
+                                                     FontFamily="Menlo, Consolas, Courier New"
+                                                     FontSize="12"
+                                                     Foreground="#BFC0C9"
+                                                     HorizontalAlignment="Stretch"
+                                                     HorizontalScrollBarVisibility="Disabled"
+                                                     IsReadOnly="True"
+                                                     Padding="0"
+                                                     ShowLineNumbers="False"
+                                                     VerticalAlignment="Stretch"
+                                                     VerticalScrollBarVisibility="Hidden"
+                                                     WordWrap="False" />
                         </Border>
                     </Grid>
 
