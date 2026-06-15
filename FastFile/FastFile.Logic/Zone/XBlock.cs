@@ -11,13 +11,14 @@ public class XBlock
     private readonly int _declaredSize;
     
     public int Position => (int)_stream.Position;
+    public int DeclaredSize => _declaredSize;
     public ReadOnlySpan<byte> WrittenSpan => _stream.GetBuffer().AsSpan(0, (int)_stream.Length);
     public ReadOnlySpan<byte> BlockSpan => _stream.GetBuffer().AsSpan(0, LogicalSize);
     
     public XBlockAddress Address => new XBlockAddress(BlockType, Position);
 
     private bool CanGrow => _declaredSize == 0;
-    private int LogicalSize => Math.Max(_declaredSize, (int)_stream.Length);
+    public int LogicalSize => Math.Max(_declaredSize, (int)_stream.Length);
     
     public XBlock(XFILE_BLOCK blockType, int  capacity)
     {

@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     private FastFileDocument? _document;
     private DB_Header? _fastFileHeader;
     private XFile? _zoneHeader;
+    private IReadOnlyList<XBlockStreamSnapshot> _blockStreams = [];
     private XAssetList? _assetList;
     private string? _currentFileName;
     private string? _currentFilePath;
@@ -50,16 +51,19 @@ public partial class MainWindow : Window
     {
         var isFastFile = string.Equals(tabName, "FastFile", StringComparison.Ordinal);
         var isZone = string.Equals(tabName, "Zone", StringComparison.Ordinal);
+        var isBlockStreams = string.Equals(tabName, "BlockStreams", StringComparison.Ordinal);
         var isAssets = string.Equals(tabName, "Assets", StringComparison.Ordinal);
         var isLog = string.Equals(tabName, "Log", StringComparison.Ordinal);
 
         FastFileTabView.IsVisible = isFastFile;
         ZoneTabView.IsVisible = isZone;
+        BlockStreamsTabView.IsVisible = isBlockStreams;
         AssetsTabView.IsVisible = isAssets;
         LogTabView.IsVisible = isLog;
 
         FastFileMainTabButton.Classes.Set("active", isFastFile);
         ZoneMainTabButton.Classes.Set("active", isZone);
+        BlockStreamsMainTabButton.Classes.Set("active", isBlockStreams);
         AssetsMainTabButton.Classes.Set("active", isAssets);
         LogMainTabButton.Classes.Set("active", isLog);
     }
@@ -70,6 +74,7 @@ public partial class MainWindow : Window
         _buffer = _document.Buffer;
         _fastFileHeader = _document.Header;
         _zoneHeader = _document.ZoneHeader;
+        _blockStreams = _document.BlockStreams;
         _assetList = _document.AssetList;
         _currentFileName = null;
         _currentFilePath = null;
@@ -79,6 +84,7 @@ public partial class MainWindow : Window
 
         UpdateFastFileHeaderView();
         UpdateZoneTabView();
+        UpdateBlockStreamsTabView();
         UpdateAssetsTabView();
         UpdateDocumentState();
 
@@ -140,17 +146,20 @@ public partial class MainWindow : Window
             _buffer = parseResult.Buffer;
             _fastFileHeader = parseResult.Header;
             _zoneHeader = parseResult.ZoneHeader;
+            _blockStreams = parseResult.BlockStreams;
             _assetList = parseResult.AssetList;
             _document = FastFileDocument.FromParsed(
                 parseResult.Buffer,
                 parseResult.Header,
                 parseResult.ZoneHeader,
                 parseResult.AssetList,
-                parseResult.Zone);
+                parseResult.Zone,
+                parseResult.BlockStreams);
             AddWarnings("FastFileReader", parseResult.Warnings);
 
             UpdateFastFileHeaderView();
             UpdateZoneTabView();
+            UpdateBlockStreamsTabView();
             UpdateAssetsTabView();
             UpdateDocumentState();
 
@@ -177,6 +186,7 @@ public partial class MainWindow : Window
         DB_Header Header,
         XFile ZoneHeader,
         XAssetList AssetList,
+        IReadOnlyList<XBlockStreamSnapshot> BlockStreams,
         byte[] Zone,
         IReadOnlyList<string> Warnings);
 
@@ -190,12 +200,14 @@ public partial class MainWindow : Window
         var zoneReader = new XFileReader(zone, assetReadProgress).Read().DumpBlocks();
         var zoneHeader = zoneReader.GetHeader();
         var assetList = zoneReader.GetAssetList();
+        var blockStreams = zoneReader.GetBlockStreamSnapshots();
 
         return new ParseResult(
             buffer,
             fastFileHeader,
             zoneHeader,
             assetList,
+            blockStreams,
             zone,
             [..ffReader.Warnings]);
     }
@@ -286,6 +298,11 @@ public partial class MainWindow : Window
     private void UpdateZoneTabView()
     {
         ZoneTabView.UpdateZone(_zoneHeader,  _assetList);
+    }
+
+    private void UpdateBlockStreamsTabView()
+    {
+        BlockStreamsTabView.UpdateBlockStreams(_zoneHeader, _blockStreams);
     }
 
     private void UpdateAssetsTabView()

@@ -276,6 +276,14 @@ internal sealed class XBlockStream
         return [.._blocks.Select(block => block.WrittenSpan.Length)];
     }
 
+    public IReadOnlyList<XBlockStreamSnapshot> GetBlockStreamSnapshots()
+    {
+        return [.._blocks.Select(block => new XBlockStreamSnapshot(
+            block.BlockType,
+            block.DeclaredSize,
+            block.BlockSpan.ToArray()))];
+    }
+
     private static int ToDBAllocStreamPosMask(int alignment)
     {
         if (alignment <= 0)

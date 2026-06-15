@@ -960,5 +960,10 @@ public partial class XFileReader : IXAssetReaderContext
         return _blocks.GetWrittenBlockSizes();
     }
 
+    public IReadOnlyList<XBlockStreamSnapshot> GetBlockStreamSnapshots()
+    {
+        return _blocks.GetBlockStreamSnapshots();
+    }
+
     #endregion
 }

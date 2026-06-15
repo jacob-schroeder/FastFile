@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using FastFile.Models.Archive;
 using FastFile.Models.Data;
 using FastFile.Models.Zone;
@@ -14,6 +16,7 @@ public sealed class FastFileDocument
     public XFile ZoneHeader { get; init; } = null!;
     public XAssetList AssetList { get; init; } = null!;
     public byte[]? ZoneBuffer { get; init; }
+    public IReadOnlyList<XBlockStreamSnapshot> BlockStreams { get; init; } = [];
 
     public static FastFileDocument CreateNew()
     {
@@ -38,7 +41,8 @@ public sealed class FastFileDocument
                 BlockSize = new int[(int)XFILE_BLOCK.MAX_XFILE_COUNT]
             },
             AssetList = CreateEmptyAssetList(),
-            ZoneBuffer = []
+            ZoneBuffer = [],
+            BlockStreams = CreateEmptyBlockStreams()
         };
     }
 
@@ -47,7 +51,8 @@ public sealed class FastFileDocument
         DB_Header header,
         XFile zoneHeader,
         XAssetList assetList,
-        byte[] zoneBuffer)
+        byte[] zoneBuffer,
+        IReadOnlyList<XBlockStreamSnapshot> blockStreams)
     {
         return new FastFileDocument
         {
@@ -56,8 +61,17 @@ public sealed class FastFileDocument
             Header = header,
             ZoneHeader = zoneHeader,
             AssetList = assetList,
-            ZoneBuffer = zoneBuffer
+            ZoneBuffer = zoneBuffer,
+            BlockStreams = blockStreams
         };
+    }
+
+    private static IReadOnlyList<XBlockStreamSnapshot> CreateEmptyBlockStreams()
+    {
+        return Enum.GetValues<XFILE_BLOCK>()
+            .Where(block => block != XFILE_BLOCK.MAX_XFILE_COUNT)
+            .Select(block => new XBlockStreamSnapshot(block, 0, []))
+            .ToArray();
     }
 
     private static XAssetList CreateEmptyAssetList()

@@ -1,0 +1,190 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:avaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             xmlns:models="clr-namespace:UI.Models"
+             x:Class="UI.Tabs.BlockStreamsTab">
+    <Grid ColumnDefinitions="1*,4*"
+          Background="#1E1F22">
+        <Border Grid.Column="0"
+                Background="#252629"
+                BorderBrush="#4E5157"
+                BorderThickness="1,1,0,1">
+            <Grid RowDefinitions="Auto,*">
+                <Border Padding="14,12"
+                        BorderBrush="#3C3F44"
+                        BorderThickness="0,0,0,1">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="XFILE_BLOCK"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="#F4F4F5" />
+                        <TextBlock x:Name="BlockStreamsSubtitleTextBlock"
+                                   FontSize="12"
+                                   Foreground="#BFC0C9"
+                                   Text="Open a fastfile." />
+                    </StackPanel>
+                </Border>
+
+                <ListBox x:Name="BlockStreamsListBox"
+                         Grid.Row="1"
+                         Background="#252629"
+                         BorderThickness="0"
+                         SelectionChanged="BlockStreamsListBox_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:BlockStreamDisplayItem">
+                            <Border Padding="12,10"
+                                    BorderBrush="#34373C"
+                                    BorderThickness="0,0,0,1">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="10">
+                                    <Border Width="30"
+                                            Height="24"
+                                            CornerRadius="5"
+                                            Background="#1E1F22"
+                                            BorderBrush="#4E5157"
+                                            BorderThickness="1">
+                                        <TextBlock Text="{Binding Index}"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#D7D8DE"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="2">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F4F4F5" />
+                                        <TextBlock Text="{Binding SizeText}"
+                                                   FontSize="11"
+                                                   Foreground="#A9ABB6" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <Border Grid.Column="1"
+                Background="#151619"
+                BorderBrush="#4E5157"
+                BorderThickness="1">
+            <Grid RowDefinitions="Auto,*">
+                <Border Padding="16,12"
+                        Background="#252629"
+                        BorderBrush="#3C3F44"
+                        BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="16">
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="SelectedBlockNameTextBlock"
+                                       Text="Select a block stream"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F4F4F5" />
+                            <TextBlock x:Name="SelectedBlockSizeTextBlock"
+                                       Text="Offsets, raw data, and ASCII will appear here."
+                                       FontSize="12"
+                                       Foreground="#BFC0C9" />
+                        </StackPanel>
+
+                        <Border Grid.Column="1"
+                                Padding="10,5"
+                                CornerRadius="999"
+                                Background="#1E1F22"
+                                BorderBrush="#4E5157"
+                                BorderThickness="1"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="SelectedBlockDeclaredSizeTextBlock"
+                                       Text="0 bytes"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#F4F4F5" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1"
+                      RowDefinitions="Auto,*">
+                    <Border Padding="12,9"
+                            Background="#1A1B1E"
+                            BorderBrush="#2D3035"
+                            BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="112,500,*,16"
+                              ColumnSpacing="0">
+                            <TextBlock Text="OFFSET"
+                                       FontFamily="Menlo, Consolas, Courier New"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#9CA3AF" />
+                            <TextBlock Grid.Column="1"
+                                       Text="RAW DATA"
+                                       FontFamily="Menlo, Consolas, Courier New"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#9CA3AF" />
+                            <TextBlock Grid.Column="2"
+                                       Text="ASCII"
+                                       FontFamily="Menlo, Consolas, Courier New"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#9CA3AF" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="1"
+                          ColumnDefinitions="112,500,*"
+                          ColumnSpacing="0"
+                          ClipToBounds="True">
+                        <Border Background="#151619"
+                                ClipToBounds="True"
+                                Padding="12,9,0,9">
+                            <TextBlock x:Name="OffsetTextBlock"
+                                       FontFamily="Menlo, Consolas, Courier New"
+                                       FontSize="12"
+                                       Foreground="#7DD3FC"
+                                       Text="" />
+                        </Border>
+
+                        <avaloniaEdit:TextEditor x:Name="RawDataTextEditor"
+                                                 Grid.Column="1"
+                                                 Background="#151619"
+                                                 FontFamily="Menlo, Consolas, Courier New"
+                                                 FontSize="12"
+                                                 Foreground="#E8E9EE"
+                                                 HorizontalAlignment="Stretch"
+                                                 HorizontalScrollBarVisibility="Disabled"
+                                                 IsReadOnly="True"
+                                                 Padding="0,9"
+                                                 ShowLineNumbers="False"
+                                                 VerticalAlignment="Stretch"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 WordWrap="False" />
+
+                        <Border Grid.Column="2"
+                                Background="#151619"
+                                ClipToBounds="True"
+                                Padding="0,9,12,9">
+                            <TextBlock x:Name="AsciiTextBlock"
+                                       FontFamily="Menlo, Consolas, Courier New"
+                                       FontSize="12"
+                                       Foreground="#BFC0C9"
+                                       Text="" />
+                        </Border>
+                    </Grid>
+
+                    <TextBlock x:Name="EmptyHexTextBlock"
+                               Text="Open a fastfile and select a block stream."
+                               FontSize="14"
+                               Foreground="#9CA3AF"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
