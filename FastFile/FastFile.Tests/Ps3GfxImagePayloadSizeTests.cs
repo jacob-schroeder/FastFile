@@ -39,6 +39,34 @@ public sealed class Ps3GfxImagePayloadSizeTests
         Assert.Equal(expectedSize, size);
     }
 
+    [Theory]
+    [InlineData(unchecked((int)0x01AAE485), 1024)]
+    [InlineData(unchecked((int)0x01AAE490), 1024)]
+    [InlineData(unchecked((int)0x01AAE49C), 1024)]
+    [InlineData(unchecked((int)0x01AAE49E), 1024)]
+    [InlineData(unchecked((int)0x00AAFE9F), 1024)]
+    [InlineData(unchecked((int)0x01AAE492), 512)]
+    [InlineData(unchecked((int)0x01AAAB8B), 512)]
+    [InlineData(unchecked((int)0x01A9FF81), 256)]
+    [InlineData(unchecked((int)0x0156FF81), 256)]
+    [InlineData(unchecked((int)0x01A9AA86), 128)]
+    [InlineData(unchecked((int)0x01AA5686), 128)]
+    [InlineData(unchecked((int)0x0156AA86), 128)]
+    [InlineData(unchecked((int)0x01AAE486), 128)]
+    [InlineData(unchecked((int)0x01AAE488), 256)]
+    public void ComputeMipLevelByteCount_UsesExactPs3FormatKeyTable(
+        int formatKey,
+        int expectedSize)
+    {
+        var size = Ps3GfxImagePayloadSize.ComputeMipLevelByteCount(
+            formatKey,
+            width: 16,
+            height: 16,
+            depth: 1);
+
+        Assert.Equal(expectedSize, size);
+    }
+
     [Fact]
     public void ComputeByteCount_AccumulatesMipChainAlignsAndExpandsCubeFaces()
     {
@@ -86,5 +114,24 @@ public sealed class Ps3GfxImagePayloadSizeTests
         var size = Ps3GfxImagePayloadSize.ComputeByteCount(image);
 
         Assert.Equal(0x5580, size);
+    }
+
+    [Fact]
+    public void ComputeByteCount_UsesExactPs3FormatKeyForDistortionRippleTrail()
+    {
+        var image = new GfxImage
+        {
+            FormatByte = 0x9E,
+            TextureFlags = 0x0001AAE4,
+            LevelCount = 9,
+            Width = 256,
+            Height = 64,
+            Depth = 1,
+            CardMemoryPlatformWords = [unchecked((int)0x01000040), 0x00010900]
+        };
+
+        var size = Ps3GfxImagePayloadSize.ComputeByteCount(image);
+
+        Assert.Equal(0x15580, size);
     }
 }

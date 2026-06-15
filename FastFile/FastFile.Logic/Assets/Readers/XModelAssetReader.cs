@@ -122,6 +122,7 @@ public sealed class XModelAssetReader : XAssetReadHandler
         {
             TraceXModel(context, "Load_XModelLodInfo modelSurfs begin");
             context.ResolvePointerValue(lodInfo.ModelSurfs, XModelSurfsWrapperAttribute, lodInfo);
+            ApplyXModelSurfsFixup(lodInfo);
             TraceXModel(
                 context,
                 $"Load_XModelLodInfo modelSurfs end name=\"{lodInfo.ModelSurfs.Value?.Name}\"");
@@ -168,6 +169,30 @@ public sealed class XModelAssetReader : XAssetReadHandler
                 context.ResolvePointerValue(material, MaterialWrapperAttribute, model);
             });
         }
+    }
+
+    // PS3 0x118868 / Xbox Load_XModelSurfsFixup copies the materialized
+    // XModelSurfs part bits into the owning lod entry and mirrors the resolved
+    // surfs pointer into lodInfo+0x24.
+    private static void ApplyXModelSurfsFixup(XModelLodInfo lodInfo)
+    {
+        if (lodInfo.ModelSurfs.Value is not { } modelSurfs)
+            return;
+
+        Array.Copy(
+            modelSurfs.PartBits,
+            lodInfo.PartBits,
+            Math.Min(modelSurfs.PartBits.Length, lodInfo.PartBits.Length));
+
+        lodInfo.Surfs = new XPointer<XSurface[]>
+        {
+            Raw = modelSurfs.Surfs.Raw,
+            Kind = modelSurfs.Surfs.Kind,
+            ResolutionKind = modelSurfs.Surfs.ResolutionKind,
+            PatchAddress = lodInfo.Surfs.PatchAddress,
+            Address = modelSurfs.Surfs.Address,
+            Value = modelSurfs.Surfs.Value
+        };
     }
 
     private static void TraceXModel(

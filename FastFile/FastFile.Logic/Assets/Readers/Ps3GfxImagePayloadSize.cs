@@ -5,6 +5,16 @@ namespace FastFile.Logic.Assets.Readers;
 
 internal static class Ps3GfxImagePayloadSize
 {
+    private enum Ps3FormatFamily
+    {
+        Unknown,
+        Linear8,
+        Linear16,
+        Linear32,
+        Block8,
+        Block16
+    }
+
     // PS3 0x4c7448 -> 0x357760 builds the format key from GfxImage+0x00/+0x04,
     // calls the mip-chain helper at 0x357628, then aligns the total to 0x80
     // and expands multi-face payloads by 6 when GfxImage+0x03 is non-zero.
@@ -69,21 +79,62 @@ internal static class Ps3GfxImagePayloadSize
         int height,
         int depth)
     {
-        // PS3 0x3573a8 switches on the full format key. For the common MW2
-        // image families we can preserve the exact byte-count behavior by
-        // grouping on the resolved CELL_GCM format id in the low byte.
-        return GetResolvedCellGcmFormat(formatKey) switch
+        var family = ResolvePs3FormatFamily(formatKey);
+
+        return family switch
         {
-            GfxImageFormats.GcmFormatDxt1 => checked(GetCompressedBlockWidth(width) * GetCompressedBlockWidth(height) * depth * 8),
-            GfxImageFormats.GcmFormatDxt23 or GfxImageFormats.GcmFormatDxt45 => checked(GetCompressedBlockWidth(width) * GetCompressedBlockWidth(height) * depth * 16),
-            GfxImageFormats.GcmFormatA8R8G8B8 => checked(width * height * depth * 4),
-            // common_mp material "gradient_center" uses PS3 format byte 0x8B.
-            // The PS3 size helper path must treat it as an uncompressed 16-bit
-            // texel family; otherwise the reader falls back to the inline
-            // card-memory words and drifts the source stream by megabytes.
-            0x8B => checked(width * height * depth * 2),
+            Ps3FormatFamily.Linear8 => checked(width * height * depth),
+            Ps3FormatFamily.Linear16 => checked(width * height * depth * 2),
+            Ps3FormatFamily.Linear32 => checked(width * height * depth * 4),
+            Ps3FormatFamily.Block8 => checked(GetCompressedBlockWidth(width) * GetCompressedBlockWidth(height) * depth * 8),
+            Ps3FormatFamily.Block16 => checked(GetCompressedBlockWidth(width) * GetCompressedBlockWidth(height) * depth * 16),
             _ => 0
         };
+    }
+
+    private static Ps3FormatFamily ResolvePs3FormatFamily(int formatKey)
+    {
+        // PS3 0x3573a8 switches on the exact full format key assembled by
+        // 0x357760 from `(flags << 8) | normalizedFormat`.
+        switch (formatKey)
+        {
+            case unchecked((int)0x01AAE485):
+            case unchecked((int)0x01AAE490):
+            case unchecked((int)0x01AAE49C):
+            case unchecked((int)0x01AAE49E):
+            case unchecked((int)0x00AAFE9F):
+                return Ps3FormatFamily.Linear32;
+
+            case unchecked((int)0x01AAE492):
+            case unchecked((int)0x01AAAB8B):
+                return Ps3FormatFamily.Linear16;
+
+            case unchecked((int)0x01A9FF81):
+            case unchecked((int)0x0156FF81):
+                return Ps3FormatFamily.Linear8;
+
+            case unchecked((int)0x01A9AA86):
+            case unchecked((int)0x01AA5686):
+            case unchecked((int)0x0156AA86):
+            case unchecked((int)0x01AAE486):
+                return Ps3FormatFamily.Block8;
+
+            case unchecked((int)0x01AAE488):
+                return Ps3FormatFamily.Block16;
+
+            default:
+                return GetResolvedCellGcmFormat(formatKey) switch
+                {
+                    GfxImageFormats.GcmFormatA8R8G8B8 => Ps3FormatFamily.Linear32,
+                    // common_mp material "gradient_center" uses PS3 format
+                    // byte 0x8B. The PS3 size helper path treats it as an
+                    // uncompressed 16-bit texel family.
+                    0x8B => Ps3FormatFamily.Linear16,
+                    GfxImageFormats.GcmFormatDxt1 => Ps3FormatFamily.Block8,
+                    GfxImageFormats.GcmFormatDxt23 or GfxImageFormats.GcmFormatDxt45 => Ps3FormatFamily.Block16,
+                    _ => Ps3FormatFamily.Unknown
+                };
+        }
     }
 
     private static int GetResolvedCellGcmFormat(int formatKey)

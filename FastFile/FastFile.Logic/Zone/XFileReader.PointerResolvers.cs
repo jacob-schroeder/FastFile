@@ -329,7 +329,17 @@ public partial class XFileReader
         if (attr.ResolutionKind == PointerResolutionKind.Unknown)
             throw new InvalidDataException($"{targetType.Name} pointer has unknown resolution semantics.");
 
-        if (TryResolveAliasCellSentinelPointer(pointerObj, attr, owner, targetType))
+        object? cachedAliasedObject = null;
+        if (attr.OffsetIsAliasCell &&
+            ptr.Kind == PointerKind.Offset &&
+            TryGetCachedAliasedObject(targetType, ptr, out cachedAliasedObject))
+        {
+            ptr.Value = (dynamic)cachedAliasedObject!;
+            CacheAliasCellObject(ptr.PatchAddress, cachedAliasedObject!);
+            return;
+        }
+
+        if (TryResolveAliasCellSentinelPointer(pointerObj, attr, targetType))
             return;
 
         var materialization = MaterializePointer(
@@ -397,7 +407,6 @@ public partial class XFileReader
     private bool TryResolveAliasCellSentinelPointer(
         object pointerObj,
         XPointerFieldAttribute attr,
-        object owner,
         Type targetType)
     {
         if (!attr.OffsetIsAliasCell ||
@@ -415,55 +424,23 @@ public partial class XFileReader
         if (aliasKind is not (PointerKind.Inline or PointerKind.Insert))
             return false;
 
-        // Some wrapper offsets point to a second-stage pointer cell. If that cell
-        // is still a sentinel, the engine loads through the cell and patches both
-        // references to the same materialized object.
-        var aliasPointer = CreateTypedPointer(
-            targetType,
-            aliasRaw,
-            attr.ResolutionKind,
-            aliasCellAddress);
+        // PS3 0x11dbd0 only copies the aliased cell's raw value into the current
+        // pointer cell. If that copied value is still a sentinel, the wrapper
+        // returns without consuming payload from the source stream.
+        if (pointer.PatchAddress is { } patchAddress)
+            _blocks.PatchInt32(patchAddress, aliasRaw);
 
-        ResolvePointerDynamic(aliasPointer, attr, owner);
-
-        var resolvedPointer = (FastFile.Models.Zone.Pointer)aliasPointer;
-        var resolvedValue = GetPointerValue(aliasPointer);
-        pointer.Address = resolvedPointer.Address;
-        SetPointerValue(pointerObj, resolvedValue);
-
-        if (pointer.PatchAddress is { } patchAddress &&
-            pointer.Address is { } address)
+        if (TryGetCachedAliasedObject(targetType, pointer, out var cachedAliasedObject))
         {
-            _blocks.PatchPointerCell(patchAddress, address);
+            SetPointerValue(pointerObj, cachedAliasedObject);
+            CacheAliasCellObject(pointer.PatchAddress, cachedAliasedObject);
         }
-
-        if (resolvedValue is { } value)
+        else
         {
-            CacheAliasCellObject(aliasCellAddress, value);
-            CacheAliasCellObject(pointer.PatchAddress, value);
+            SetPointerValue(pointerObj, null);
         }
 
         return true;
-    }
-
-    private static object CreateTypedPointer(
-        Type targetType,
-        int raw,
-        PointerResolutionKind resolutionKind,
-        XBlockAddress patchAddress)
-    {
-        var method = typeof(XPointerCodec)
-            .GetMethod(nameof(XPointerCodec.CreatePointer), BindingFlags.Public | BindingFlags.Static)!
-            .MakeGenericMethod(targetType);
-
-        return method.Invoke(null, [raw, resolutionKind, patchAddress])!;
-    }
-
-    private static object? GetPointerValue(object pointerObj)
-    {
-        return pointerObj.GetType()
-            .GetProperty(nameof(XPointer<object>.Value))!
-            .GetValue(pointerObj);
     }
 
     private static void SetPointerValue(

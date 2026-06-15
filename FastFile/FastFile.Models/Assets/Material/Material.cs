@@ -290,6 +290,8 @@ public class MaterialTextureDefInfo
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 public class MaterialTextureDef
 {
+    public int Offset { get; set; }
+
     [XField(Offset = 0x00)]
     public uint NameHash { get; set; }
 

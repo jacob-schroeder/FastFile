@@ -462,6 +462,67 @@ public sealed class CommonMpPrefixTests
         Assert.True(issues.Count == 0, string.Join(Environment.NewLine, issues.Take(20)));
     }
 
+    [Fact]
+    public void CommonMpPrefixThroughWeapon5606ParsesCurrentWeaponPath()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5606);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Weapon, assetList.Assets[5606].Type);
+        Assert.NotNull(assetList.Assets[5606].XAssetPtr.Value);
+        Assert.IsType<WeaponVariantDef>(assetList.Assets[5606].XAssetPtr.Value);
+    }
+
+    [Fact]
+    public void CommonMpPrefixThroughFx5665ParsesCurrentFxPath()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5665);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Fx, assetList.Assets[5665].Type);
+        var fx = Assert.IsType<FxEffectDef>(assetList.Assets[5665].XAssetPtr.Value);
+
+        Assert.Equal("props/throwingknife_geotrail", fx.Name);
+
+        var elemDefs = Assert.IsType<FxElemDef[]>(fx.ElemDefs.Value);
+        Assert.Equal(2, elemDefs.Length);
+        Assert.All(elemDefs, elem => Assert.Equal(FxElemType.Trail, elem.ElemType));
+    }
+
+    [Fact]
+    public void CommonMpPrefixThroughWeapon5756ParsesCurrentWeaponPath()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5756);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Weapon, assetList.Assets[5756].Type);
+
+        var weapon = Assert.IsType<WeaponVariantDef>(assetList.Assets[5756].XAssetPtr.Value);
+        Assert.Equal("gl_ak47_mp", weapon.InternalName);
+        Assert.NotNull(weapon.WeaponDefPtr.Value);
+    }
+
     private static string FindRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

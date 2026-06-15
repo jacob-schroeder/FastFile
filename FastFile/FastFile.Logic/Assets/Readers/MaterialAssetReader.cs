@@ -39,6 +39,7 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     {
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
         Alignment = 4,
         CountMember = nameof(Material.TextureCount)
     };
@@ -47,6 +48,7 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     {
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
         Alignment = 16,
         CountMember = nameof(Material.ConstantCount)
     };
@@ -55,6 +57,7 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     {
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ObjectArray,
+        UseCurrentStream = true,
         Alignment = 4,
         CountMember = nameof(Material.StateBitsCount)
     };
@@ -180,37 +183,79 @@ public sealed class MaterialAssetReader : XAssetReadHandler
     {
         context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
         {
-            TraceMaterial("begin", material);
+            TraceMaterial("begin", material, context);
             Load_MaterialInfo(material.Info, context);
 
-            TraceMaterial("ushortArray", material);
+            TraceMaterial("ushortArray", material, context);
             Load_MaterialUshortArray(material, context);
-            TraceMaterial("techset", material);
+            TraceMaterial("techset", material, context);
             Load_MaterialTechniqueSetPtr(material, context);
-            TraceMaterial("textureTable", material);
+            TraceMaterial("textureTable", material, context);
             Load_MaterialTextureDefArray(material, context);
-            TraceMaterial("constantTable", material);
+            TraceMaterial("constantTable", material, context);
             Load_MaterialConstantDefArray(material, context);
-            TraceMaterial("stateBits", material);
+            TraceMaterial("stateBits", material, context);
             Load_GfxStateBitsArray(material, context);
-            TraceMaterial("xstrings", material);
+            TraceMaterial("xstrings", material, context);
             Load_MaterialXStringArray(material, context);
-            TraceMaterial("end", material);
+            TraceMaterial("end", material, context);
         });
     }
 
     private static void TraceMaterial(
         string phase,
-        Material material)
+        Material material,
+        IXAssetReaderContext context)
     {
         if (Environment.GetEnvironmentVariable("FF_TRACE_MATERIAL") != "1")
             return;
 
         Console.Error.WriteLine(
-            $"Material {phase}: nameRaw=0x{material.Info?.NamePtr?.Raw ?? 0:X8} " +
+            $"Material {phase}: root=0x{material.Offset:X} " +
+            $"nameRaw=0x{material.Info?.NamePtr?.Raw ?? 0:X8} " +
+            $"ushortRaw=0x{material.UshortArray?.Raw ?? 0:X8} " +
             $"techsetRaw=0x{material.TechniqueSet?.Raw ?? 0:X8} " +
+            $"textureRaw=0x{material.TextureTable?.Raw ?? 0:X8} " +
+            $"constantRaw=0x{material.ConstantTable?.Raw ?? 0:X8} " +
+            $"stateRaw=0x{material.StateBitTable?.Raw ?? 0:X8} " +
+            $"xstringRaw=0x{material.UnknownXStringArray?.Raw ?? 0:X8} " +
             $"textures={material.TextureCount} constants={material.ConstantCount} " +
-            $"stateBits={material.StateBitsCount} xstrings={material.UnknownXStringCount}");
+            $"stateBits={material.StateBitsCount} xstrings={material.UnknownXStringCount} " +
+            $"block={context.ActiveStreamBlock} pos=0x{context.GetStreamPosition(context.ActiveStreamBlock):X}");
+    }
+
+    private static void TraceMaterialTexture(
+        string phase,
+        MaterialTextureDef texture,
+        IXAssetReaderContext context)
+    {
+        if (Environment.GetEnvironmentVariable("FF_TRACE_MATERIAL") != "1")
+            return;
+
+        Console.Error.WriteLine(
+            $"Material texture {phase}: root=0x{texture.Offset:X} semantic=0x{(byte)texture.Semantic:X2} " +
+            $"nameHash=0x{texture.NameHash:X8} dataRaw=0x{texture.Info?.Raw ?? 0:X8} " +
+            $"block={context.ActiveStreamBlock} pos=0x{context.GetStreamPosition(context.ActiveStreamBlock):X}");
+    }
+
+    private static void TraceGfxImage(
+        string phase,
+        GfxImage image,
+        IXAssetReaderContext context)
+    {
+        if (Environment.GetEnvironmentVariable("FF_TRACE_MATERIAL") != "1")
+            return;
+
+        Console.Error.WriteLine(
+            $"GfxImage {phase}: root=0x{image.Offset:X} loadDefRaw=0x{image.LoadDef?.Raw ?? 0:X8} " +
+            $"nameRaw=0x{image.NamePtr?.Raw ?? 0:X8} fmt=0x{image.FormatByte:X2} levels={image.LevelCount} " +
+            $"dims={image.Width}x{image.Height}x{image.Depth} semantic=0x{(byte)image.TextureSemantic:X2} " +
+            $"map=0x{(byte)image.MapType:X2} category=0x{(byte)image.Category:X2} " +
+            $"card0=0x{image.CardMemoryPlatformWords.ElementAtOrDefault(0):X8} " +
+            $"card1=0x{image.CardMemoryPlatformWords.ElementAtOrDefault(1):X8} " +
+            $"payloadSize={(image.LoadDef is not null && !image.LoadDef.IsNull ? Ps3GfxImagePayloadSize.ComputeByteCount(image) : 0)} " +
+            $"block={context.ActiveStreamBlock} " +
+            $"pos=0x{context.GetStreamPosition(context.ActiveStreamBlock):X}");
     }
 
     // PS3 0x1099c8
@@ -598,16 +643,20 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         MaterialTextureDef texture,
         IXAssetReaderContext context)
     {
+        TraceMaterialTexture("begin", texture, context);
+
         if (texture.Info is null)
             return;
 
         if (texture.Semantic == MaterialTextureSemantic.TS_WATER_MAP)
         {
             Load_WaterPtr(texture.Info, context);
+            TraceMaterialTexture("water", texture, context);
             return;
         }
 
         Load_GfxImagePtr(texture.Info, context);
+        TraceMaterialTexture("image", texture, context);
     }
 
     // PS3 0x109118 -> 0x109060 / Xbox Load_MaterialTextureDef / Info
@@ -647,34 +696,42 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         GfxImage image,
         IXAssetReaderContext context)
     {
+        TraceGfxImage("begin", image, context);
         PopulateGfxImageRootFields(image);
+        TraceGfxImage("root", image, context);
 
-        // EBOOT 0x1084f0 resolves the image name before the load-def pointer.
-        context.MaterializeCStringPointer(image.NamePtr);
-
-        if (image.LoadDef.IsNull)
-            return;
-
-        var loadDef = new GfxImageLoadDef
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
         {
-            LevelCount = image.LevelCount,
-            Flags = image.TextureFlags,
-            Format = Ps3GfxImagePayloadSize.NormalizeFormatByte(image.FormatByte),
-            ResourceSize = Ps3GfxImagePayloadSize.ComputeByteCount(image)
-        };
+            // EBOOT 0x1084f0 resolves the image name under pushed LARGE
+            // before dispatching the +0x28 payload helper.
+            context.MaterializeCStringPointer(image.NamePtr);
 
-        var payload = MaterializeGfxImagePayload(image.LoadDef, image, loadDef, context);
-        loadDef.Data = payload.Value ?? [];
+            if (image.LoadDef.IsNull)
+                return;
 
-        image.LoadDef = new XPointer<GfxImageLoadDef>
-        {
-            Raw = image.LoadDef.Raw,
-            Kind = PointerKind.Inline,
-            ResolutionKind = image.LoadDef.ResolutionKind,
-            PatchAddress = image.LoadDef.PatchAddress,
-            Address = payload.Address,
-            Value = loadDef
-        };
+            var loadDef = new GfxImageLoadDef
+            {
+                LevelCount = image.LevelCount,
+                Flags = image.TextureFlags,
+                Format = Ps3GfxImagePayloadSize.NormalizeFormatByte(image.FormatByte),
+                ResourceSize = Ps3GfxImagePayloadSize.ComputeByteCount(image)
+            };
+
+            var payload = MaterializeGfxImagePayload(image.LoadDef, image, loadDef, context);
+            loadDef.Data = payload.Value ?? [];
+
+            image.LoadDef = new XPointer<GfxImageLoadDef>
+            {
+                Raw = image.LoadDef.Raw,
+                Kind = PointerKind.Inline,
+                ResolutionKind = image.LoadDef.ResolutionKind,
+                PatchAddress = image.LoadDef.PatchAddress,
+                Address = payload.Address,
+                Value = loadDef
+            };
+        });
+
+        TraceGfxImage(image.LoadDef.IsNull ? "end-null" : "end", image, context);
     }
 
     private static void PopulateGfxImageRootFields(GfxImage image)
