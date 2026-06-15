@@ -52,6 +52,7 @@ public sealed class XSurfaceAssetReader : XAssetReadHandler
                 ResolutionKind = PointerResolutionKind.Direct,
                 Target = XPointerTarget.ByteArray,
                 CountMember = nameof(XSurface.VertexByteCount),
+                Alignment = 16,
                 PayloadBlock = surface.Verts0InCurrentBlock ? XFILE_BLOCK.LARGE : XFILE_BLOCK.PHYSICAL
             },
             surface);
@@ -64,6 +65,7 @@ public sealed class XSurfaceAssetReader : XAssetReadHandler
                 ResolutionKind = PointerResolutionKind.Direct,
                 Target = XPointerTarget.ByteArray,
                 CountMember = nameof(XSurface.VertexByteCount),
+                Alignment = 16,
                 PayloadBlock = surface.Verts1InCurrentBlock ? XFILE_BLOCK.LARGE : XFILE_BLOCK.PHYSICAL
             },
             surface);
@@ -92,6 +94,7 @@ public sealed class XSurfaceAssetReader : XAssetReadHandler
                 ResolutionKind = PointerResolutionKind.Direct,
                 Target = XPointerTarget.ObjectArray,
                 CountMember = nameof(XSurface.TriIndexCount),
+                Alignment = 16,
                 PayloadBlock = surface.TriIndicesInCurrentBlock ? XFILE_BLOCK.LARGE : XFILE_BLOCK.PHYSICAL
             },
             surface);

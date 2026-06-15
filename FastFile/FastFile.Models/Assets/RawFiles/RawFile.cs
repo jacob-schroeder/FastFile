@@ -29,6 +29,7 @@ public class RawFile() : BaseAsset(XAssetType.RawFile)
         ResolutionKind = PointerResolutionKind.Direct,
         Target = XPointerTarget.ByteArray,
         PayloadBlock = XFILE_BLOCK.LARGE,
+        Alignment = 1,
         CountMember = nameof(BufferLength))]
     public XPointer<byte[]> BufferPtr { get; set; } // Direct
 

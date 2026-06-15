@@ -345,8 +345,18 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         MaterialTechniqueSet techniqueSet,
         IXAssetReaderContext context)
     {
-        context.ResolvePointerProperty(techniqueSet, nameof(MaterialTechniqueSet.NamePtr));
-        Load_MaterialTechniquePtrArray(techniqueSet, context);
+        TraceTechset(
+            context,
+            $"Techset begin root=0x{techniqueSet.Offset:X} nameRaw=0x{techniqueSet.NamePtr.Raw:X8}");
+
+        context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
+        {
+            context.ResolvePointerProperty(techniqueSet, nameof(MaterialTechniqueSet.NamePtr));
+            TraceTechset(context, $"Techset name=\"{techniqueSet.Name}\"");
+            Load_MaterialTechniquePtrArray(techniqueSet, context);
+        });
+
+        TraceTechset(context, "Techset end");
     }
 
     // PS3 0x107df8 -> 0x107cf0 / Xbox Load_MaterialTechniquePtrArray / Ptr
@@ -362,6 +372,11 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         MaterialTechnique technique,
         IXAssetReaderContext context)
     {
+        TraceTechset(
+            context,
+            $"Technique begin root=0x{technique.Offset:X} nameRaw=0x{technique.NamePtr.Raw:X8} " +
+            $"flags=0x{technique.Flags:X4} passCount={technique.PassCount}");
+
         // EBOOT 0x107c88 consumes the pass array before resolving the technique name XString.
         var passes = new XPointer<MaterialPass[]>
         {
@@ -381,7 +396,9 @@ public sealed class MaterialAssetReader : XAssetReadHandler
             technique);
 
         technique.Passes = passes.Value ?? [];
+        TraceTechset(context, $"Technique passes done count={technique.Passes.Length}");
         context.ResolvePointerProperty(technique, nameof(MaterialTechnique.NamePtr));
+        TraceTechset(context, $"Technique name=\"{technique.Name}\"");
     }
 
     // PS3 0x107a80 / Xbox Load_MaterialPass
@@ -389,10 +406,29 @@ public sealed class MaterialAssetReader : XAssetReadHandler
         MaterialPass pass,
         IXAssetReaderContext context)
     {
+        TraceTechset(
+            context,
+            $"Pass root=0x{pass.Offset:X} vd=0x{pass.VertexDecl.Raw:X8}/{pass.VertexDecl.Kind} " +
+            $"vs=0x{pass.VertexShader.Raw:X8}/{pass.VertexShader.Kind} ps=0x{pass.PixelShader.Raw:X8}/{pass.PixelShader.Kind} " +
+            $"counts={pass.PerPrimArgCount}/{pass.PerObjArgCount}/{pass.StableArgCount} " +
+            $"sampler=0x{pass.CustomSamplerFlags:X2} pre=0x{pass.PrecompiledIndex:X2} args=0x{pass.Args.Raw:X8}/{pass.Args.Kind}");
         Load_MaterialVertexDeclarationPtr(pass, context);
         Load_MaterialVertexShaderPtr(pass, context);
         Load_MaterialPixelShaderPtr(pass, context);
         Load_MaterialShaderArgumentArray(pass, context);
+    }
+
+    private static void TraceTechset(
+        IXAssetReaderContext context,
+        string message)
+    {
+        if (Environment.GetEnvironmentVariable("FF_TRACE_TECHSET") != "1")
+            return;
+
+        Console.Error.WriteLine(
+            $"TechsetTrace: src=0x{context.SourcePosition:X} active={context.ActiveStreamBlock} " +
+            $"temp=0x{context.GetStreamPosition(XFILE_BLOCK.TEMP):X} " +
+            $"large=0x{context.GetStreamPosition(XFILE_BLOCK.LARGE):X} {message}");
     }
 
     // PS3 pass child +0x00

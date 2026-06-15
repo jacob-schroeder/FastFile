@@ -526,6 +526,29 @@ public sealed class CommonMpPrefixTests
     }
 
     [Fact]
+    public void CommonMpWeapon5997ResolvesGlTavorDisplayNameFromPs3Streams()
+    {
+        var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));
+        var buffer = File.ReadAllBytes(path);
+
+        var fastFileReader = new FastFileReader(buffer, buffer.Length);
+        Assert.Equal(XFILE_VERSION.Mw2, fastFileReader.ParseHeader().Version);
+
+        var zone = fastFileReader.UnpackZone();
+        var reader = new XFileReader(zone).ReadAssetPrefix((index, _) => index <= 5997);
+        var assetList = reader.GetAssetList();
+
+        Assert.Equal(XAssetType.Weapon, assetList.Assets[5997].Type);
+
+        var weapon = Assert.IsType<WeaponVariantDef>(assetList.Assets[5997].XAssetPtr.Value);
+        Assert.Equal("gl_tavor_mp", weapon.InternalName);
+        Assert.Equal(0x4048D905, weapon.DisplayNamePtr.Raw);
+        Assert.Equal(XFILE_BLOCK.LARGE, weapon.DisplayNamePtr.Address?.Block);
+        Assert.Equal(0x48D904, weapon.DisplayNamePtr.Address?.Offset);
+        Assert.Equal("WEAPON_M203", weapon.DisplayNamePtr.Value);
+    }
+
+    [Fact]
     public void CommonMpAllAssetsThrough10090ParsesCurrentPs3LoaderCoverage()
     {
         var path = FindRepositoryFile(Path.Combine("Data", "official_ff", "common_mp.ff"));

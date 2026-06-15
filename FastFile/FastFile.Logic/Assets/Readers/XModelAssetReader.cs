@@ -69,6 +69,13 @@ public sealed class XModelAssetReader : XAssetReadHandler
         TraceXModel(
             context,
             $"Load_XModel begin nameRaw=0x{model.NamePtr.Raw:X8} numSurfs={model.NumSurfs} numLods={model.NumLods}");
+        TraceXModel(
+            context,
+            $"Load_XModel arrays bones={model.NumBones}/{model.NumRootBones} collSurfs={model.NumCollSurfs} " +
+            $"boneNames=0x{model.BoneNames.Raw:X8} parent=0x{model.ParentList.Raw:X8} quats=0x{model.Quats.Raw:X8} " +
+            $"trans=0x{model.Trans.Raw:X8} partClass=0x{model.PartClassification.Raw:X8} baseMat=0x{model.BaseMat.Raw:X8} " +
+            $"materials=0x{model.MaterialHandles.Raw:X8} coll=0x{model.CollSurfs.Raw:X8} boneInfo=0x{model.BoneInfo.Raw:X8} " +
+            $"invHighMip=0x{model.InvHighMipRadius.Raw:X8}");
 
         context.WithStreamBlock(XFILE_BLOCK.LARGE, () =>
         {
@@ -76,20 +83,30 @@ public sealed class XModelAssetReader : XAssetReadHandler
             TraceXModel(context, $"Load_XModel name=\"{model.Name}\"");
 
             context.ResolvePointerProperty(model, nameof(XModel.BoneNames));
+            TraceXModel(context, $"Load_XModel boneNames done addr={FormatAddress(model.BoneNames.Address)}");
             context.ResolvePointerProperty(model, nameof(XModel.ParentList));
+            TraceXModel(context, $"Load_XModel parentList done addr={FormatAddress(model.ParentList.Address)}");
             context.ResolvePointerProperty(model, nameof(XModel.Quats));
+            TraceXModel(context, $"Load_XModel quats done addr={FormatAddress(model.Quats.Address)}");
             context.ResolvePointerProperty(model, nameof(XModel.Trans));
+            TraceXModel(context, $"Load_XModel trans done addr={FormatAddress(model.Trans.Address)}");
             context.ResolvePointerProperty(model, nameof(XModel.PartClassification));
+            TraceXModel(context, $"Load_XModel partClassification done addr={FormatAddress(model.PartClassification.Address)}");
             context.ResolvePointerProperty(model, nameof(XModel.BaseMat));
+            TraceXModel(context, $"Load_XModel baseMat done addr={FormatAddress(model.BaseMat.Address)}");
 
             Load_MaterialHandleArray(model, context);
+            TraceXModel(context, $"Load_XModel materialHandles done addr={FormatAddress(model.MaterialHandles.Address)}");
 
             foreach (var lodInfo in model.LodInfo)
                 Load_XModelLodInfo(lodInfo, context);
 
             context.ResolvePointerProperty(model, nameof(XModel.CollSurfs));
+            TraceXModel(context, "Load_XModel collSurfs done");
             context.ResolvePointerProperty(model, nameof(XModel.BoneInfo));
+            TraceXModel(context, "Load_XModel boneInfo done");
             context.ResolvePointerProperty(model, nameof(XModel.InvHighMipRadius));
+            TraceXModel(context, "Load_XModel invHighMip done");
 
             context.WithStreamBlock(XFILE_BLOCK.TEMP, () =>
             {
@@ -206,5 +223,12 @@ public sealed class XModelAssetReader : XAssetReadHandler
             $"XModelTrace: src=0x{context.SourcePosition:X} active={context.ActiveStreamBlock} " +
             $"temp=0x{context.GetStreamPosition(XFILE_BLOCK.TEMP):X} " +
             $"large=0x{context.GetStreamPosition(XFILE_BLOCK.LARGE):X} {message}");
+    }
+
+    private static string FormatAddress(XBlockAddress? address)
+    {
+        return address is { } value
+            ? $"{value.Block}:0x{value.Offset:X}"
+            : "<none>";
     }
 }

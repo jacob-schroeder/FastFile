@@ -313,9 +313,10 @@ public sealed class WeaponAssetReader : XAssetReadHandler
         IXAssetReaderContext context,
         object owner)
     {
+        var shouldResolveElements = pointer.Kind is PointerKind.Inline or PointerKind.Insert;
         context.ResolvePointerValue(pointer, attribute, owner);
 
-        if (pointer.Value is null)
+        if (!shouldResolveElements || pointer.Value is null)
             return;
 
         foreach (XPointer<string>? element in pointer.Value)

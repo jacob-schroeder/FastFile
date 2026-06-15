@@ -533,10 +533,11 @@ public partial class XFileReader : IXAssetReaderContext
     {
         MaterializePointer(
             assetPtr,
-            XPointerMaterializationPlan.AtBlockPosition(
+            XPointerMaterializationPlan.AllocatedBlock(
                 XPointerTarget.Object,
                 assetPtr.ResolutionKind,
                 XFILE_BLOCK.TEMP,
+                alignment: 4,
                 readOffsetPayload: true));
 
         return WithStreamBlock(assetPtr.Address!.Value.Block, () =>
@@ -625,6 +626,9 @@ public partial class XFileReader : IXAssetReaderContext
     // child XString cell here before resolving that XString.
     private void ResolveSndAliasCustomName(XPointer<string> ptr)
     {
+        if (ptr.Value is not null)
+            return;
+
         var materialization = MaterializePointer(
             ptr,
             XPointerMaterializationPlan.CurrentStream(

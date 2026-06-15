@@ -256,23 +256,36 @@ public partial class XFileReader
         object owner)
     {
         var ptr = (XPointer<byte[]>)pointerObj;
-
-        var materialization = MaterializePointer(
-            ptr,
-            attr.UseCurrentStream
-                ? XPointerMaterializationPlan.CurrentStream(
-                    XPointerTarget.ByteArray,
-                    attr.ResolutionKind,
-                    attr.Alignment,
-                    readOffsetPayload: attr.ReadOffsetPayload,
-                    offsetIsAliasCell: attr.OffsetIsAliasCell)
-                : XPointerMaterializationPlan.AtBlockPosition(
+        var plan = attr.UseCurrentStream
+            ? XPointerMaterializationPlan.CurrentStream(
+                XPointerTarget.ByteArray,
+                attr.ResolutionKind,
+                attr.Alignment,
+                readOffsetPayload: attr.ReadOffsetPayload,
+                offsetIsAliasCell: attr.OffsetIsAliasCell)
+            : attr.Alignment == 4
+                // Alignment=4 is the attribute default, not proof that this
+                // byte payload's loader called DB_AllocStreamPos(3). Proven
+                // non-default byte alignments (for example XSurface/GfxImage)
+                // allocate below so their stream cursor matches the PS3 path.
+                ? XPointerMaterializationPlan.AtBlockPosition(
                     XPointerTarget.ByteArray,
                     attr.ResolutionKind,
                     attr.PayloadBlock,
                     readOffsetPayload: attr.ReadOffsetPayload,
                     alignment: attr.Alignment,
-                    offsetIsAliasCell: attr.OffsetIsAliasCell));
+                    offsetIsAliasCell: attr.OffsetIsAliasCell)
+                : XPointerMaterializationPlan.AllocatedBlock(
+                    XPointerTarget.ByteArray,
+                    attr.ResolutionKind,
+                    attr.PayloadBlock,
+                    attr.Alignment,
+                    readOffsetPayload: attr.ReadOffsetPayload,
+                    offsetIsAliasCell: attr.OffsetIsAliasCell);
+
+        var materialization = MaterializePointer(
+            ptr,
+            plan);
 
         if (materialization.IsNull)
         {
