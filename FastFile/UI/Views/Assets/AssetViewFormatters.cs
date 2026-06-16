@@ -1,6 +1,7 @@
 using FastFile.Models.Data;
 using System.Globalization;
 using FastFile.Models.Zone;
+using UI.Models;
 
 namespace UI.Views.Assets;
 
@@ -28,6 +29,19 @@ internal static class AssetViewFormatters
         return pointer is null
             ? NullPointerText
             : $"0x{pointer.Raw:X8} ({FormatPointer(pointer)})";
+    }
+
+    public static KeyValueListItem PointerItem(string key, Pointer? pointer)
+    {
+        return new KeyValueListItem(
+            key,
+            FormatPointerRaw(pointer),
+            BlockStreamNavigationTarget.FromPointer(pointer));
+    }
+
+    public static BlockStreamNavigationTarget? GetNavigationTarget(Pointer? pointer)
+    {
+        return BlockStreamNavigationTarget.FromPointer(pointer);
     }
 
     public static string FormatByte(byte value)

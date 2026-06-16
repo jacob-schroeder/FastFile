@@ -68,6 +68,12 @@ public partial class MainWindow : Window
         LogMainTabButton.Classes.Set("active", isLog);
     }
 
+    public void NavigateToBlockStream(XFILE_BLOCK block, int offset)
+    {
+        SelectMainTab("BlockStreams");
+        BlockStreamsTabView.NavigateTo(block, offset);
+    }
+
     private void NewMenuItem_Click(object? sender, RoutedEventArgs e)
     {
         _document = FastFileDocument.CreateNew();

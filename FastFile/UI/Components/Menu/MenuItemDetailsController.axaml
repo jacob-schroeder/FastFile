@@ -180,7 +180,14 @@
                                                                Text="{Binding Key}" />
                                                     <TextBlock Grid.Column="1"
                                                                Classes="itemDetailsValue"
+                                                               IsVisible="{Binding HasNoNavigationTarget}"
                                                                Text="{Binding Value}" />
+                                                    <Button Grid.Column="1"
+                                                            Classes="blockStreamNavigationLabel"
+                                                            Content="{Binding NavigationValue}"
+                                                            Tag="{Binding NavigationTarget}"
+                                                            IsVisible="{Binding HasNavigationTarget}"
+                                                            Click="BlockStreamNavigationButton_Click" />
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -208,7 +215,14 @@
                                                                Text="{Binding Key}" />
                                                     <TextBlock Grid.Column="1"
                                                                Classes="itemDetailsValue"
+                                                               IsVisible="{Binding HasNoNavigationTarget}"
                                                                Text="{Binding Value}" />
+                                                    <Button Grid.Column="1"
+                                                            Classes="blockStreamNavigationLabel"
+                                                            Content="{Binding NavigationValue}"
+                                                            Tag="{Binding NavigationTarget}"
+                                                            IsVisible="{Binding HasNavigationTarget}"
+                                                            Click="BlockStreamNavigationButton_Click" />
                                                     <Button Grid.Column="2"
                                                             Classes="itemDetailsViewButton"
                                                             Content="View"
@@ -243,7 +257,14 @@
                                                                Text="{Binding Key}" />
                                                     <TextBlock Grid.Column="1"
                                                                Classes="itemDetailsValue"
+                                                               IsVisible="{Binding HasNoNavigationTarget}"
                                                                Text="{Binding Value}" />
+                                                    <Button Grid.Column="1"
+                                                            Classes="blockStreamNavigationLabel"
+                                                            Content="{Binding NavigationValue}"
+                                                            Tag="{Binding NavigationTarget}"
+                                                            IsVisible="{Binding HasNavigationTarget}"
+                                                            Click="BlockStreamNavigationButton_Click" />
                                                     <Button Grid.Column="2"
                                                             Classes="itemDetailsViewButton"
                                                             Content="View"

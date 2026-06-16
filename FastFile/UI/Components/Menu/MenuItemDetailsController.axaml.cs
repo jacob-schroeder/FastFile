@@ -2,10 +2,12 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using FastFile.Models.Assets.Menu.Elements;
 using FastFile.Models.Data;
+using FastFile.Models.Zone;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using UI.Models;
+using UI.Navigation;
 using UI.Views.Assets;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
 using MenuWindow = FastFile.Models.Assets.Menu.Elements.Window;
@@ -55,6 +57,14 @@ public partial class MenuItemDetailsController : UserControl
         UpdateExpressionDisplay(ExpressionTypeComboBox.SelectedItem as MenuInsightDisplayItem);
     }
 
+    private void BlockStreamNavigationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: BlockStreamNavigationTarget target } button)
+        {
+            BlockStreamNavigator.Navigate(button, target);
+        }
+    }
+
     private void UpdateExpressionDisplay(MenuInsightDisplayItem? expression)
     {
         var hasExpression = expression is not null;
@@ -74,21 +84,21 @@ public partial class MenuItemDetailsController : UserControl
         return
         [
             new("Index", displayItem.Index.ToString("N0", CultureInfo.CurrentCulture)),
-            new("Name", displayItem.Name),
-            new("Text", displayItem.Text),
+            MenuDisplayFormatter.StringPointerItem("Name", item.Window?.NamePtr, item.Window?.Name, "(unnamed item)"),
+            MenuDisplayFormatter.StringPointerItem("Text", item.Text, item.Text?.Value, string.Empty),
             new("Type", MenuEnumFormatter.FormatItemType(item.Type)),
             new("Data Type", MenuEnumFormatter.FormatItemType(item.DataType)),
-            new("Parent", MenuDisplayFormatter.FormatPointer(item.Parent)),
-            new("Dvar", displayItem.Dvar),
-            new("Dvar Test", MenuDisplayFormatter.FormatStringPointer(item.DvarTest, item.DvarTest?.Value, string.Empty)),
-            new("Enable Dvar", displayItem.EnableDvar),
+            MenuDisplayFormatter.PointerItem("Parent", item.Parent),
+            MenuDisplayFormatter.StringPointerItem("Dvar", item.Dvar, item.Dvar?.Value, string.Empty),
+            MenuDisplayFormatter.StringPointerItem("Dvar Test", item.DvarTest, item.DvarTest?.Value, string.Empty),
+            MenuDisplayFormatter.StringPointerItem("Enable Dvar", item.EnableDvar, item.EnableDvar?.Value, string.Empty),
             new("Dvar Flags", MenuEnumFormatter.FormatDvarFlags(item.DvarFlags)),
-            new("Focus Sound", MenuDisplayFormatter.FormatAssetPointer(item.FocusSound)),
+            new("Focus Sound", MenuDisplayFormatter.FormatAssetPointer(item.FocusSound), BlockStreamNavigationTarget.FromPointer(item.FocusSound)),
             new("Special", item.Special.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Cursor Position", string.Join(", ", item.CursorPos)),
             new("Image Track", item.ImageTrack.ToString(CultureInfo.CurrentCulture)),
             new("Float Expressions", item.FloatExpressionCount.ToString("N0", CultureInfo.CurrentCulture)),
-            new("Pointer", displayItem.Pointer)
+            new("Pointer", displayItem.Pointer, displayItem.PointerNavigationTarget)
         ];
     }
 
@@ -101,8 +111,14 @@ public partial class MenuItemDetailsController : UserControl
 
         return
         [
-            new("Name", MenuDisplayFormatter.FormatStringPointer(window.NamePtr, window.Name, "(unnamed item)")),
-            new("Group", MenuDisplayFormatter.FormatStringPointer(window.GroupPtr, window.Group, string.Empty)),
+            new(
+                "Name",
+                MenuDisplayFormatter.FormatStringPointer(window.NamePtr, window.Name, "(unnamed item)"),
+                navigationTarget: GetStringNavigationTarget(window.NamePtr, window.Name, "(unnamed item)")),
+            new(
+                "Group",
+                MenuDisplayFormatter.FormatStringPointer(window.GroupPtr, window.Group, string.Empty),
+                navigationTarget: GetStringNavigationTarget(window.GroupPtr, window.Group, string.Empty)),
             new("Rect", MenuDisplayFormatter.FormatRectangle(window.Rect)),
             new("Client Rect", MenuDisplayFormatter.FormatRectangle(window.RectClient)),
             new("Style", MenuEnumFormatter.FormatWindowStyle(window.Style)),
@@ -115,7 +131,8 @@ public partial class MenuItemDetailsController : UserControl
             new(
                 "Background Material",
                 MenuDisplayFormatter.FormatAssetPointer(window.Background),
-                window.Background?.Value)
+                window.Background?.Value,
+                BlockStreamNavigationTarget.FromPointer(window.Background))
         ];
     }
 
@@ -165,7 +182,8 @@ public partial class MenuItemDetailsController : UserControl
             rows.Add(new MenuMaterialReferenceDisplayItem(
                 "Select Icon Material",
                 MenuDisplayFormatter.FormatAssetPointer(selectIcon),
-                selectIcon.Value));
+                selectIcon.Value,
+                BlockStreamNavigationTarget.FromPointer(selectIcon)));
         }
 
         return rows.ToArray();
@@ -183,5 +201,15 @@ public partial class MenuItemDetailsController : UserControl
         return typeData is null
             ? MenuDisplayFormatter.NullPointerText
             : $"0x{typeData.Raw:X8}";
+    }
+
+    private static BlockStreamNavigationTarget? GetStringNavigationTarget<T>(
+        XPointer<T>? pointer,
+        string? value,
+        string emptyValue)
+    {
+        return MenuDisplayFormatter.FormatStringPointer(pointer, value, emptyValue) == MenuDisplayFormatter.OffsetPointerText
+            ? BlockStreamNavigationTarget.FromPointer(pointer)
+            : null;
     }
 }

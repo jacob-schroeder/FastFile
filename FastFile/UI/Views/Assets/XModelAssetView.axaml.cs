@@ -6,6 +6,7 @@ using FastFile.Models.Zone;
 using System.Globalization;
 using System.Linq;
 using UI.Models;
+using UI.Navigation;
 
 namespace UI.Views.Assets;
 
@@ -41,11 +42,19 @@ public partial class XModelAssetView : UserControl
         XModelPreviewHelper.Show(_model, owner);
     }
 
+    private void BlockStreamNavigationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: BlockStreamNavigationTarget target } button)
+        {
+            BlockStreamNavigator.Navigate(button, target);
+        }
+    }
+
     private static KeyValueListItem[] BuildDetails(XModel model)
     {
         return
         [
-            new("Name Pointer", AssetViewFormatters.FormatPointerRaw(model.NamePtr)),
+            AssetViewFormatters.PointerItem("Name Pointer", model.NamePtr),
             new("Resolved Name", XModelPreviewHelper.GetDisplayName(model)),
             new("Root Offset", $"0x{model.Offset:X8}"),
             new("Root Size", "0x120"),
@@ -56,22 +65,22 @@ public partial class XModelAssetView : UserControl
             new("Flags", $"0x{model.Flags:X2}"),
             new("Scale", FormatFloat(model.Scale)),
             new("No Scale Part Bits", FormatIntArray(model.NoScalePartBits)),
-            new("Bone Names", FormatArrayPointer(model.BoneNames, model.BoneNameCount)),
-            new("Parent List", FormatArrayPointer(model.ParentList, model.ParentCount)),
-            new("Quats", FormatArrayPointer(model.Quats, model.QuatComponentCount)),
-            new("Translations", FormatArrayPointer(model.Trans, model.PartCount)),
-            new("Part Classification", FormatArrayPointer(model.PartClassification, model.BoneNameCount)),
-            new("Base Matrices", FormatArrayPointer(model.BaseMat, model.BoneNameCount)),
-            new("Material Handles", FormatArrayPointer(model.MaterialHandles, model.MaterialHandleCount)),
-            new("Collision Surfaces", FormatArrayPointer(model.CollSurfs, model.NumCollSurfs)),
+            new("Bone Names", FormatArrayPointer(model.BoneNames, model.BoneNameCount), AssetViewFormatters.GetNavigationTarget(model.BoneNames)),
+            new("Parent List", FormatArrayPointer(model.ParentList, model.ParentCount), AssetViewFormatters.GetNavigationTarget(model.ParentList)),
+            new("Quats", FormatArrayPointer(model.Quats, model.QuatComponentCount), AssetViewFormatters.GetNavigationTarget(model.Quats)),
+            new("Translations", FormatArrayPointer(model.Trans, model.PartCount), AssetViewFormatters.GetNavigationTarget(model.Trans)),
+            new("Part Classification", FormatArrayPointer(model.PartClassification, model.BoneNameCount), AssetViewFormatters.GetNavigationTarget(model.PartClassification)),
+            new("Base Matrices", FormatArrayPointer(model.BaseMat, model.BoneNameCount), AssetViewFormatters.GetNavigationTarget(model.BaseMat)),
+            new("Material Handles", FormatArrayPointer(model.MaterialHandles, model.MaterialHandleCount), AssetViewFormatters.GetNavigationTarget(model.MaterialHandles)),
+            new("Collision Surfaces", FormatArrayPointer(model.CollSurfs, model.NumCollSurfs), AssetViewFormatters.GetNavigationTarget(model.CollSurfs)),
             new("Contents", $"0x{model.Contents:X8}"),
-            new("Bone Info", FormatArrayPointer(model.BoneInfo, model.BoneNameCount)),
+            new("Bone Info", FormatArrayPointer(model.BoneInfo, model.BoneNameCount), AssetViewFormatters.GetNavigationTarget(model.BoneInfo)),
             new("Radius", FormatFloat(model.Radius)),
             new("Bounds", FormatBounds(model.Bounds)),
-            new("Inv High Mip Radius", FormatArrayPointer(model.InvHighMipRadius, model.MaterialHandleCount)),
+            new("Inv High Mip Radius", FormatArrayPointer(model.InvHighMipRadius, model.MaterialHandleCount), AssetViewFormatters.GetNavigationTarget(model.InvHighMipRadius)),
             new("Mem Usage", model.MemUsage.ToString("N0", CultureInfo.CurrentCulture)),
-            new("Phys Preset", FormatObjectPointer(model.PhysPreset)),
-            new("Phys Collmap", FormatObjectPointer(model.PhysCollmap))
+            new("Phys Preset", FormatObjectPointer(model.PhysPreset), AssetViewFormatters.GetNavigationTarget(model.PhysPreset)),
+            new("Phys Collmap", FormatObjectPointer(model.PhysCollmap), AssetViewFormatters.GetNavigationTarget(model.PhysCollmap))
         ];
     }
 
@@ -85,7 +94,8 @@ public partial class XModelAssetView : UserControl
             var lod = lods[i];
             items[i] = new KeyValueListItem(
                 $"LOD {i}",
-                $"dist {FormatFloat(lod.Dist)} | {lod.NumSurfs:N0} surfs @ {lod.SurfIndex:N0} | modelSurfs {AssetViewFormatters.FormatPointerRaw(lod.ModelSurfs)} | directSurfs {AssetViewFormatters.FormatPointerRaw(lod.Surfs)}");
+                $"dist {FormatFloat(lod.Dist)} | {lod.NumSurfs:N0} surfs @ {lod.SurfIndex:N0} | modelSurfs {AssetViewFormatters.FormatPointerRaw(lod.ModelSurfs)} | directSurfs {AssetViewFormatters.FormatPointerRaw(lod.Surfs)}",
+                AssetViewFormatters.GetNavigationTarget(lod.ModelSurfs) ?? AssetViewFormatters.GetNavigationTarget(lod.Surfs));
         }
 
         return items;

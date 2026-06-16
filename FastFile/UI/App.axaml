@@ -14,5 +14,15 @@
         </FluentTheme>
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
         <materialIcons:MaterialIconStyles />
+        <Style Selector="Button.blockStreamNavigationLabel">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="#7DD3FC" />
+            <Setter Property="FontFamily" Value="Menlo, Consolas, Courier New" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+        </Style>
     </Application.Styles>
 </Application>

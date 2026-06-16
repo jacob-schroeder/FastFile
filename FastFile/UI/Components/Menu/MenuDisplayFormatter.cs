@@ -6,6 +6,7 @@ using FastFile.Models.Utils;
 using System;
 using System.Globalization;
 using FastFile.Models.Zone;
+using UI.Models;
 
 namespace UI.Components.Menu;
 
@@ -26,6 +27,30 @@ internal static class MenuDisplayFormatter
             null => NullPointerText,
             _ => UnresolvedPointerText
         };
+    }
+
+    public static string FormatPointerRaw(Pointer? pointer)
+    {
+        return pointer is null
+            ? NullPointerText
+            : $"0x{pointer.Raw:X8} ({FormatPointer(pointer)})";
+    }
+
+    public static KeyValueListItem PointerItem(string key, Pointer? pointer)
+    {
+        return new KeyValueListItem(
+            key,
+            FormatPointerRaw(pointer),
+            BlockStreamNavigationTarget.FromPointer(pointer));
+    }
+
+    public static KeyValueListItem StringPointerItem<T>(string key, XPointer<T>? pointer, string? value, string emptyValue = "")
+    {
+        var text = FormatStringPointer(pointer, value, emptyValue);
+        return new KeyValueListItem(
+            key,
+            text,
+            text == OffsetPointerText ? BlockStreamNavigationTarget.FromPointer(pointer) : null);
     }
 
     public static string FormatStringPointer<T>(XPointer<T>? pointer, string? value, string emptyValue = "")

@@ -9,6 +9,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using UI.Models;
+using UI.Navigation;
 using UI.Views.Assets;
 using MaterialAsset = FastFile.Models.Assets.Material.Material;
 using MenuWindow = FastFile.Models.Assets.Menu.Elements.Window;
@@ -73,6 +74,14 @@ public partial class MenuController : UserControl
         RenderPreview();
     }
 
+    private void BlockStreamNavigationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: BlockStreamNavigationTarget target } button)
+        {
+            BlockStreamNavigator.Navigate(button, target);
+        }
+    }
+
     private static MenuItemDefDisplayItem[] GetMenuItems(MenuDef menu)
     {
         return menu.Items is { IsResolved: true, Value: not null }
@@ -86,21 +95,21 @@ public partial class MenuController : UserControl
     {
         return
         [
-            new("Name", MenuDisplayFormatter.FormatStringPointer(menu.Window?.NamePtr, menu.Window?.Name, "(unnamed menu)")),
-            new("Font", MenuDisplayFormatter.FormatStringPointer(menu.FontPtr, menu.Font, string.Empty)),
+            MenuDisplayFormatter.StringPointerItem("Name", menu.Window?.NamePtr, menu.Window?.Name, "(unnamed menu)"),
+            MenuDisplayFormatter.StringPointerItem("Font", menu.FontPtr, menu.Font, string.Empty),
             new("Fullscreen", MenuDisplayFormatter.FormatYesNo(menu.Fullscreen)),
             new("Item Count", menu.ItemCount.ToString("N0", CultureInfo.CurrentCulture)),
             new("Font Index", menu.FontIndex.ToString(CultureInfo.CurrentCulture)),
             new("Image Track", menu.ImageTrack.ToString(CultureInfo.CurrentCulture)),
-            new("Sound", MenuDisplayFormatter.FormatStringPointer(menu.SoundName, menu.SoundName?.Value, string.Empty)),
-            new("Allowed Binding", MenuDisplayFormatter.FormatStringPointer(menu.AllowedBinding, menu.AllowedBinding?.Value, string.Empty)),
+            MenuDisplayFormatter.StringPointerItem("Sound", menu.SoundName, menu.SoundName?.Value, string.Empty),
+            MenuDisplayFormatter.StringPointerItem("Allowed Binding", menu.AllowedBinding, menu.AllowedBinding?.Value, string.Empty),
             new("Fade Cycle", menu.FadeCycle.ToString(CultureInfo.CurrentCulture)),
             new("Fade Clamp", menu.FadeClamp.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Fade Amount", menu.FadeAmount.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Fade In", menu.FadeInAmount.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Blur Radius", menu.BlurRadius.ToString("0.###", CultureInfo.CurrentCulture)),
             new("Focus Color", MenuDisplayFormatter.FormatVec4(menu.FocusColor)),
-            new("Items Pointer", MenuDisplayFormatter.FormatPointer(menu.Items))
+            MenuDisplayFormatter.PointerItem("Items Pointer", menu.Items)
         ];
     }
 
@@ -113,7 +122,12 @@ public partial class MenuController : UserControl
 
         return
         [
-            new("Group", MenuDisplayFormatter.FormatStringPointer(window.GroupPtr, window.Group, string.Empty)),
+            new(
+                "Group",
+                MenuDisplayFormatter.FormatStringPointer(window.GroupPtr, window.Group, string.Empty),
+                navigationTarget: MenuDisplayFormatter.FormatStringPointer(window.GroupPtr, window.Group, string.Empty) == MenuDisplayFormatter.OffsetPointerText
+                    ? BlockStreamNavigationTarget.FromPointer(window.GroupPtr)
+                    : null),
             new("Rect", MenuDisplayFormatter.FormatRectangle(window.Rect)),
             new("Client Rect", MenuDisplayFormatter.FormatRectangle(window.RectClient)),
             new("Style", MenuEnumFormatter.FormatWindowStyle(window.Style)),
@@ -129,7 +143,8 @@ public partial class MenuController : UserControl
             new(
                 "Background Material",
                 MenuDisplayFormatter.FormatAssetPointer(window.Background),
-                window.Background?.Value)
+                window.Background?.Value,
+                BlockStreamNavigationTarget.FromPointer(window.Background))
         ];
     }
 

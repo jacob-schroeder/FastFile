@@ -7,13 +7,22 @@ public sealed class TechsetTechniqueDisplayItem(
     string flags,
     string passCount,
     string passesIndicator,
-    TechsetPassDisplayItem[] passes)
+    TechsetPassDisplayItem[] passes,
+    BlockStreamNavigationTarget? pointerNavigationTarget = null)
 {
     public string SlotText { get; } = slotText;
 
     public string Name { get; } = name;
 
     public string Pointer { get; } = pointer;
+
+    public BlockStreamNavigationTarget? PointerNavigationTarget { get; } = pointerNavigationTarget;
+
+    public string PointerNavigationValue => PointerNavigationTarget?.ReplaceOffsetLabel(Pointer) ?? Pointer;
+
+    public bool HasPointerNavigationTarget => PointerNavigationTarget is not null;
+
+    public bool HasNoPointerNavigationTarget => PointerNavigationTarget is null;
 
     public string Flags { get; } = flags;
 

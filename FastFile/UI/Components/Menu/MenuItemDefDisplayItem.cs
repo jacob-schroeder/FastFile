@@ -2,6 +2,7 @@ using FastFile.Models.Assets.Menu.Elements;
 using FastFile.Models.Data;
 using System.Globalization;
 using FastFile.Models.Zone;
+using UI.Models;
 
 namespace UI.Components.Menu;
 
@@ -17,7 +18,8 @@ public sealed class MenuItemDefDisplayItem
             return;
         }
 
-        Pointer = MenuDisplayFormatter.FormatPointer(itemPointer);
+        Pointer = MenuDisplayFormatter.FormatPointerRaw(itemPointer);
+        PointerNavigationTarget = BlockStreamNavigationTarget.FromPointer(itemPointer);
 
         if (!itemPointer.IsResolved || itemPointer.Value is null)
         {
@@ -38,7 +40,7 @@ public sealed class MenuItemDefDisplayItem
         Dvar = MenuDisplayFormatter.FormatStringPointer(Item.Dvar, Item.Dvar?.Value, string.Empty);
         EnableDvar = MenuDisplayFormatter.FormatStringPointer(Item.EnableDvar, Item.EnableDvar?.Value, string.Empty);
         FloatExpressions = Item.FloatExpressionCount.ToString("N0", CultureInfo.CurrentCulture);
-        Pointer = MenuDisplayFormatter.FormatPointer(itemPointer);
+        Pointer = MenuDisplayFormatter.FormatPointerRaw(itemPointer);
     }
 
     public int Index { get; }
@@ -66,6 +68,8 @@ public sealed class MenuItemDefDisplayItem
     public string FloatExpressions { get; private set; } = string.Empty;
 
     public string Pointer { get; private set; } = string.Empty;
+
+    public BlockStreamNavigationTarget? PointerNavigationTarget { get; private set; }
 
     private void SetUnavailableValue(string value)
     {

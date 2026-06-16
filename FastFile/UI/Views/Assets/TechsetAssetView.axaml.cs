@@ -1,10 +1,12 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Data;
 using UI.Models;
 using System.Globalization;
 using System.Linq;
 using FastFile.Models.Zone;
+using UI.Navigation;
 
 namespace UI.Views.Assets;
 
@@ -28,6 +30,14 @@ public partial class TechsetAssetView : UserControl
         TechsetTechniquesEmptyTextBlock.IsVisible = techniques.Length == 0;
     }
 
+    private void BlockStreamNavigationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: BlockStreamNavigationTarget target } button)
+        {
+            BlockStreamNavigator.Navigate(button, target);
+        }
+    }
+
     private static string GetDisplayName(MaterialTechniqueSet techset)
     {
         return string.IsNullOrWhiteSpace(techset.GetDisplayName)
@@ -41,7 +51,7 @@ public partial class TechsetAssetView : UserControl
         [
             new("Display Name", GetDisplayName(techset)),
             new("Offset", $"0x{techset.Offset:X8}"),
-            new("Name Pointer", AssetViewFormatters.FormatPointerRaw(techset.NamePtr)),
+            AssetViewFormatters.PointerItem("Name Pointer", techset.NamePtr),
             new("World Vertex Format", techset.WorldVertexFormat.ToString()),
             new("Has Been Uploaded", techset.HasBeenUploaded ? "Yes" : "No"),
             new("Technique Slots", $"{resolvedTechniqueCount:N0} resolved of {techset.Techniques.Length:N0}")
@@ -76,7 +86,8 @@ public partial class TechsetAssetView : UserControl
                 flags: $"0x{technique.Flags:X4}",
                 passCount: technique.PassCount.ToString(CultureInfo.CurrentCulture),
                 passesIndicator: $"{technique.Passes.Length:N0} resolved pass entries",
-                passes: BuildPasses(technique));
+                passes: BuildPasses(technique),
+                pointerNavigationTarget: AssetViewFormatters.GetNavigationTarget(pointer));
         }
 
         return new TechsetTechniqueDisplayItem(
@@ -86,7 +97,8 @@ public partial class TechsetAssetView : UserControl
             flags: "n/a",
             passCount: "n/a",
             passesIndicator: "not resolved",
-            passes: []);
+            passes: [],
+            pointerNavigationTarget: AssetViewFormatters.GetNavigationTarget(pointer));
     }
 
     private static TechsetPassDisplayItem[] BuildPasses(MaterialTechnique technique)
@@ -105,7 +117,11 @@ public partial class TechsetAssetView : UserControl
             pixelShader: AssetViewFormatters.FormatPointerRaw(pass.PixelShader),
             argumentSummary: $"{pass.PerPrimArgCount:N0} primitive / {pass.PerObjArgCount:N0} object / {pass.StableArgCount:N0} stable",
             arguments: $"{pass.ArgCount:N0} total args ({AssetViewFormatters.FormatPointerRaw(pass.Args)})",
-            flagsAndPrecompiled: $"Flags 0x{pass.CustomSamplerFlags:X2} • Precompiled 0x{pass.PrecompiledIndex:X2}"
+            flagsAndPrecompiled: $"Flags 0x{pass.CustomSamplerFlags:X2} • Precompiled 0x{pass.PrecompiledIndex:X2}",
+            vertexDeclarationNavigationTarget: AssetViewFormatters.GetNavigationTarget(pass.VertexDecl),
+            vertexShaderNavigationTarget: AssetViewFormatters.GetNavigationTarget(pass.VertexShader),
+            pixelShaderNavigationTarget: AssetViewFormatters.GetNavigationTarget(pass.PixelShader),
+            argumentsNavigationTarget: AssetViewFormatters.GetNavigationTarget(pass.Args)
         );
     }
 }

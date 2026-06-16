@@ -6,6 +6,7 @@ using FastFile.Models.Data;
 using UI.Models;
 using System.Globalization;
 using FastFile.Models.Zone;
+using UI.Navigation;
 
 namespace UI.Views.Assets;
 
@@ -47,6 +48,14 @@ public partial class WeaponAssetView : UserControl
         XModelPreviewHelper.Show(_previewModel, contextName: GetDisplayName(_weapon));
     }
 
+    private void BlockStreamNavigationButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: BlockStreamNavigationTarget target } button)
+        {
+            BlockStreamNavigator.Navigate(button, target);
+        }
+    }
+
     private static string GetDisplayName(WeaponVariantDef weapon)
     {
         return string.IsNullOrWhiteSpace(weapon.GetDisplayName)
@@ -61,20 +70,20 @@ public partial class WeaponAssetView : UserControl
         return
         [
             new("Display Name", GetResolvedString(weapon.InternalNamePtr)),
-            new("Internal Name Pointer", AssetViewFormatters.FormatPointerRaw(weapon.InternalNamePtr)),
-            new("Display Name Pointer", AssetViewFormatters.FormatPointerRaw(weapon.DisplayNamePtr)),
+            AssetViewFormatters.PointerItem("Internal Name Pointer", weapon.InternalNamePtr),
+            AssetViewFormatters.PointerItem("Display Name Pointer", weapon.DisplayNamePtr),
             new("Display Name Value", GetResolvedString(weapon.DisplayNamePtr)),
-            new("Alt Weapon Name Pointer", AssetViewFormatters.FormatPointerRaw(weapon.szAltWeaponName)),
+            AssetViewFormatters.PointerItem("Alt Weapon Name Pointer", weapon.szAltWeaponName),
             new("Alt Weapon Name", GetResolvedString(weapon.szAltWeaponName)),
-            new("WeaponDef Pointer", AssetViewFormatters.FormatPointerRaw(weapon.WeaponDefPtr)),
+            AssetViewFormatters.PointerItem("WeaponDef Pointer", weapon.WeaponDefPtr),
             new("WeaponDef", weapon.WeaponDef is not null && !string.IsNullOrWhiteSpace(weapon.WeaponDef.InternalName)
                 ? $"{weapon.WeaponDef.InternalName} (0x{weapon.WeaponDef.Offset:X8})"
                 : "[not resolved]"),
             new("Preview XModel", previewModel is null
                 ? "[not resolved]"
                 : $"{previewModel.GetDisplayName} (0x{previewModel.Offset:X8})"),
-            new("Hide Tags", FormatArrayPointer(weapon.HideTags, WeaponVariantDef.HideTagCount)),
-            new("Animation Set Pointer", FormatArrayPointer(weapon.XAnims, WeaponVariantDef.WeaponAnimCount)),
+            new("Hide Tags", FormatArrayPointer(weapon.HideTags, WeaponVariantDef.HideTagCount), AssetViewFormatters.GetNavigationTarget(weapon.HideTags)),
+            new("Animation Set Pointer", FormatArrayPointer(weapon.XAnims, WeaponVariantDef.WeaponAnimCount), AssetViewFormatters.GetNavigationTarget(weapon.XAnims)),
             new("Clip Size", FormatInt(weapon.iClipSize)),
             new("Fire Time", FormatInt(weapon.iFireTime)),
             new("Impact Type", weapon.impactType.ToString()),

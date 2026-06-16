@@ -75,6 +75,20 @@ public partial class BlockStreamsTab : UserControl
             ?? _streams.FirstOrDefault();
     }
 
+    public void NavigateTo(XFILE_BLOCK block, int offset)
+    {
+        var stream = _streams.FirstOrDefault(item => item.Block == block);
+        if (stream is null)
+        {
+            ShowOffsetJumpStatus($"Block {block} unavailable");
+            return;
+        }
+
+        BlockStreamsListBox.SelectedItem = stream;
+        OffsetJumpTextBox.Text = $"0x{offset:X8}";
+        Dispatcher.UIThread.Post(() => JumpToOffset(offset), DispatcherPriority.Background);
+    }
+
     private void BlockStreamsListBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         ShowSelectedBlock(BlockStreamsListBox.SelectedItem as BlockStreamDisplayItem);
@@ -144,20 +158,25 @@ public partial class BlockStreamsTab : UserControl
             return;
         }
 
+        JumpToOffset((int)offset);
+    }
+
+    private void JumpToOffset(int offset)
+    {
         if (_visibleBlockData.Length == 0)
         {
             ShowOffsetJumpStatus("No block data");
             return;
         }
 
-        if (offset >= _visibleBlockData.Length)
+        if (offset < 0 || offset >= _visibleBlockData.Length)
         {
             ShowOffsetJumpStatus($"Max 0x{Math.Max(0, _visibleBlockData.Length - 1):X8}");
             return;
         }
 
         ClearOffsetJumpStatus();
-        JumpRawDataEditorToOffset((int)offset);
+        JumpRawDataEditorToOffset(offset);
     }
 
     private void JumpRawDataEditorToOffset(int offset)

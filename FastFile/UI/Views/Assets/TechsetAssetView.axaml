@@ -150,7 +150,14 @@
                                                            Text="{Binding Key}" />
                                                 <TextBlock Grid.Column="1"
                                                            Classes="techsetValue"
+                                                           IsVisible="{Binding HasNoNavigationTarget}"
                                                            Text="{Binding Value}" />
+                                                <Button Grid.Column="1"
+                                                        Classes="blockStreamNavigationLabel"
+                                                        Content="{Binding NavigationValue}"
+                                                        Tag="{Binding NavigationTarget}"
+                                                        IsVisible="{Binding HasNavigationTarget}"
+                                                        Click="BlockStreamNavigationButton_Click" />
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -181,7 +188,14 @@
                                                                    Text="{Binding Name}" />
                                                         <TextBlock Grid.Column="1"
                                                                    Classes="techsetTechniqueMeta"
+                                                                   IsVisible="{Binding HasNoPointerNavigationTarget}"
                                                                    Text="{Binding Pointer}" />
+                                                        <Button Grid.Column="1"
+                                                                Classes="blockStreamNavigationLabel"
+                                                                Content="{Binding PointerNavigationValue}"
+                                                                Tag="{Binding PointerNavigationTarget}"
+                                                                IsVisible="{Binding HasPointerNavigationTarget}"
+                                                                Click="BlockStreamNavigationButton_Click" />
                                                     </Grid>
 
                                                     <Grid Grid.Row="1"
@@ -243,7 +257,14 @@
                                                                                            Text="Vertex Decl" />
                                                                                 <TextBlock Grid.Column="1"
                                                                                            Classes="techsetPassValue"
+                                                                                           IsVisible="{Binding HasNoVertexDeclarationNavigationTarget}"
                                                                                            Text="{Binding VertexDeclaration}" />
+                                                                                <Button Grid.Column="1"
+                                                                                        Classes="blockStreamNavigationLabel"
+                                                                                        Content="{Binding VertexDeclarationNavigationValue}"
+                                                                                        Tag="{Binding VertexDeclarationNavigationTarget}"
+                                                                                        IsVisible="{Binding HasVertexDeclarationNavigationTarget}"
+                                                                                        Click="BlockStreamNavigationButton_Click" />
                                                                             </Grid>
 
                                                                             <Grid ColumnDefinitions="100,*"
@@ -252,7 +273,14 @@
                                                                                            Text="Vertex Shader" />
                                                                                 <TextBlock Grid.Column="1"
                                                                                            Classes="techsetPassValue"
+                                                                                           IsVisible="{Binding HasNoVertexShaderNavigationTarget}"
                                                                                            Text="{Binding VertexShader}" />
+                                                                                <Button Grid.Column="1"
+                                                                                        Classes="blockStreamNavigationLabel"
+                                                                                        Content="{Binding VertexShaderNavigationValue}"
+                                                                                        Tag="{Binding VertexShaderNavigationTarget}"
+                                                                                        IsVisible="{Binding HasVertexShaderNavigationTarget}"
+                                                                                        Click="BlockStreamNavigationButton_Click" />
                                                                             </Grid>
 
                                                                             <Grid ColumnDefinitions="100,*"
@@ -261,7 +289,14 @@
                                                                                            Text="Pixel Shader" />
                                                                                 <TextBlock Grid.Column="1"
                                                                                            Classes="techsetPassValue"
+                                                                                           IsVisible="{Binding HasNoPixelShaderNavigationTarget}"
                                                                                            Text="{Binding PixelShader}" />
+                                                                                <Button Grid.Column="1"
+                                                                                        Classes="blockStreamNavigationLabel"
+                                                                                        Content="{Binding PixelShaderNavigationValue}"
+                                                                                        Tag="{Binding PixelShaderNavigationTarget}"
+                                                                                        IsVisible="{Binding HasPixelShaderNavigationTarget}"
+                                                                                        Click="BlockStreamNavigationButton_Click" />
                                                                             </Grid>
 
                                                                             <Grid ColumnDefinitions="100,*"
@@ -270,7 +305,14 @@
                                                                                            Text="Arguments" />
                                                                                 <TextBlock Grid.Column="1"
                                                                                            Classes="techsetPassValue"
+                                                                                           IsVisible="{Binding HasNoArgumentsNavigationTarget}"
                                                                                            Text="{Binding Arguments}" />
+                                                                                <Button Grid.Column="1"
+                                                                                        Classes="blockStreamNavigationLabel"
+                                                                                        Content="{Binding ArgumentsNavigationValue}"
+                                                                                        Tag="{Binding ArgumentsNavigationTarget}"
+                                                                                        IsVisible="{Binding HasArgumentsNavigationTarget}"
+                                                                                        Click="BlockStreamNavigationButton_Click" />
                                                                             </Grid>
 
                                                                             <Grid ColumnDefinitions="100,*"
