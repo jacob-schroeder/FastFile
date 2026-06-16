@@ -7,7 +7,7 @@ namespace FastFile.Models.Assets.StructuredData;
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 [XEbootEvidence(
     "0x103630",
-    "Data/eboot/structureddata_loader_102e78_103630.txt",
+    "eboot/traces/structureddata_loader_102e78_103630.txt",
     Detail = "StructuredDataDefSet body: Load_Stream size 0x0c; Load_XString at +0x00; defs pointer at +0x08; count at +0x04; def array consumed through 0x1035a8.")]
 public sealed class StructuredDataDefSet() : BaseAsset(XAssetType.StructuredDataDef)
 {
@@ -41,7 +41,7 @@ public sealed class StructuredDataDefSet() : BaseAsset(XAssetType.StructuredData
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x34)]
 [XEbootEvidence(
     "0x103400",
-    "Data/eboot/structureddata_loader_102e78_103630.txt",
+    "eboot/traces/structureddata_loader_102e78_103630.txt",
     Detail = "StructuredDataDef body: Load_Stream size 0x34; +0x0c/+0x08 enum array, +0x14/+0x10 struct array, +0x1c/+0x18 indexed arrays via 0xe3bb8, +0x24/+0x20 enumed arrays via 0xe3ae0.")]
 public sealed class StructuredDataDef
 {
@@ -117,7 +117,7 @@ public sealed class StructuredDataDef
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x0C)]
 [XEbootEvidence(
     "0x103278",
-    "Data/eboot/structureddata_loader_102e78_103630.txt",
+    "eboot/traces/structureddata_loader_102e78_103630.txt",
     Detail = "StructuredDataEnum body: Load_Stream size 0x0c; entries pointer at +0x08; entry count at +0x00; entries are count * 0x08 through 0x1031f0.")]
 public sealed class StructuredDataEnum
 {
@@ -142,7 +142,7 @@ public sealed class StructuredDataEnum
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 [XEbootEvidence(
     "0x103138",
-    "Data/eboot/structureddata_loader_102e78_103630.txt",
+    "eboot/traces/structureddata_loader_102e78_103630.txt",
     Detail = "StructuredDataEnumEntry body: Load_Stream size 0x08; Load_XString at +0x00; remaining index/padding bytes are copied as part of the 0x08 root.")]
 public sealed class StructuredDataEnumEntry
 {
@@ -164,7 +164,7 @@ public sealed class StructuredDataEnumEntry
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
 [XEbootEvidence(
     "0x102e78",
-    "Data/eboot/structureddata_loader_102e78_103630.txt",
+    "eboot/traces/structureddata_loader_102e78_103630.txt",
     Detail = "StructuredDataStructProperty body: Load_Stream size 0x10; Load_XString at +0x00; embedded type/offset tail is copied as part of the 0x10 root.")]
 public sealed class StructuredDataStructProperty
 {
@@ -186,7 +186,7 @@ public sealed class StructuredDataStructProperty
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
 [XEbootEvidence(
     "0x102fb8",
-    "Data/eboot/structureddata_loader_102e78_103630.txt",
+    "eboot/traces/structureddata_loader_102e78_103630.txt",
     Detail = "StructuredDataStruct body: Load_Stream size 0x10; properties pointer at +0x04; property count at +0x00; property array is count * 0x10 through 0x102f30.")]
 public sealed class StructuredDataStruct
 {
@@ -214,7 +214,7 @@ public sealed class StructuredDataStruct
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
 [XEbootEvidence(
     "0xe3bb8",
-    "Data/eboot/structured_indexed_enumed_arrays_e3ae0_e3bb8.txt",
+    "eboot/traces/structured_indexed_enumed_arrays_e3ae0_e3bb8.txt",
     Detail = "StructuredDataIndexedArray leaf: parent StructuredDataDef uses +0x1c pointer and +0x18 count; loader allocates count * 0x10 entries.")]
 public sealed class StructuredDataIndexedArray
 {
@@ -231,7 +231,7 @@ public sealed class StructuredDataIndexedArray
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
 [XEbootEvidence(
     "0xe3ae0",
-    "Data/eboot/structured_indexed_enumed_arrays_e3ae0_e3bb8.txt",
+    "eboot/traces/structured_indexed_enumed_arrays_e3ae0_e3bb8.txt",
     Detail = "StructuredDataEnumedArray leaf: parent StructuredDataDef uses +0x24 pointer and +0x20 count; loader allocates count * 0x10 entries.")]
 public sealed class StructuredDataEnumedArray
 {

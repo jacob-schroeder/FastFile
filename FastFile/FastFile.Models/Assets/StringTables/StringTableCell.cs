@@ -7,7 +7,7 @@ namespace FastFile.Models.Assets.StringTables;
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x08)]
 [XEbootEvidence(
     "0x1039d8",
-    "Data/eboot/xasset_loader_findings.txt",
+    "eboot/traces/xasset_loader_findings.txt",
     Detail = "StringTableCell inner loader: Load_Stream size 0x08; Load_XString at cell+0x00; hash at +0x04 is copied by the root stream and not otherwise transformed.")]
 public class StringTableCell
 {

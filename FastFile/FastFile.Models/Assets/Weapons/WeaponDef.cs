@@ -13,7 +13,7 @@ namespace FastFile.Models.Assets.Weapons;
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x684)]
 [XEbootEvidence(
     "0x114678",
-    "Data/eboot/weapon_loaders_114678_1152f8.txt",
+    "eboot/traces/weapon_loaders_114678_1152f8.txt",
     Detail = "WeaponDef body: Load_Stream size 0x684; XString at +0x00; model/anim arrays at +0x04/+0x0c/+0x10; mode string +0x14; many XString/alias/array offsets verified through +0x61c, including +0x1d8 model array, +0x444/+0x448 float arrays, and +0x5f8/+0x608 string pointer arrays.")]
 public sealed class WeaponDef
 {

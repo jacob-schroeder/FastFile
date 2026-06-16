@@ -29,27 +29,27 @@ public sealed class XStructMetadataValidatorTests
         Assert.Contains(
             typeof(RawFile).GetCustomAttributes(typeof(XEbootEvidenceAttribute), inherit: false).Cast<XEbootEvidenceAttribute>(),
             evidence => evidence.Address == "0x103ec0" &&
-                        evidence.Trace == "Data/eboot/xasset_loader_findings.txt");
+                        evidence.Trace == "eboot/traces/xasset_loader_findings.txt");
 
         Assert.Contains(
             typeof(LocalizeEntry).GetCustomAttributes(typeof(XEbootEvidenceAttribute), inherit: false).Cast<XEbootEvidenceAttribute>(),
             evidence => evidence.Address == "0x104278" &&
-                        evidence.Trace == "Data/eboot/xasset_loader_findings.txt");
+                        evidence.Trace == "eboot/traces/xasset_loader_findings.txt");
 
         Assert.Contains(
             typeof(StringTable).GetCustomAttributes(typeof(XEbootEvidenceAttribute), inherit: false).Cast<XEbootEvidenceAttribute>(),
             evidence => evidence.Address == "0x103b18" &&
-                        evidence.Trace == "Data/eboot/xasset_loader_findings.txt");
+                        evidence.Trace == "eboot/traces/xasset_loader_findings.txt");
 
         Assert.Contains(
             typeof(StructuredDataDefSet).GetCustomAttributes(typeof(XEbootEvidenceAttribute), inherit: false).Cast<XEbootEvidenceAttribute>(),
             evidence => evidence.Address == "0x103630" &&
-                        evidence.Trace == "Data/eboot/structureddata_loader_102e78_103630.txt");
+                        evidence.Trace == "eboot/traces/structureddata_loader_102e78_103630.txt");
 
         Assert.Contains(
             typeof(WeaponVariantDef).GetCustomAttributes(typeof(XEbootEvidenceAttribute), inherit: false).Cast<XEbootEvidenceAttribute>(),
             evidence => evidence.Address == "0x1152f8" &&
-                        evidence.Trace == "Data/eboot/weapon_loaders_114678_1152f8.txt");
+                        evidence.Trace == "eboot/traces/weapon_loaders_114678_1152f8.txt");
     }
 
     [Fact]

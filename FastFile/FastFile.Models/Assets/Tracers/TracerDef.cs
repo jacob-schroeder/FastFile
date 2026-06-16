@@ -9,7 +9,7 @@ namespace FastFile.Models.Assets.Tracers;
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x70)]
 [XEbootEvidence(
     "0x10e148",
-    "Data/eboot/graph/tracer_loader_map.md",
+    "eboot/graphs/tracer_loader_map.md",
     Detail = "Load_TracerDef body: Load_Stream size 0x70; PushStreamPos(4); Load_XString at +0x00; Load_MaterialPtr at +0x04, whose pointer wrapper pushes block 0; PopStreamPos. XAsset type 0x27 dispatch branches to 0x10e1b8.")]
 public class TracerDef() : BaseAsset(XAssetType.Tracer)
 {

@@ -7,7 +7,7 @@ namespace FastFile.Models.Assets.StringTables;
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0x10)]
 [XEbootEvidence(
     "0x103b18",
-    "Data/eboot/xasset_loader_findings.txt",
+    "eboot/traces/xasset_loader_findings.txt",
     Detail = "StringTable inner loader: Load_Stream size 0x10; Load_XString at root+0x00; cells pointer at +0x0c; count is columns(+0x04) * rows(+0x08).")]
 public class StringTable() : BaseAsset(XAssetType.StringTable)
 {

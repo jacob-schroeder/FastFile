@@ -49,7 +49,7 @@ public class FxEffectDef() : BaseAsset(XAssetType.Fx)
 [XStruct(Block = XFILE_BLOCK.LARGE, Size = 0xFC)]
 [XEbootEvidence(
     "0x112e20",
-    "Data/eboot/graph/fx_loader_map.md",
+    "eboot/graphs/fx_loader_map.md",
     Detail = "PS3 FxElemDef body reads 0xFC bytes, then resolves +0xB4 velocity samples, +0xB8 visual-state samples, +0xBC visuals union, +0xD8/+0xDC/+0xE0 effect refs, and +0xF4 extended union.")]
 public sealed class FxElemDef
 {

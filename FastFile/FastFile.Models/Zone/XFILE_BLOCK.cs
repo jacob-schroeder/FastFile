@@ -9,5 +9,6 @@ public enum XFILE_BLOCK : int
   LARGE	= 4,
   CALLBACK	= 5,
   VERTEX	= 6,
+  XFILE_BLOCK_VERTEX = VERTEX,
   MAX_XFILE_COUNT
 }
