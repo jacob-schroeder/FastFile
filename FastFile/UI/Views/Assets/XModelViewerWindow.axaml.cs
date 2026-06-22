@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using FastFile.Models.Assets.XModels;
+using FastFile.ModelsOLD.Assets.XModels;
 using System;
 
 namespace UI.Views.Assets;

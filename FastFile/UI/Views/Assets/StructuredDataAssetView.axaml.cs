@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using FastFile.Models.Assets.StructuredData;
+using FastFile.ModelsOLD.Assets.StructuredData;
 using UI.Models;
 using System.Globalization;
 using System.Linq;

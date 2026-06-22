@@ -1,11 +1,11 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using FastFile.Models.Assets.TechniqueSet;
-using FastFile.Models.Data;
+using FastFile.ModelsOLD.Assets.TechniqueSet;
+using FastFile.ModelsOLD.Data;
 using UI.Models;
 using System.Globalization;
 using System.Linq;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Zone;
 using UI.Navigation;
 
 namespace UI.Views.Assets;

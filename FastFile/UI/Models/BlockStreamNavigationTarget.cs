@@ -1,6 +1,6 @@
 using System;
-using FastFile.Models.Data;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Data;
+using FastFile.ModelsOLD.Zone;
 
 namespace UI.Models;
 

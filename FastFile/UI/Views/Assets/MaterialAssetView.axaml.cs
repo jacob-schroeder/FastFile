@@ -1,13 +1,13 @@
 using Avalonia.Controls;
-using FastFile.Models.Assets.Material;
-using FastFile.Models.Assets.TechniqueSet;
-using FastFile.Models.Data;
-using FastFile.Models.Utils;
+using FastFile.ModelsOLD.Assets.Material;
+using FastFile.ModelsOLD.Assets.TechniqueSet;
+using FastFile.ModelsOLD.Data;
+using FastFile.ModelsOLD.Utils;
 using System.Globalization;
 using System.Linq;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Zone;
 using UI.Models;
-using MaterialAsset = FastFile.Models.Assets.Material.Material;
+using MaterialAsset = FastFile.ModelsOLD.Assets.Material.Material;
 
 namespace UI.Views.Assets;
 

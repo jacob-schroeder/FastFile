@@ -1,5 +1,6 @@
-using FastFile.Models.Zone;
-
 namespace FastFile.Models.Zone;
 
-public readonly record struct XBlockAddress(XFILE_BLOCK Block, int Offset);
+public readonly record struct XBlockAddress(XFileBlockType BlockType, int Offset)
+{
+    public override string ToString() => $"{BlockType}:0x{Offset:X}";
+}

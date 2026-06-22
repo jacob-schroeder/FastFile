@@ -1,0 +1,105 @@
+using System;
+using System.Linq;
+using FastFile.ModelsOLD.Archive;
+using FastFile.ModelsOLD.Data;
+using FastFile.ModelsOLD.Zone;
+
+namespace FastFile.ModelsOLD;
+
+public sealed class FastFileDocument
+{
+    private const string DefaultMagic = "IWffu100";
+
+    public byte[]? Buffer { get; init; }
+    public bool IsNew { get; init; }
+    public DB_Header Header { get; init; } = null!;
+    public XFile ZoneHeader { get; init; } = null!;
+    public XAssetList AssetList { get; init; } = null!;
+    public byte[]? ZoneBuffer { get; init; }
+    public IReadOnlyList<XBlockStreamSnapshot> BlockStreams { get; init; } = [];
+
+    public static FastFileDocument CreateNew()
+    {
+        return new FastFileDocument
+        {
+            IsNew = true,
+            Header = new DB_Header
+            {
+                Magic = DefaultMagic,
+                Version = XFILE_VERSION.Mw2,
+                AllowOnlineUpdate = false,
+                FileCreationTime = (ulong)DateTime.UtcNow.ToFileTimeUtc(),
+                Region = Language.LANGUAGE_ENGLISH,
+                EntryCount = 0,
+                FileSize = 0,
+                MaxFileSize = 0
+            },
+            ZoneHeader = new XFile
+            {
+                Size = 0,
+                ExternalSize = 0,
+                BlockSize = new int[(int)XFILE_BLOCK.MAX_XFILE_COUNT]
+            },
+            AssetList = CreateEmptyAssetList(),
+            ZoneBuffer = [],
+            BlockStreams = CreateEmptyBlockStreams()
+        };
+    }
+
+    public static FastFileDocument FromParsed(
+        byte[] buffer,
+        DB_Header header,
+        XFile zoneHeader,
+        XAssetList assetList,
+        byte[] zoneBuffer,
+        IReadOnlyList<XBlockStreamSnapshot> blockStreams)
+    {
+        return new FastFileDocument
+        {
+            Buffer = buffer,
+            IsNew = false,
+            Header = header,
+            ZoneHeader = zoneHeader,
+            AssetList = assetList,
+            ZoneBuffer = zoneBuffer,
+            BlockStreams = blockStreams
+        };
+    }
+
+    private static IReadOnlyList<XBlockStreamSnapshot> CreateEmptyBlockStreams()
+    {
+        return Enum.GetValues<XFILE_BLOCK>()
+            .Where(block => block != XFILE_BLOCK.MAX_XFILE_COUNT)
+            .Select(block => new XBlockStreamSnapshot(block, 0, []))
+            .ToArray();
+    }
+
+    private static XAssetList CreateEmptyAssetList()
+    {
+        var scriptStringsPtr = new XPointer<XPointer<string?>[]>()
+        {
+            Raw = 0,
+            Kind = PointerKind.Null,
+            ResolutionKind = PointerResolutionKind.Unknown
+        };
+        scriptStringsPtr.Value = [];
+
+        var assetsPtr = new XPointer<XAsset[]>
+        {
+            Value =
+            [
+            ],
+            Raw = 0,
+            Kind = PointerKind.Null,
+            ResolutionKind = PointerResolutionKind.Unknown
+        };
+
+        return new XAssetList
+        {
+            ScriptStringCount = 0,
+            ScriptStringsPtr = scriptStringsPtr,
+            AssetCount = 0,
+            AssetsPtr = assetsPtr
+        };
+    }
+}

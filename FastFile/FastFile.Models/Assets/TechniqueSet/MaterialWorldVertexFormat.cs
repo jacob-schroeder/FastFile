@@ -13,5 +13,5 @@ public enum MaterialWorldVertexFormat : byte
     MTL_WORLDVERT_TEX_4_NRM_3 = 0x8,
     MTL_WORLDVERT_TEX_5_NRM_1 = 0x9,
     MTL_WORLDVERT_TEX_5_NRM_2 = 0xA,
-    MTL_WORLDVERT_TEX_5_NRM_3 = 0xB,
+    MTL_WORLDVERT_TEX_5_NRM_3 = 0xB
 }

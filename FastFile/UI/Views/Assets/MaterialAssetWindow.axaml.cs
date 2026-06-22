@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using MaterialAsset = FastFile.Models.Assets.Material.Material;
+using MaterialAsset = FastFile.ModelsOLD.Assets.Material.Material;
 
 namespace UI.Views.Assets;
 

@@ -1,7 +1,7 @@
 namespace UI.Models;
 
-using FastFile.Models.Assets;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Assets;
+using FastFile.ModelsOLD.Zone;
 
 public class DisplayItem
 {

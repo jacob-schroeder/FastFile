@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using FastFile.Models.Assets.StringTables;
+using FastFile.ModelsOLD.Assets.StringTables;
 using System.Linq;
 using UI.Models;
 

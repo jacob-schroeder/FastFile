@@ -1,4 +1,4 @@
-using MaterialAsset = FastFile.Models.Assets.Material.Material;
+using MaterialAsset = FastFile.ModelsOLD.Assets.Material.Material;
 using UI.Models;
 
 namespace UI.Components.Menu;

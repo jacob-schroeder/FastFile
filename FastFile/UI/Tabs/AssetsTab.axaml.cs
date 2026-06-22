@@ -1,22 +1,22 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using FastFile.Models.Assets.Localize;
-using FastFile.Models.Assets.Material;
-using FastFile.Models.Assets.StructuredData;
-using FastFile.Models.Assets.TechniqueSet;
-using FastFile.Models.Assets.Menufile;
-using FastFile.Models.Data;
-using FastFile.Models.Assets.RawFiles;
-using FastFile.Models.Assets.StringTables;
-using FastFile.Models.Assets.XModels;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Assets.Localize;
+using FastFile.ModelsOLD.Assets.Material;
+using FastFile.ModelsOLD.Assets.StructuredData;
+using FastFile.ModelsOLD.Assets.TechniqueSet;
+using FastFile.ModelsOLD.Assets.Menufile;
+using FastFile.ModelsOLD.Data;
+using FastFile.ModelsOLD.Assets.RawFiles;
+using FastFile.ModelsOLD.Assets.StringTables;
+using FastFile.ModelsOLD.Assets.XModels;
+using FastFile.ModelsOLD.Zone;
 using System.Collections.Generic;
 using System.Linq;
 using UI.Models;
 using UI.Views.Assets;
-using MaterialAsset = FastFile.Models.Assets.Material.Material;
-using StructuredDataDefSet = FastFile.Models.Assets.StructuredData.StructuredDataDefSet;
-using TechsetAsset = FastFile.Models.Assets.TechniqueSet.MaterialTechniqueSet;
+using MaterialAsset = FastFile.ModelsOLD.Assets.Material.Material;
+using StructuredDataDefSet = FastFile.ModelsOLD.Assets.StructuredData.StructuredDataDefSet;
+using TechsetAsset = FastFile.ModelsOLD.Assets.TechniqueSet.MaterialTechniqueSet;
 
 namespace UI.Tabs;
 
@@ -261,7 +261,7 @@ public partial class AssetsTab : UserControl
             XAssetType.Image when asset.Asset is GfxImage image => new ImageAssetView(image),
             XAssetType.StructuredDataDef when asset.Asset is StructuredDataDefSet structuredDataDefSet => new StructuredDataAssetView(structuredDataDefSet),
             XAssetType.XModel when asset.Asset is XModel xmodel => new XModelAssetView(xmodel),
-            XAssetType.Weapon when asset.Asset is FastFile.Models.Assets.Weapons.WeaponVariantDef weapon => new WeaponAssetView(weapon),
+            XAssetType.Weapon when asset.Asset is FastFile.ModelsOLD.Assets.Weapons.WeaponVariantDef weapon => new WeaponAssetView(weapon),
             XAssetType.Techset when asset.Asset is TechsetAsset techset => new TechsetAssetView(techset),
             XAssetType.Techset => new TechsetAssetView(),
             XAssetType.RawFile when asset.Asset is RawFile rawFile => new RawfileAssetView(rawFile),

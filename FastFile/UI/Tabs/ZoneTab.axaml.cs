@@ -3,12 +3,12 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using FastFile.Models;
+using FastFile.ModelsOLD;
 using System.Collections.Generic;
 using System.Linq;
-using FastFile.Logic;
-using FastFile.Models.Data;
-using FastFile.Models.Zone;
+using FastFile.LogicOLD;
+using FastFile.ModelsOLD.Data;
+using FastFile.ModelsOLD.Zone;
 using UI.Models;
 
 namespace UI.Tabs;
@@ -25,7 +25,7 @@ public partial class ZoneTab : UserControl
         SetScriptStrings([]);
     }
 
-    public void UpdateZone(FastFile.Models.Zone.XFile? xfile, FastFile.Models.Zone.XAssetList? xassetList)
+    public void UpdateZone(FastFile.ModelsOLD.Zone.XFile? xfile, FastFile.ModelsOLD.Zone.XAssetList? xassetList)
     {
         _xassetList = xassetList;
 

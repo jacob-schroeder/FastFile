@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Zone;
 using UI.Models;
 
 namespace UI.Tabs;

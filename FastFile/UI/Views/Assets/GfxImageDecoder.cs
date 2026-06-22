@@ -1,8 +1,8 @@
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using FastFile.Models.Assets.Material;
-using FastFile.Models.Data;
+using FastFile.ModelsOLD.Assets.Material;
+using FastFile.ModelsOLD.Data;
 using System;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;

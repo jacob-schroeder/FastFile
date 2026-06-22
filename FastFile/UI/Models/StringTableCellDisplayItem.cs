@@ -1,4 +1,4 @@
-using FastFile.Models.Assets.StringTables;
+using FastFile.ModelsOLD.Assets.StringTables;
 
 namespace UI.Models;
 

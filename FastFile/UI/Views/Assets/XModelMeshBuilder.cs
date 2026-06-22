@@ -3,10 +3,10 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using FastFile.Models.Assets.XModels;
-using FastFile.Models.Utils;
-using FastFile.Models.Zone;
-using MaterialAsset = FastFile.Models.Assets.Material.Material;
+using FastFile.ModelsOLD.Assets.XModels;
+using FastFile.ModelsOLD.Utils;
+using FastFile.ModelsOLD.Zone;
+using MaterialAsset = FastFile.ModelsOLD.Assets.Material.Material;
 
 namespace UI.Views.Assets;
 

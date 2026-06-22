@@ -4,27 +4,19 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <DefineConstants>TRACE;PS3</DefineConstants>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <DefineConstants>TRACE;PS3</DefineConstants>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="../FastFile.Models/FastFile.Models.csproj" />
+      <Folder Include="Loaders\" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Ionic.Zlib.Core" Version="1.0.0" />
+      <ProjectReference Include="..\FastFile.Models\FastFile.Models.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Assets\" />
-      <Folder Include="Assets\Readers\" />
+      <PackageReference Include="Ionic.Zlib" Version="1.9.1.5" />
     </ItemGroup>
 
 </Project>

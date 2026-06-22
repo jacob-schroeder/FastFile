@@ -1,5 +1,3 @@
-using System.IO.Compression;
-
 namespace FastFile.Logic.Compression;
 
 public static class Deflate

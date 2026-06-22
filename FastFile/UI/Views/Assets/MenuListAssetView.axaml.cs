@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using FastFile.Models.Assets.Menufile;
-using FastFile.Models.Data;
+using FastFile.ModelsOLD.Assets.Menufile;
+using FastFile.ModelsOLD.Data;
 using System.Linq;
 using UI.Components.Menu;
 using UI.Models;

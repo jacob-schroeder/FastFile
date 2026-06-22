@@ -1,13 +1,10 @@
 using FastFile.Models.Assets;
-using FastFile.Models.Data;
+using FastFile.Models.Pointers;
 
 namespace FastFile.Models.Zone;
 
-public class XAsset
+public struct XAsset
 {
-    public XAssetType Type { get; set; }
-    
-    
-    //[XFilePointer(PointerResolutionKind.Alias, Block = XFILE_BLOCK.TEMP)]
-    public XPointer<BaseAsset> XAssetPtr { get; set; }
-};
+    public XAssetType Type;
+    public XPointer<BaseAsset> Asset;
+}

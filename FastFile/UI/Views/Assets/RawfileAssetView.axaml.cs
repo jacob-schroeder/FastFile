@@ -1,10 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using FastFile.Logic.Compression;
-using FastFile.Models.Assets.RawFiles;
-using FastFile.Models.Data;
+using FastFile.LogicOLD.Compression;
+using FastFile.ModelsOLD.Assets.RawFiles;
+using FastFile.ModelsOLD.Data;
 using System.Text;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Zone;
 using UI.Views.Assets.Highlighting;
 
 namespace UI.Views.Assets;

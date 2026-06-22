@@ -2,7 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using FastFile.Models.Assets.XModels;
+using FastFile.ModelsOLD.Assets.XModels;
 
 namespace UI.Views.Assets;
 

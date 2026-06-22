@@ -1,7 +1,7 @@
 using Avalonia.Controls;
-using FastFile.Models.Assets.Weapons;
-using FastFile.Models.Assets.XModels;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Assets.Weapons;
+using FastFile.ModelsOLD.Assets.XModels;
+using FastFile.ModelsOLD.Zone;
 using System.Collections.Generic;
 
 namespace UI.Views.Assets;

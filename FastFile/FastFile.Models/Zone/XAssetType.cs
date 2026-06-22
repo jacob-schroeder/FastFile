@@ -10,9 +10,6 @@ public enum XAssetType
     Material = 0x05,
     PixelShader = 0x06,
     VertexShader = 0x07,
-
-    // vertexdecl = 0x??, Not Available
-
     Techset = 0x08,
     Image = 0x09,
     Sound = 0x0A,

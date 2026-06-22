@@ -1,8 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using FastFile.Models.Assets.XModels;
-using FastFile.Models.Utils;
-using FastFile.Models.Zone;
+using FastFile.ModelsOLD.Assets.XModels;
+using FastFile.ModelsOLD.Utils;
+using FastFile.ModelsOLD.Zone;
 using System.Globalization;
 using System.Linq;
 using UI.Models;

@@ -1,9 +1,9 @@
 using Avalonia.Media;
-using FastFile.Models.Assets.Material;
+using FastFile.ModelsOLD.Assets.Material;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MaterialAsset = FastFile.Models.Assets.Material.Material;
+using MaterialAsset = FastFile.ModelsOLD.Assets.Material.Material;
 
 namespace UI.Views.Assets;
 
