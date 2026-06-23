@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\FastFile.Models\FastFile.Models.csproj" />
+    <ProjectReference Include="..\FastFile.Runtime\FastFile.Runtime.csproj" />
+    <ProjectReference Include="..\FastFile.Streaming\FastFile.Streaming.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

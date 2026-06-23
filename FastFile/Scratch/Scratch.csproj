@@ -8,8 +8,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\FastFile.Logic\FastFile.Logic.csproj" />
+      <ProjectReference Include="..\FastFile.Loaders\FastFile.Loaders.csproj" />
       <ProjectReference Include="..\FastFile.Models\FastFile.Models.csproj" />
+      <ProjectReference Include="..\FastFile.Runtime\FastFile.Runtime.csproj" />
     </ItemGroup>
 
 </Project>
