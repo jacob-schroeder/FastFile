@@ -70,6 +70,19 @@ public sealed class FastFileCursor
         return value;
     }
 
+    public string ReadCString()
+    {
+        int start = Offset;
+
+        while (Offset < Length && Span[Offset] != 0)
+            Offset++;
+
+        EnsureAvailable(sizeof(byte));
+        string value = Encoding.Latin1.GetString(Span.Slice(start, Offset - start));
+        Offset++;
+        return value;
+    }
+
     public byte[] ReadBytes(int length)
     {
         EnsureAvailable(length);
@@ -82,6 +95,15 @@ public sealed class FastFileCursor
     {
         EnsureAvailable(length);
         Offset += length;
+    }
+
+    public void Align(int alignment)
+    {
+        if (alignment <= 0)
+            throw new ArgumentOutOfRangeException(nameof(alignment));
+
+        int aligned = (Offset + alignment - 1) / alignment * alignment;
+        Skip(aligned - Offset);
     }
 
     private void EnsureAvailable(int byteCount)

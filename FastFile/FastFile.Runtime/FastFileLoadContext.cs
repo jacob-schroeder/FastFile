@@ -16,6 +16,7 @@ public sealed class FastFileLoadContext
     public StreamFileRef CurrentFastFile { get; set; } = new(0, "<current fastfile>", StreamFileKind.CurrentFastFile);
 
     public BlockStreamState Blocks { get; } = new();
+    public XFilePointerReader PointerReader { get; } = new();
     public PointerResolutionTable Pointers { get; } = new();
     public AssetRegistry Assets { get; } = new();
     public LoadDiagnostics Diagnostics { get; } = new();
