@@ -38,9 +38,7 @@ internal static class MenuEnumFormatter
 
     public static string FormatOwnerDraw(int value)
     {
-        return value == 0
-            ? "None (0)"
-            : value.ToString(CultureInfo.CurrentCulture);
+        return FormatEnumValue(value, GetOwnerDrawName(value), "UI_OWNERDRAW_");
     }
 
     public static string FormatTextStyle(int value)
@@ -158,6 +156,30 @@ internal static class MenuEnumFormatter
             2 => "WINDOW_BORDER_HORZ",
             3 => "WINDOW_BORDER_VERT",
             4 => "WINDOW_BORDER_KCGRADIENT",
+            _ => null
+        };
+    }
+
+    private static string? GetOwnerDrawName(int value)
+    {
+        return value switch
+        {
+            0 => "None",
+            0x0FA => "UI_OWNERDRAW_KEY_BIND_STATUS",
+            >= 0x0FB and <= 0x109 => $"UI_OWNERDRAW_NOOP_{value:X3}",
+            0x10A => "UI_OWNERDRAW_LOCAL_TALKING",
+            0x10B => "UI_OWNERDRAW_TALKER_NUM_0",
+            0x10C => "UI_OWNERDRAW_TALKER_NUM_1",
+            0x10D => "UI_OWNERDRAW_TALKER_NUM_2",
+            0x10E => "UI_OWNERDRAW_TALKER_NUM_3",
+            0x10F => "UI_OWNERDRAW_NOOP_10F",
+            0x110 => "UI_OWNERDRAW_LOGGED_IN_USER",
+            0x111 => "UI_OWNERDRAW_RESERVED_SLOTS",
+            0x112 => "UI_OWNERDRAW_NOOP_112",
+            0x113 => "UI_OWNERDRAW_PLAYLIST_DESCRIPTION",
+            0x114 => "UI_OWNERDRAW_LOGGED_IN_USER_NAME",
+            0x115 => "UI_OWNERDRAW_NOOP_115",
+            0x116 => "UI_OWNERDRAW_MAP_CUSTOM_DATA",
             _ => null
         };
     }

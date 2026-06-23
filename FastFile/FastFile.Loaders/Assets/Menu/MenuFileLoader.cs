@@ -210,13 +210,13 @@ public sealed class MenuFileLoader
             Rect = ReadRectangle(cursor),
             RectClient = ReadRectangle(cursor),
             GroupPointer = ReadXStringPointer(cursor, context),
-            Style = cursor.ReadInt32(),
-            Border = cursor.ReadInt32(),
-            OwnerDraw = cursor.ReadInt32(),
+            Style = (WindowStyle)cursor.ReadInt32(),
+            Border = (WindowBorder)cursor.ReadInt32(),
+            OwnerDraw = (WindowOwnerDraw)cursor.ReadInt32(),
             OwnerDrawFlags = cursor.ReadInt32(),
             BorderSize = ReadSingle(cursor),
-            StaticFlags = cursor.ReadInt32(),
-            DynamicFlags = ReadInt32Array(cursor, 4),
+            StaticFlags = (WindowStaticFlags)cursor.ReadInt32(),
+            DynamicFlags = ReadWindowDynamicFlags(cursor),
             NextTime = cursor.ReadInt32(),
             ForeColor = ReadVec4(cursor),
             BackColor = ReadVec4(cursor),
@@ -241,6 +241,17 @@ public sealed class MenuFileLoader
         };
     }
 
+    private static IReadOnlyList<WindowDynamicFlags> ReadWindowDynamicFlags(FastFileCursor cursor)
+    {
+        WindowDynamicFlags[] values = new WindowDynamicFlags[4];
+        for (int i = 0; i < values.Length; i++)
+        {
+            values[i] = (WindowDynamicFlags)cursor.ReadInt32();
+        }
+
+        return values;
+    }
+
     private static IReadOnlyList<MenuTransition> ReadMenuTransitions(FastFileCursor cursor, int count)
     {
         var transitions = new MenuTransition[count];
@@ -248,13 +259,13 @@ public sealed class MenuFileLoader
         {
             transitions[i] = new MenuTransition
             {
-                TransitionType = cursor.ReadInt32(),
+                TransitionType = (MenuTransitionType)cursor.ReadInt32(),
                 TargetField = cursor.ReadInt32(),
                 StartTime = cursor.ReadInt32(),
                 StartValue = ReadSingle(cursor),
                 EndValue = ReadSingle(cursor),
                 Time = ReadSingle(cursor),
-                EndTriggerType = cursor.ReadInt32()
+                EndTriggerType = (MenuTransitionEndTrigger)cursor.ReadInt32()
             };
         }
 
