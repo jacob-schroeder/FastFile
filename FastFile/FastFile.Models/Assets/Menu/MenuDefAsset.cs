@@ -38,4 +38,5 @@ public sealed class MenuDefAsset : BaseAsset
     public IReadOnlyList<MenuTransition> XTransitions { get; init; } = [];
     public IReadOnlyList<MenuTransition> YTransitions { get; init; } = [];
     public XPointer<ExpressionSupportingData> ExpressionData { get; init; }
+    public IReadOnlyList<ItemDefReference> Items { get; set; } = [];
 }

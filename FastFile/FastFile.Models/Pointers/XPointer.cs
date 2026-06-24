@@ -11,9 +11,15 @@ public readonly record struct XPointer<T>
     }
 
     public XPointer(int raw, XPointerResolutionMode resolutionMode)
+        : this(raw, resolutionMode, null)
+    {
+    }
+
+    public XPointer(int raw, XPointerResolutionMode resolutionMode, XBlockAddress? cellAddress)
     {
         Raw = raw;
         ResolutionMode = resolutionMode;
+        CellAddress = cellAddress;
     }
 
     public XPointer(int raw, XPointerOffsetMode resolutionMode)
@@ -24,11 +30,12 @@ public readonly record struct XPointer<T>
     public int Raw { get; }
     public int Value => Raw;
     public XPointerResolutionMode ResolutionMode { get; }
+    public XBlockAddress? CellAddress { get; }
     public PointerType Type => XPointerCodec.GetType(Raw);
     public XBlockAddress? PackedAddress => Type == PointerType.Offset ? XPointerCodec.Decode(Raw) : null;
-    public bool ConsumesSource => Type is PointerType.Inline or PointerType.Insert;
+    public bool ConsumesSource => Type is PointerType.Inline;
 
-    public XPointerReference Untyped => XPointerReference.FromRaw(Raw, ResolutionMode);
+    public XPointerReference Untyped => XPointerReference.FromRaw(Raw, ResolutionMode, CellAddress);
 
     public override string ToString()
     {

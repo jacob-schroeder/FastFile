@@ -1,4 +1,5 @@
 using FastFile.Models.Math;
+using FastFile.Models.Assets.Material;
 using FastFile.Models.Pointers;
 
 namespace FastFile.Models.Assets.Menu;

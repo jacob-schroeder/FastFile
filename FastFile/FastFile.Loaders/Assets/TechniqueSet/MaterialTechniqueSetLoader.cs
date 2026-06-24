@@ -28,8 +28,7 @@ public sealed class MaterialTechniqueSetLoader
         context.Blocks.Push(XFileBlockType.TEMP);
         try
         {
-            context.Blocks.AlignCurrent(4);
-            return ReadTechniqueSet(cursor, context);
+            return ReadTechniqueSet(cursor, pointer, context);
         }
         finally
         {
@@ -39,22 +38,33 @@ public sealed class MaterialTechniqueSetLoader
 
     private static MaterialTechniqueSetAsset ReadTechniqueSet(
         FastFileCursor cursor,
+        XPointerReference pointer,
         FastFileLoadContext context)
     {
         int offset = cursor.Offset;
-        byte[] rootBytes = context.Blocks.Load(cursor, TechniqueSetSize);
-        var rootCursor = new FastFileCursor(rootBytes);
+        XBlockAddress targetAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+        byte[] rootBytes = context.Blocks.Load(cursor, TechniqueSetSize, out XBlockAddress rootAddress);
+        if (rootAddress != targetAddress)
+            throw new InvalidDataException($"MaterialTechniqueSet pointer patched to {targetAddress}, but root loaded at {rootAddress}.");
 
-        int namePointer = rootCursor.ReadInt32();
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
+
+        XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
         var worldVertFormat = (MaterialWorldVertexFormat)rootCursor.ReadByte();
         byte[] unknown05 = rootCursor.ReadBytes(3);
 
-        var techniquePointers = new int[TechniqueSlotCount];
+        var techniquePointers = new XPointerReference[TechniqueSlotCount];
         for (int i = 0; i < techniquePointers.Length; i++)
-            techniquePointers[i] = rootCursor.ReadInt32();
+            techniquePointers[i] = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
 
         if (rootCursor.Offset != TechniqueSetSize)
             throw new InvalidDataException($"MaterialTechniqueSet consumed 0x{rootCursor.Offset:X} bytes instead of 0x{TechniqueSetSize:X}.");
+
+        int inlineTechniqueCount = techniquePointers.Count(x => x.Raw == -1);
+        int offsetTechniqueCount = techniquePointers.Count(x => x.Raw != 0 && x.Raw != -1 && x.Raw != -2);
+        context.Diagnostics.Trace(
+            $"  Techset root source=0x{offset:X} name=0x{namePointer.Raw:X8} worldVertFormat={worldVertFormat} " +
+            $"techniques.inline={inlineTechniqueCount} techniques.offset={offsetTechniqueCount} techniques.nonNull={techniquePointers.Count(x => x.Raw != 0)} blocks={context.Blocks.DescribePositions()}");
 
         context.Blocks.Push(XFileBlockType.LARGE);
         try
@@ -64,7 +74,7 @@ public sealed class MaterialTechniqueSetLoader
             var slots = new MaterialTechniqueSlot[TechniqueSlotCount];
             for (int i = 0; i < techniquePointers.Length; i++)
             {
-                XPointerReference techniquePointer = context.PointerReader.FromRaw(techniquePointers[i], XPointerOffsetMode.Direct);
+                XPointerReference techniquePointer = techniquePointers[i];
                 MaterialTechniqueAsset? technique = ReadTechniquePointer(cursor, techniquePointer, context);
                 slots[i] = new MaterialTechniqueSlot(
                     i,
@@ -75,7 +85,7 @@ public sealed class MaterialTechniqueSetLoader
             return new MaterialTechniqueSetAsset
             {
                 Offset = offset,
-                NamePointer = context.PointerReader.FromRaw<string>(namePointer, XPointerResolutionMode.Direct),
+                NamePointer = namePointer,
                 Name = name,
                 WorldVertexFormat = worldVertFormat,
                 Unknown05 = unknown05,
@@ -96,7 +106,7 @@ public sealed class MaterialTechniqueSetLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
             return null;
 
-        context.Blocks.AlignCurrent(4);
+        context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         return ReadTechnique(cursor, context);
     }
 
@@ -105,15 +115,18 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         int offset = cursor.Offset;
-        byte[] rootBytes = context.Blocks.Load(cursor, TechniqueSize);
-        var rootCursor = new FastFileCursor(rootBytes);
+        byte[] rootBytes = context.Blocks.Load(cursor, TechniqueSize, out XBlockAddress rootAddress);
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
-        int namePointer = rootCursor.ReadInt32();
+        XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
         ushort flags = rootCursor.ReadUInt16();
         ushort passCount = rootCursor.ReadUInt16();
 
         if (rootCursor.Offset != TechniqueSize)
             throw new InvalidDataException($"MaterialTechnique consumed 0x{rootCursor.Offset:X} bytes instead of 0x{TechniqueSize:X}.");
+
+        context.Diagnostics.Trace(
+            $"    MaterialTechnique root source=0x{offset:X} name=0x{namePointer.Raw:X8} flags=0x{flags:X4} passCount={passCount} blocks={context.Blocks.DescribePositions()}");
 
         var passes = new MaterialPassAsset[passCount];
         for (int i = 0; i < passes.Length; i++)
@@ -127,7 +140,7 @@ public sealed class MaterialTechniqueSetLoader
         return new MaterialTechniqueAsset
         {
             Offset = offset,
-            NamePointer = context.PointerReader.FromRaw<string>(namePointer, XPointerResolutionMode.Direct),
+            NamePointer = namePointer,
             Name = name,
             Flags = flags,
             PassCount = passCount,
@@ -140,35 +153,39 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         int offset = cursor.Offset;
-        byte[] rootBytes = context.Blocks.Load(cursor, PassSize);
-        var rootCursor = new FastFileCursor(rootBytes);
+        byte[] rootBytes = context.Blocks.Load(cursor, PassSize, out XBlockAddress rootAddress);
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
-        int vertexDecl = rootCursor.ReadInt32();
-        int vertexShader = rootCursor.ReadInt32();
-        int pixelShader = rootCursor.ReadInt32();
+        XPointer<MaterialVertexDeclarationAsset> vertexDecl = context.PointerReader.ReadPointer<MaterialVertexDeclarationAsset>(rootCursor, XPointerResolutionMode.Direct);
+        XPointer<MaterialShaderAsset> vertexShader = context.PointerReader.ReadPointer<MaterialShaderAsset>(rootCursor, XPointerResolutionMode.AliasCell);
+        XPointer<MaterialShaderAsset> pixelShader = context.PointerReader.ReadPointer<MaterialShaderAsset>(rootCursor, XPointerResolutionMode.AliasCell);
         byte perPrimArgCount = rootCursor.ReadByte();
         byte perObjArgCount = rootCursor.ReadByte();
         byte stableArgCount = rootCursor.ReadByte();
         byte customSamplerFlags = rootCursor.ReadByte();
         byte precompiledIndex = rootCursor.ReadByte();
         rootCursor.Skip(3);
-        int args = rootCursor.ReadInt32();
+        XPointer<MaterialShaderArgumentAsset[]> args = context.PointerReader.ReadPointer<MaterialShaderArgumentAsset[]>(rootCursor, XPointerResolutionMode.Direct);
 
         if (rootCursor.Offset != PassSize)
             throw new InvalidDataException($"MaterialPass consumed 0x{rootCursor.Offset:X} bytes instead of 0x{PassSize:X}.");
 
+        context.Diagnostics.Trace(
+            $"      MaterialPass root source=0x{offset:X} vd=0x{vertexDecl.Raw:X8} vs=0x{vertexShader.Raw:X8} ps=0x{pixelShader.Raw:X8} " +
+            $"args={perPrimArgCount}+{perObjArgCount}+{stableArgCount} argsPtr=0x{args.Raw:X8} blocks={context.Blocks.DescribePositions()}");
+
         return new MaterialPassAsset
         {
             Offset = offset,
-            VertexDeclPointer = context.PointerReader.FromRaw<MaterialVertexDeclarationAsset>(vertexDecl, XPointerResolutionMode.Direct),
-            VertexShaderPointer = context.PointerReader.FromRaw<MaterialShaderAsset>(vertexShader, XPointerResolutionMode.AliasCell),
-            PixelShaderPointer = context.PointerReader.FromRaw<MaterialShaderAsset>(pixelShader, XPointerResolutionMode.AliasCell),
+            VertexDeclPointer = vertexDecl,
+            VertexShaderPointer = vertexShader,
+            PixelShaderPointer = pixelShader,
             PerPrimArgCount = perPrimArgCount,
             PerObjArgCount = perObjArgCount,
             StableArgCount = stableArgCount,
             CustomSamplerFlags = customSamplerFlags,
             PrecompiledIndex = precompiledIndex,
-            ArgsPointer = context.PointerReader.FromRaw<MaterialShaderArgumentAsset[]>(args, XPointerResolutionMode.Direct)
+            ArgsPointer = args
         };
     }
 
@@ -188,11 +205,7 @@ public sealed class MaterialTechniqueSetLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (!context.PointerReader.HasInlinePayload(pointer))
-            return null;
-
-        context.Blocks.AlignCurrent(4);
-        return context.Blocks.Load(cursor, VertexDeclSize);
+        return context.PointerReader.LoadBytes(cursor, pointer, VertexDeclSize, alignment: 4);
     }
 
     private static MaterialShaderAsset? ReadShaderPointer(
@@ -204,7 +217,7 @@ public sealed class MaterialTechniqueSetLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
             return null;
 
-        context.Blocks.AlignCurrent(4);
+        context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         return kind == MaterialShaderKind.Vertex
             ? ReadVertexShader(cursor, context)
             : ReadPixelShader(cursor, context);
@@ -215,27 +228,26 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         int offset = cursor.Offset;
-        byte[] rootBytes = context.Blocks.Load(cursor, VertexShaderSize);
-        var rootCursor = new FastFileCursor(rootBytes);
+        byte[] rootBytes = context.Blocks.Load(cursor, VertexShaderSize, out XBlockAddress rootAddress);
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
-        int namePointer = rootCursor.ReadInt32();
-        int dataPointer = rootCursor.ReadInt32();
+        XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
+        XPointerReference dataPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.AliasCell);
         uint dataSize = rootCursor.ReadUInt32();
 
         if (rootCursor.Offset != VertexShaderSize)
             throw new InvalidDataException($"MaterialVertexShader consumed 0x{rootCursor.Offset:X} bytes instead of 0x{VertexShaderSize:X}.");
 
         string? name = ReadXString(cursor, namePointer, context);
-        XPointerReference dataPointerRef = context.PointerReader.FromRaw(dataPointer, XPointerOffsetMode.AliasCell);
-        byte[]? data = ReadShaderBytecode(cursor, dataPointerRef, dataSize, context);
+        byte[]? data = ReadShaderBytecode(cursor, dataPointer, dataSize, context);
 
         return new MaterialShaderAsset
         {
             Offset = offset,
             Kind = MaterialShaderKind.Vertex,
-            NamePointer = context.PointerReader.FromRaw<string>(namePointer, XPointerResolutionMode.Direct),
+            NamePointer = namePointer,
             Name = name,
-            DataPointer = dataPointerRef.AsPointer<MaterialShaderBytecode>(),
+            DataPointer = dataPointer.AsPointer<MaterialShaderBytecode>(),
             DataSize = dataSize,
             ProgramBytes = [],
             Data = data
@@ -247,11 +259,11 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         int offset = cursor.Offset;
-        byte[] rootBytes = context.Blocks.Load(cursor, PixelShaderSize);
-        var rootCursor = new FastFileCursor(rootBytes);
+        byte[] rootBytes = context.Blocks.Load(cursor, PixelShaderSize, out XBlockAddress rootAddress);
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
-        int namePointer = rootCursor.ReadInt32();
-        int dataPointer = rootCursor.ReadInt32();
+        XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
+        XPointerReference dataPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.AliasCell);
         uint dataSize = rootCursor.ReadUInt32();
         byte[] unknown08 = rootCursor.ReadBytes(0x0c);
 
@@ -259,16 +271,15 @@ public sealed class MaterialTechniqueSetLoader
             throw new InvalidDataException($"MaterialPixelShader consumed 0x{rootCursor.Offset:X} bytes instead of 0x{PixelShaderSize:X}.");
 
         string? name = ReadXString(cursor, namePointer, context);
-        XPointerReference dataPointerRef = context.PointerReader.FromRaw(dataPointer, XPointerOffsetMode.AliasCell);
-        byte[]? data = ReadShaderBytecode(cursor, dataPointerRef, dataSize, context);
+        byte[]? data = ReadShaderBytecode(cursor, dataPointer, dataSize, context);
 
         return new MaterialShaderAsset
         {
             Offset = offset,
             Kind = MaterialShaderKind.Pixel,
-            NamePointer = context.PointerReader.FromRaw<string>(namePointer, XPointerResolutionMode.Direct),
+            NamePointer = namePointer,
             Name = name,
-            DataPointer = dataPointerRef.AsPointer<MaterialShaderBytecode>(),
+            DataPointer = dataPointer.AsPointer<MaterialShaderBytecode>(),
             DataSize = dataSize,
             ProgramBytes = unknown08,
             Data = data
@@ -284,11 +295,7 @@ public sealed class MaterialTechniqueSetLoader
         if (dataSize > int.MaxValue)
             throw new InvalidDataException($"Shader bytecode size 0x{dataSize:X} does not fit in this reader.");
 
-        if (!context.PointerReader.HasInlinePayload(pointer))
-            return null;
-
-        context.Blocks.AlignCurrent(16);
-        return context.Blocks.Load(cursor, (int)dataSize);
+        return context.PointerReader.LoadBytes(cursor, pointer, (int)dataSize, alignment: 16);
     }
 
     private static IReadOnlyList<MaterialShaderArgumentAsset> ReadShaderArgs(
@@ -303,10 +310,11 @@ public sealed class MaterialTechniqueSetLoader
         if (count < 0)
             throw new InvalidDataException($"Invalid negative shader arg count {count}.");
 
-        context.Blocks.AlignCurrent(4);
-        byte[] argBytes = context.Blocks.Load(cursor, checked(count * ShaderArgSize));
-        var argCursor = new FastFileCursor(argBytes);
+        context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+        byte[] argBytes = context.Blocks.Load(cursor, checked(count * ShaderArgSize), out XBlockAddress argAddress);
+        var argCursor = new FastFileCursor(argBytes, argAddress);
         var args = new MaterialShaderArgumentAsset[count];
+        var argumentPointers = new XPointerReference[count];
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -314,23 +322,21 @@ public sealed class MaterialTechniqueSetLoader
             int argStart = argCursor.Offset;
             ushort type = argCursor.ReadUInt16();
             ushort dest = argCursor.ReadUInt16();
-            int argumentRaw = argCursor.ReadInt32();
+            XPointerReference argumentPointer = context.PointerReader.ReadCell(argCursor, XPointerOffsetMode.Direct);
 
             if (argCursor.Offset - argStart != ShaderArgSize)
                 throw new InvalidDataException($"MaterialShaderArgument consumed 0x{argCursor.Offset - argStart:X} bytes instead of 0x{ShaderArgSize:X}.");
 
-            args[i] = new MaterialShaderArgumentAsset(offset, type, dest, argumentRaw, LiteralFloat4Bytes: null);
+            argumentPointers[i] = argumentPointer;
+            args[i] = new MaterialShaderArgumentAsset(offset, type, dest, argumentPointer.Raw, LiteralFloat4Bytes: null);
         }
 
         for (int i = 0; i < args.Length; i++)
         {
             byte[]? literal = null;
-            XPointerReference argumentPointer = context.PointerReader.FromRaw(args[i].ArgumentRaw, XPointerOffsetMode.Direct);
+            XPointerReference argumentPointer = argumentPointers[i];
             if (args[i].Type is 1 or 7 && context.PointerReader.HasInlinePayload(argumentPointer))
-            {
-                context.Blocks.AlignCurrent(16);
-                literal = context.Blocks.Load(cursor, 0x10);
-            }
+                literal = context.PointerReader.LoadBytes(cursor, argumentPointer, 0x10, alignment: 16);
 
             args[i] = args[i] with { LiteralFloat4Bytes = literal };
         }
@@ -338,14 +344,18 @@ public sealed class MaterialTechniqueSetLoader
         return args;
     }
 
-    private static string? ReadXString(
+    private static XPointer<string> ReadXStringPointer(
         FastFileCursor cursor,
-        int pointerRaw,
         FastFileLoadContext context)
     {
-        XPointerReference pointer = context.PointerReader.FromRaw(pointerRaw, XPointerOffsetMode.Direct);
-        return context.PointerReader.HasInlinePayload(pointer)
-            ? context.Blocks.LoadCString(cursor)
-            : null;
+        return context.PointerReader.ReadPointer<string>(cursor, XPointerResolutionMode.Direct);
+    }
+
+    private static string? ReadXString(
+        FastFileCursor cursor,
+        XPointer<string> pointer,
+        FastFileLoadContext context)
+    {
+        return context.PointerReader.LoadXString(cursor, pointer);
     }
 }

@@ -9,6 +9,11 @@ namespace FastFile.Runtime;
 
 public sealed class FastFileLoadContext
 {
+    public FastFileLoadContext()
+    {
+        PointerReader = new XFilePointerReader(Blocks);
+    }
+
     public uint SelectedLanguageMask { get; set; }
     public DbHeader? Header { get; set; }
 
@@ -16,7 +21,7 @@ public sealed class FastFileLoadContext
     public StreamFileRef CurrentFastFile { get; set; } = new(0, "<current fastfile>", StreamFileKind.CurrentFastFile);
 
     public BlockStreamState Blocks { get; } = new();
-    public XFilePointerReader PointerReader { get; } = new();
+    public XFilePointerReader PointerReader { get; }
     public PointerResolutionTable Pointers { get; } = new();
     public AssetRegistry Assets { get; } = new();
     public LoadDiagnostics Diagnostics { get; } = new();

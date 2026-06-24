@@ -14,8 +14,8 @@ public sealed class XAssetListReader
     public XAssetListSnapshot Read(FastFileCursor cursor, FastFileLoadContext context)
     {
         int rootOffset = cursor.Offset;
-        byte[] rootBytes = context.Blocks.Load(cursor, XAssetListSize);
-        var rootCursor = new FastFileCursor(rootBytes);
+        byte[] rootBytes = context.Blocks.Load(cursor, XAssetListSize, out XBlockAddress rootAddress);
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
         int scriptStringCount = rootCursor.ReadInt32();
         XPointerReference scriptStringsReference = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
@@ -33,11 +33,11 @@ public sealed class XAssetListReader
         {
             scriptStrings = !context.PointerReader.HasInlinePayload(scriptStringsReference)
                 ? []
-                : ReadScriptStrings(cursor, scriptStringCount, context);
+                : ReadScriptStrings(cursor, scriptStringsReference, scriptStringCount, context);
 
             assets = !context.PointerReader.HasInlinePayload(assetsReference)
                 ? []
-                : ReadAssets(cursor, assetCount, context);
+                : ReadAssets(cursor, assetsReference, assetCount, context);
         }
         finally
         {
@@ -65,16 +65,17 @@ public sealed class XAssetListReader
 
     private static IReadOnlyList<XScriptStringEntry> ReadScriptStrings(
         FastFileCursor cursor,
+        XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
         if (count < 0)
             throw new InvalidDataException($"Invalid negative script string count {count}.");
 
-        context.Blocks.AlignCurrent(4);
+        context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         int pointerTableSourceOffset = cursor.Offset;
-        byte[] pointerTable = context.Blocks.Load(cursor, checked(count * sizeof(int)));
-        var tableCursor = new FastFileCursor(pointerTable);
+        byte[] pointerTable = context.Blocks.Load(cursor, checked(count * sizeof(int)), out XBlockAddress pointerTableAddress);
+        var tableCursor = new FastFileCursor(pointerTable, pointerTableAddress);
 
         var pointerOffsets = new int[count];
         var pointers = new XPointerReference[count];
@@ -88,10 +89,11 @@ public sealed class XAssetListReader
         var entries = new XScriptStringEntry[count];
         for (int i = 0; i < entries.Length; i++)
         {
-            string? value = context.PointerReader.HasInlinePayload(pointers[i])
-                ? context.Blocks.LoadCString(cursor)
-                : null;
-            entries[i] = new XScriptStringEntry(i, pointerOffsets[i], pointers[i].AsPointer<string>(), value);
+            string? value = context.PointerReader.LoadXString(cursor, pointers[i]);
+            XBlockAddress pointerCell = pointers[i].CellAddress
+                ?? throw new InvalidDataException($"Script string pointer {i} has no destination cell address.");
+
+            entries[i] = new XScriptStringEntry(i, pointerOffsets[i], pointerCell, pointers[i].AsPointer<string>(), value);
         }
 
         return entries;
@@ -99,16 +101,17 @@ public sealed class XAssetListReader
 
     private static IReadOnlyList<XAssetEntry> ReadAssets(
         FastFileCursor cursor,
+        XPointerReference assetsPointer,
         int count,
         FastFileLoadContext context)
     {
         if (count < 0)
             throw new InvalidDataException($"Invalid negative asset count {count}.");
 
-        context.Blocks.AlignCurrent(4);
+        context.PointerReader.PatchInlinePointerCell(assetsPointer, alignment: 4);
         int assetTableSourceOffset = cursor.Offset;
-        byte[] assetTable = context.Blocks.Load(cursor, checked(count * XAssetSize));
-        var tableCursor = new FastFileCursor(assetTable);
+        byte[] assetTable = context.Blocks.Load(cursor, checked(count * XAssetSize), out XBlockAddress assetTableAddress);
+        var tableCursor = new FastFileCursor(assetTable, assetTableAddress);
 
         var assets = new XAssetEntry[count];
         for (int i = 0; i < assets.Length; i++)
@@ -121,7 +124,9 @@ public sealed class XAssetListReader
             if (tableCursor.Offset - rowStart != XAssetSize)
                 throw new InvalidDataException($"XAsset row consumed 0x{tableCursor.Offset - rowStart:X} bytes instead of 0x{XAssetSize:X}.");
 
-            assets[i] = new XAssetEntry(i, offset, type, pointer.AsPointer<BaseAsset>());
+            XBlockAddress assetPointerCell = pointer.CellAddress
+                ?? throw new InvalidDataException($"XAsset row {i} pointer has no destination cell address.");
+            assets[i] = new XAssetEntry(i, offset, assetPointerCell, type, pointer.AsPointer<BaseAsset>());
         }
 
         return assets;

@@ -26,7 +26,11 @@ public sealed class FastFileLoader
         var zoneCursor = new FastFileCursor(zone);
         XFile xfile = _xfileHeaderReader.Read(zoneCursor);
         activeContext.Blocks.Initialize(xfile);
+        activeContext.Diagnostics.Trace(
+            $"xfile header source=0x0 size=0x{xfile.Size:X} external=0x{xfile.ExternalSize:X} blocks={activeContext.Blocks.DescribePositions()}");
         XAssetListSnapshot xassetList = _xassetListReader.Read(zoneCursor, activeContext);
+        activeContext.Diagnostics.Trace(
+            $"xassetlist source=0x{xassetList.SerializedOffset:X} scripts={xassetList.ScriptStringCount} ptr={xassetList.ScriptStringsPointer} assets={xassetList.AssetCount} ptr={xassetList.AssetsPointer} nextSource=0x{zoneCursor.Offset:X} blocks={activeContext.Blocks.DescribePositions()}");
         IReadOnlyList<XAssetLoadResult> loadedAssets = _xassetDispatcher.LoadSupportedPrefix(zoneCursor, xassetList, activeContext);
 
         return new FastFileLoad(

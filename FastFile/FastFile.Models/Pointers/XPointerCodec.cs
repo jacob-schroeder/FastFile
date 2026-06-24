@@ -14,7 +14,7 @@ public static class XPointerCodec
     }
 
     public static int Offset(int value) => (value & 0x0FFFFFFF) - 1;
-    public static int BlockIndex(int value) => value >> 28;
+    public static int BlockIndex(int value) => (int)((uint)value >> 28);
     public static int Encode(XBlockAddress address) => ((int)address.BlockType << 28) | (address.Offset + 1);
     public static XBlockAddress Decode(int value) => new((XFileBlockType)BlockIndex(value), Offset(value));
 }

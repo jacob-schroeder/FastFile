@@ -7,26 +7,33 @@ public readonly record struct XPointerReference(
     int Raw,
     PointerType Type,
     XPointerResolutionMode ResolutionMode,
-    XBlockAddress? PackedAddress)
+    XBlockAddress? PackedAddress,
+    XBlockAddress? CellAddress)
 {
     public XPointerOffsetMode OffsetMode => ResolutionMode.ToOffsetMode();
-    public bool ConsumesSource => Type is PointerType.Inline or PointerType.Insert;
+    public bool ConsumesSource => Type is PointerType.Inline;
 
-    public XPointer<T> AsPointer<T>() => new(Raw, ResolutionMode);
+    public XPointer<T> AsPointer<T>() => new(Raw, ResolutionMode, CellAddress);
 
-    public static XPointerReference FromRaw(int raw, XPointerResolutionMode resolutionMode = XPointerResolutionMode.None)
+    public static XPointerReference FromRaw(
+        int raw,
+        XPointerResolutionMode resolutionMode = XPointerResolutionMode.None,
+        XBlockAddress? cellAddress = null)
     {
         PointerType type = XPointerCodec.GetType(raw);
         XBlockAddress? packedAddress = type == PointerType.Offset
             ? XPointerCodec.Decode(raw)
             : null;
 
-        return new XPointerReference(raw, type, resolutionMode, packedAddress);
+        return new XPointerReference(raw, type, resolutionMode, packedAddress, cellAddress);
     }
 
-    public static XPointerReference FromRaw(int raw, XPointerOffsetMode offsetMode)
+    public static XPointerReference FromRaw(
+        int raw,
+        XPointerOffsetMode offsetMode,
+        XBlockAddress? cellAddress = null)
     {
-        return FromRaw(raw, offsetMode.ToResolutionMode());
+        return FromRaw(raw, offsetMode.ToResolutionMode(), cellAddress);
     }
 }
 

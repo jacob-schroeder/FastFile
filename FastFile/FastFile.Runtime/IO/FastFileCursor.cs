@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using FastFile.Models.Zone;
 
 namespace FastFile.Runtime.IO;
 
@@ -7,14 +8,16 @@ public sealed class FastFileCursor
 {
     private readonly ReadOnlyMemory<byte> _memory;
 
-    public FastFileCursor(ReadOnlyMemory<byte> memory)
+    public FastFileCursor(ReadOnlyMemory<byte> memory, XBlockAddress? baseAddress = null)
     {
         _memory = memory;
+        BaseAddress = baseAddress;
     }
 
     public int Offset { get; private set; }
     public int Length => _memory.Length;
     public int Remaining => Length - Offset;
+    public XBlockAddress? BaseAddress { get; }
 
     private ReadOnlySpan<byte> Span => _memory.Span;
 
@@ -104,6 +107,14 @@ public sealed class FastFileCursor
 
         int aligned = (Offset + alignment - 1) / alignment * alignment;
         Skip(aligned - Offset);
+    }
+
+    public XBlockAddress? AddressAt(int offset)
+    {
+        if (offset < 0 || offset > Length)
+            throw new ArgumentOutOfRangeException(nameof(offset));
+
+        return BaseAddress?.Add(offset);
     }
 
     private void EnsureAvailable(int byteCount)

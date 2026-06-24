@@ -15,11 +15,13 @@ public sealed record XAssetListSnapshot(
 public sealed record XScriptStringEntry(
     int Index,
     int PointerSerializedOffset,
+    XBlockAddress PointerCellAddress,
     XString Pointer,
     string? Value);
 
 public sealed record XAssetEntry(
     int Index,
     int SerializedOffset,
+    XBlockAddress AssetPointerCellAddress,
     XAssetType Type,
     XPointer<BaseAsset> AssetPointer);

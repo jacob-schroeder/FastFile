@@ -5,6 +5,8 @@ namespace FastFile.Models.Assets.TechniqueSet;
 
 public sealed class MaterialTechniqueSetAsset : BaseAsset
 {
+    public const int SerializedSize = 0x9c;
+
     public XString NamePointer { get; init; }
     public string? Name { get; init; }
     public MaterialWorldVertexFormat WorldVertexFormat { get; init; }
@@ -19,6 +21,8 @@ public sealed record MaterialTechniqueSlot(
 
 public sealed class MaterialTechniqueAsset
 {
+    public const int SerializedSize = 0x08;
+
     public int Offset { get; init; }
     public XString NamePointer { get; init; }
     public string? Name { get; init; }
@@ -29,6 +33,8 @@ public sealed class MaterialTechniqueAsset
 
 public sealed class MaterialPassAsset
 {
+    public const int SerializedSize = 0x18;
+
     public int Offset { get; init; }
     public XPointer<MaterialVertexDeclarationAsset> VertexDeclPointer { get; init; }
     public XPointer<MaterialShaderAsset> VertexShaderPointer { get; init; }
