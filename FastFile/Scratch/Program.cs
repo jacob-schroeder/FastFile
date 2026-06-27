@@ -1,4 +1,5 @@
 ﻿using FastFile.Loaders;
+using FastFile.Models.Assets.Localize;
 using FastFile.Models.Assets.Menu;
 using FastFile.Models.Assets.RawFile;
 using FastFile.Models.Assets.StringTable;
@@ -21,6 +22,13 @@ class Program
 
     static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--weapon-tail-flags-only")
+        {
+            string reportPath = args.Length > 1 ? args[1] : patch_mp;
+            WriteWeaponTailFlagReport(reportPath);
+            return;
+        }
+
         string path = args.Length > 0 ? args[0] : patch_mp;
         
         byte[] buffer = File.ReadAllBytes(path);
@@ -64,6 +72,10 @@ class Program
             int size = xheader.BlockSize[i];
             Console.WriteLine($"{(XFileBlockType)i} Block Size: {size}");
         }
+        Console.WriteLine(
+            $"Pointer Validations: directTargets={context.PointerReader.DirectTargetValidationCount} " +
+            $"aliasCells={context.PointerReader.AliasCellValidationCount} " +
+            $"resolvedAliasTargets={context.PointerReader.ResolvedAliasTargetValidationCount}");
 
         Console.WriteLine("=====================");
         Console.WriteLine($"XAssetList Offset: 0x{assets.SerializedOffset:X}");
@@ -93,12 +105,17 @@ class Program
                 PrintStructuredData(structuredData);
             else if (result.Asset is RawFileAsset rawFile)
                 PrintRawFile(rawFile);
+            else if (result.Asset is LocalizeAsset localize)
+                PrintLocalize(localize);
         }
 
         string dumpDirectory = Path.Combine(scratchRoot, "block_dumps", Path.GetFileNameWithoutExtension(path));
         context.Blocks.DumpToDirectory(dumpDirectory);
         string report = BuildBlockDumpReport(session, context);
         File.WriteAllText(Path.Combine(dumpDirectory, "block_report.txt"), report);
+        WriteScriptStringTableReport(session, path);
+        WriteWeaponHideTagsReport(path);
+        WriteWeaponTailFlagReport(path);
         WriteMenuWindowReport(session, path);
         Console.WriteLine("=====================");
         Console.WriteLine($"Block streams dumped: {dumpDirectory}");
@@ -116,6 +133,10 @@ class Program
         using var writer = new StreamWriter(outputPath);
         writer.WriteLine($"Fastfile: {path}");
         writer.WriteLine($"Final block positions: {context.Blocks.DescribePositions()}");
+        writer.WriteLine(
+            $"Pointer validations: directTargets={context.PointerReader.DirectTargetValidationCount}, " +
+            $"aliasCells={context.PointerReader.AliasCellValidationCount}, " +
+            $"resolvedAliasTargets={context.PointerReader.ResolvedAliasTargetValidationCount}");
 
         if (exception is not null)
         {
@@ -216,6 +237,11 @@ class Program
         Console.WriteLine($"    rawfile @0x{rawFile.Offset:X}: name={rawFile.Name ?? "<external/alias>"} len={rawFile.Len} compressedLen={rawFile.CompressedLen} buffer={rawFile.Buffer?.Length ?? 0}/{rawFile.BufferLength}");
     }
 
+    private static void PrintLocalize(LocalizeAsset localize)
+    {
+        Console.WriteLine($"    localize @0x{localize.Offset:X}: name={localize.Name ?? "<external/alias>"} value={localize.Value ?? "<null>"}");
+    }
+
     private static void WriteMenuWindowReport(
         FastFile.Models.Database.DbFileLoad.FastFileLoad session,
         string path)
@@ -262,10 +288,202 @@ class Program
         Console.WriteLine($"Menu root window values: {outputPath}");
     }
 
+    private static void WriteScriptStringTableReport(
+        FastFile.Models.Database.DbFileLoad.FastFileLoad session,
+        string path)
+    {
+        string outputPath = Path.Combine(
+            scratchRoot,
+            "debug-output",
+            $"{Path.GetFileNameWithoutExtension(path)}.scriptstrings.tsv");
+        string mapPath = Path.Combine(
+            scratchRoot,
+            "debug-output",
+            $"{Path.GetFileNameWithoutExtension(path)}.scriptstrings.map.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+        var lines = new List<string>
+        {
+            "indexHex\tindexDecimal\tpointerSourceOffset\tpointerCell\tpointerRaw\tvalue"
+        };
+        var mapLines = new List<string>
+        {
+            $"Fastfile: {path}",
+            $"Script string count: {session.XAssetList.ScriptStringCount}",
+            ""
+        };
+
+        foreach (XScriptStringEntry entry in session.XAssetList.ScriptStrings)
+        {
+            lines.Add(string.Join("\t",
+                $"0x{entry.Index:X4}",
+                entry.Index.ToString(),
+                $"0x{entry.PointerSerializedOffset:X}",
+                entry.PointerCellAddress.ToString(),
+                $"0x{entry.Pointer.Raw:X8}",
+                Tsv(entry.Value ?? string.Empty)));
+            mapLines.Add($"0x{entry.Index:X4} -> {ScriptStringMapValue(entry.Value)}");
+        }
+
+        File.WriteAllLines(outputPath, lines);
+        File.WriteAllLines(mapPath, mapLines);
+        Console.WriteLine($"Script string table: {outputPath}");
+        Console.WriteLine($"Script string map: {mapPath}");
+    }
+
+    private static void WriteWeaponHideTagsReport(string path)
+    {
+        string outputPath = Path.Combine(
+            scratchRoot,
+            "debug-output",
+            $"{Path.GetFileNameWithoutExtension(path)}.weapon-hide-tags.tsv");
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+        byte[] buffer = File.ReadAllBytes(path);
+        var fastFileReader = new FastFile.LogicOLD.Archive.FastFileReader(buffer, buffer.Length);
+        fastFileReader.ParseHeader();
+        byte[] zone = fastFileReader.UnpackZone();
+        var reader = new FastFile.LogicOLD.Zone.XFileReader(zone).Read();
+        FastFile.ModelsOLD.Zone.XAssetList assetList = reader.GetAssetList();
+        string?[] scriptStrings = assetList.ScriptStrings;
+
+        var lines = new List<string>
+        {
+            "assetIndex\tweaponName\tdisplayName\thideTagsPointerRaw\thideTagsPointerAddress\tvaluesHex\tresolved"
+        };
+
+        int weaponCount = 0;
+        int outOfRangeCount = 0;
+        ushort maxValue = 0;
+
+        for (int i = 0; i < assetList.Assets.Length; i++)
+        {
+            FastFile.ModelsOLD.Zone.XAsset asset = assetList.Assets[i];
+            if (asset.Type != FastFile.ModelsOLD.Zone.XAssetType.Weapon ||
+                asset.XAssetPtr.Value is not FastFile.ModelsOLD.Assets.Weapons.WeaponVariantDef weapon)
+            {
+                continue;
+            }
+
+            weaponCount++;
+            ushort[] values = weapon.HideTags.Value ?? [];
+            foreach (ushort value in values)
+            {
+                maxValue = Math.Max(maxValue, value);
+                if (value >= scriptStrings.Length)
+                    outOfRangeCount++;
+            }
+
+            lines.Add(string.Join("\t",
+                i.ToString(),
+                Tsv(weapon.InternalName),
+                Tsv(weapon.DisplayNamePtr.Value ?? string.Empty),
+                $"0x{weapon.HideTags.Raw:X8}",
+                weapon.HideTags.Address?.ToString() ?? "<none>",
+                string.Join(" ", values.Select(value => $"0x{value:X4}")),
+                string.Join(" | ", values.Select(value => ResolveScriptStringId(value, scriptStrings)))));
+        }
+
+        lines.Add("");
+        lines.Add($"summary\tweapons={weaponCount}\tscriptStringCount={scriptStrings.Length}\tmaxValue=0x{maxValue:X4}\toutOfRangeValues={outOfRangeCount}");
+
+        File.WriteAllLines(outputPath, lines);
+        Console.WriteLine($"Weapon hide tag ScriptString[32] values: {outputPath}");
+    }
+
+    private static void WriteWeaponTailFlagReport(string path)
+    {
+        string outputPath = Path.Combine(
+            scratchRoot,
+            "debug-output",
+            $"{Path.GetFileNameWithoutExtension(path)}.weapon-tail-flags.tsv");
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+        byte[] buffer = File.ReadAllBytes(path);
+        var fastFileReader = new FastFile.LogicOLD.Archive.FastFileReader(buffer, buffer.Length);
+        fastFileReader.ParseHeader();
+        byte[] zone = fastFileReader.UnpackZone();
+        var reader = new FastFile.LogicOLD.Zone.XFileReader(zone).Read();
+        FastFile.ModelsOLD.Zone.XAssetList assetList = reader.GetAssetList();
+
+        var lines = new List<string>
+        {
+            "assetIndex\tweaponName\tweaponDefName\tb67E\tb67F\tb680\tb681\tb682\tb683\tbooleanTailBytes"
+        };
+
+        int weaponCount = 0;
+        int nonZero682 = 0;
+        int nonZero683 = 0;
+
+        for (int i = 0; i < assetList.Assets.Length; i++)
+        {
+            FastFile.ModelsOLD.Zone.XAsset asset = assetList.Assets[i];
+            if (asset.Type != FastFile.ModelsOLD.Zone.XAssetType.Weapon ||
+                asset.XAssetPtr.Value is not FastFile.ModelsOLD.Assets.Weapons.WeaponVariantDef weapon ||
+                weapon.WeaponDefPtr.Value is not { } def)
+            {
+                continue;
+            }
+
+            weaponCount++;
+            FastFile.ModelsOLD.Assets.Weapons.WeaponBooleanFlags flags = def.BooleanFlags;
+            if (flags.Ps3TailFlag0 != 0)
+                nonZero682++;
+            if (flags.Ps3TailFlag1 != 0)
+                nonZero683++;
+
+            lines.Add(string.Join("\t",
+                i.ToString(),
+                Tsv(weapon.InternalName),
+                Tsv(def.InternalName),
+                BoolByte(flags.MissileConeSoundEnabled),
+                BoolByte(flags.MissileConeSoundPitchshiftEnabled),
+                BoolByte(flags.MissileConeSoundCrossfadeEnabled),
+                BoolByte(flags.OffhandHoldIsCancelable),
+                $"0x{flags.Ps3TailFlag0:X2}",
+                $"0x{flags.Ps3TailFlag1:X2}",
+                string.Join(" ", def.BooleanTailBytes.Select(value => $"0x{value:X2}"))));
+        }
+
+        lines.Add("");
+        lines.Add($"summary\tweapons={weaponCount}\tnonZero682={nonZero682}\tnonZero683={nonZero683}");
+
+        File.WriteAllLines(outputPath, lines);
+        Console.WriteLine($"Weapon tail flag values: {outputPath}");
+    }
+
     private static string Csv(string value)
     {
         return "\"" + value.Replace("\"", "\"\"") + "\"";
     }
+
+    private static string Tsv(string value)
+    {
+        return value
+            .Replace("\\", "\\\\")
+            .Replace("\t", "\\t")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
+    }
+
+    private static string ScriptStringMapValue(string? value)
+    {
+        return value is null
+            ? "<null>"
+            : "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+    }
+
+    private static string ResolveScriptStringId(ushort value, IReadOnlyList<string?> scriptStrings)
+    {
+        if (value >= scriptStrings.Count)
+            return $"0x{value:X4}=<out-of-range>";
+
+        return scriptStrings[value] is { } text
+            ? $"0x{value:X4}={Tsv(text)}"
+            : $"0x{value:X4}=<null>";
+    }
+
+    private static string BoolByte(bool value) => value ? "0x01" : "0x00";
 
     private static string ShaderName(MaterialShaderAsset? shader)
     {

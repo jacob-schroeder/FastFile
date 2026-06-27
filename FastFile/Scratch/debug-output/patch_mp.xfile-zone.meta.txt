@@ -1,0 +1,7 @@
+input=/Users/jacob/Repositories/FastFile/Data/official_ff/patch_mp.ff
+fullDecompressedZone=/Users/jacob/Repositories/FastFile/FastFile/Scratch/debug-output/patch_mp.zone
+fullDecompressedZoneCopy=/Users/jacob/Downloads/patch_mp.zone
+activeXFileZone=/Users/jacob/Repositories/FastFile/FastFile/Scratch/debug-output/patch_mp.xfile-zone
+activeXFileZoneCopy=/Users/jacob/Downloads/patch_mp.xfile-zone
+activeXFileSize=0x165479 (1463417)
+fullDecompressedSize=0x170000 (1507328)

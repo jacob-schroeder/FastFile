@@ -1,11 +1,11 @@
 Block stream dump report
 XAssetList source: 0x24
-Loaded dispatch results: 54
-TEMP: 0x10 bytes
+Loaded dispatch results: 431
+TEMP: 0x3B4 bytes
 PHYSICAL: 0x0 bytes
 RUNTIME: 0x0 bytes
 VIRTUAL: 0x0 bytes
-LARGE: 0x14A698 bytes
+LARGE: 0x153ACE bytes
 CALLBACK: 0x0 bytes
 VERTEX: 0x0 bytes
 
@@ -19,5 +19,4 @@ LARGE first MenuFile root: block 0xF0C..0xF18 vs zone 0xF40..0xF4C => MISMATCH
 LARGE first MenuFile name: block 0xF18..0xF28 vs zone 0xF4C..0xF5C => MISMATCH
 LARGE first MenuFile MenuDef pointer table: block 0xF28..0xF30 vs zone 0xF5C..0xF64 => MISMATCH
 LARGE first MenuDef root: block 0xF30..0x1220 vs zone 0xF64..0x1254 => MISMATCH
-Dispatch stopped at source: 0x1598F8 (Localize)
-Stop reason: unsupported asset type Localize
+Dispatch stopped at source: 0x16549D (RawFile)

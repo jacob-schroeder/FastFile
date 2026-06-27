@@ -6,6 +6,8 @@ namespace FastFile.Models.Assets.Menu;
 
 public sealed class WindowDef
 {
+    public const int SerializedSize = WindowDefContract.SerializedSize;
+
     public XString NamePointer { get; init; }
     public RectangleDef Rect { get; init; } = new();
     public RectangleDef RectClient { get; init; } = new();
@@ -37,6 +39,8 @@ public sealed class WindowDef
 
 public sealed class RectangleDef
 {
+    public const int SerializedSize = RectangleDefContract.SerializedSize;
+
     public float X { get; init; }
     public float Y { get; init; }
     public float W { get; init; }

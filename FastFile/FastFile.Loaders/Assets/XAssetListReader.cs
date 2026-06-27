@@ -32,11 +32,11 @@ public sealed class XAssetListReader
         try
         {
             scriptStrings = !context.PointerReader.HasInlinePayload(scriptStringsReference)
-                ? []
+                ? ValidateSkippedScriptStringArray(scriptStringsReference, scriptStringCount, context)
                 : ReadScriptStrings(cursor, scriptStringsReference, scriptStringCount, context);
 
             assets = !context.PointerReader.HasInlinePayload(assetsReference)
-                ? []
+                ? ValidateSkippedAssetArray(assetsReference, assetCount, context)
                 : ReadAssets(cursor, assetsReference, assetCount, context);
         }
         finally
@@ -130,5 +130,29 @@ public sealed class XAssetListReader
         }
 
         return assets;
+    }
+
+    private static IReadOnlyList<XScriptStringEntry> ValidateSkippedScriptStringArray(
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        if (count < 0)
+            throw new InvalidDataException($"Invalid negative script string count {count}.");
+
+        context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "XAssetList.scriptStrings");
+        return [];
+    }
+
+    private static IReadOnlyList<XAssetEntry> ValidateSkippedAssetArray(
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        if (count < 0)
+            throw new InvalidDataException($"Invalid negative asset count {count}.");
+
+        context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * XAssetSize), "XAsset[]");
+        return [];
     }
 }

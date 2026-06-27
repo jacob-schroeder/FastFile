@@ -51,7 +51,7 @@ public sealed class MaterialTechniqueSetLoader
 
         XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
         var worldVertFormat = (MaterialWorldVertexFormat)rootCursor.ReadByte();
-        byte[] unknown05 = rootCursor.ReadBytes(3);
+        rootCursor.Align(4);
 
         var techniquePointers = new XPointerReference[TechniqueSlotCount];
         for (int i = 0; i < techniquePointers.Length; i++)
@@ -88,7 +88,6 @@ public sealed class MaterialTechniqueSetLoader
                 NamePointer = namePointer,
                 Name = name,
                 WorldVertexFormat = worldVertFormat,
-                Unknown05 = unknown05,
                 TechniqueSlots = slots
             };
         }
@@ -104,7 +103,10 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, TechniqueSize, "MaterialTechnique");
             return null;
+        }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         return ReadTechnique(cursor, context);
@@ -215,7 +217,11 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            int rootSize = kind == MaterialShaderKind.Vertex ? VertexShaderSize : PixelShaderSize;
+            context.PointerReader.ValidateOffsetPointerRange(pointer, rootSize, $"Material{kind}Shader");
             return null;
+        }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         return kind == MaterialShaderKind.Vertex
@@ -304,11 +310,14 @@ public sealed class MaterialTechniqueSetLoader
         int count,
         FastFileLoadContext context)
     {
-        if (!context.PointerReader.HasInlinePayload(pointer))
-            return [];
-
         if (count < 0)
             throw new InvalidDataException($"Invalid negative shader arg count {count}.");
+
+        if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ShaderArgSize), "MaterialShaderArgument[]");
+            return [];
+        }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] argBytes = context.Blocks.Load(cursor, checked(count * ShaderArgSize), out XBlockAddress argAddress);

@@ -10,7 +10,6 @@ public sealed class MaterialTechniqueSetAsset : BaseAsset
     public XString NamePointer { get; init; }
     public string? Name { get; init; }
     public MaterialWorldVertexFormat WorldVertexFormat { get; init; }
-    public byte[] Unknown05 { get; init; } = [];
     public IReadOnlyList<MaterialTechniqueSlot> TechniqueSlots { get; init; } = [];
 }
 

@@ -16,6 +16,10 @@ public sealed class XFilePointerReader
         _blocks = blocks;
     }
 
+    public int DirectTargetValidationCount { get; private set; }
+    public int AliasCellValidationCount { get; private set; }
+    public int ResolvedAliasTargetValidationCount { get; private set; }
+
     public XPointerReference ReadCell(
         FastFileCursor cursor,
         XPointerOffsetMode offsetMode = XPointerOffsetMode.None)
@@ -186,7 +190,7 @@ public sealed class XFilePointerReader
 
         if (pointer.PackedAddress is not null)
         {
-            ValidateOffsetPointer(pointer, typeof(byte[]));
+            ValidateOffsetPointerRange(pointer, byteCount, "byte[]");
             return null;
         }
 
@@ -255,6 +259,34 @@ public sealed class XFilePointerReader
         readPayload();
     }
 
+    public void ValidateOffsetPointer<T>(XPointerReference pointer)
+    {
+        ValidateOffsetPointer(pointer, typeof(T));
+    }
+
+    public void ValidateOffsetPointerRange(
+        XPointerReference pointer,
+        int byteCount,
+        string targetName)
+    {
+        if (byteCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(byteCount));
+
+        ValidateOffsetPointer(pointer, null, byteCount, targetName);
+    }
+
+    public int ReadAliasCellRaw(XPointerReference pointer)
+    {
+        if (pointer.Type != PointerType.Offset || pointer.ResolutionMode != XPointerResolutionMode.AliasCell)
+            throw new InvalidDataException($"Pointer 0x{pointer.Raw:X8} is not a packed alias-cell pointer.");
+
+        if (pointer.PackedAddress is not { } sourceCell)
+            throw new InvalidDataException($"Alias-cell pointer 0x{pointer.Raw:X8} has no packed source cell.");
+
+        ValidateRange(pointer.Raw, sourceCell, sizeof(int), "alias pointer cell", isAliasCell: true);
+        return _blocks.ReadInt32(sourceCell);
+    }
+
     private static void AlignIfNeeded(FastFileCursor cursor, int alignment)
     {
         if (alignment < 0)
@@ -268,19 +300,80 @@ public sealed class XFilePointerReader
         XPointerReference pointer,
         Type? targetType)
     {
+        ValidateOffsetPointer(pointer, targetType, null, null);
+    }
+
+    private void ValidateOffsetPointer(
+        XPointerReference pointer,
+        Type? targetType,
+        int? byteCountOverride,
+        string? targetNameOverride)
+    {
         if (pointer.PackedAddress is not { } address)
             return;
 
-        string targetName = GetTargetName(targetType);
+        string targetName = targetNameOverride ?? GetTargetName(targetType);
 
-        if (targetType == typeof(string))
+        if (pointer.ResolutionMode == XPointerResolutionMode.AliasCell)
         {
-            _blocks.ValidateMaterializedCString(address, targetName, pointer.Raw);
+            ValidateRange(pointer.Raw, address, sizeof(int), $"{targetName} alias cell", isAliasCell: true);
+
+            int aliasedRaw = _blocks.ReadInt32(address);
+            if (aliasedRaw == 0)
+                return;
+
+            if (XPointerCodec.GetType(aliasedRaw) != PointerType.Offset)
+                return;
+
+            XBlockAddress aliasedAddress = XPointerCodec.Decode(aliasedRaw);
+            ValidateTarget(aliasedRaw, aliasedAddress, targetType, byteCountOverride, targetName, isResolvedAliasTarget: true);
             return;
         }
 
-        int byteCount = GetSerializedSize(targetType) ?? 1;
-        _blocks.ValidateMaterializedRange(address, byteCount, targetName, pointer.Raw);
+        ValidateTarget(pointer.Raw, address, targetType, byteCountOverride, targetName, isResolvedAliasTarget: false);
+    }
+
+    private void ValidateTarget(
+        int rawPointer,
+        XBlockAddress address,
+        Type? targetType,
+        int? byteCountOverride,
+        string targetName,
+        bool isResolvedAliasTarget)
+    {
+        if (targetType == typeof(string))
+        {
+            _blocks.ValidateMaterializedCString(address, targetName, rawPointer);
+            IncrementTargetValidation(isResolvedAliasTarget);
+            return;
+        }
+
+        int byteCount = byteCountOverride ?? GetSerializedSize(targetType) ?? 1;
+        if (byteCount == 0)
+            return;
+
+        ValidateRange(rawPointer, address, byteCount, targetName, isAliasCell: false);
+        IncrementTargetValidation(isResolvedAliasTarget);
+    }
+
+    private void ValidateRange(
+        int rawPointer,
+        XBlockAddress address,
+        int byteCount,
+        string targetName,
+        bool isAliasCell)
+    {
+        _blocks.ValidateMaterializedRange(address, byteCount, targetName, rawPointer);
+        if (isAliasCell)
+            AliasCellValidationCount++;
+    }
+
+    private void IncrementTargetValidation(bool isResolvedAliasTarget)
+    {
+        if (isResolvedAliasTarget)
+            ResolvedAliasTargetValidationCount++;
+        else
+            DirectTargetValidationCount++;
     }
 
     private static string GetTargetName(Type? targetType)

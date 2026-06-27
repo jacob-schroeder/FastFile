@@ -10,6 +10,7 @@ public sealed class BlockStreamState
 {
     private readonly Stack<StreamBlockFrame> _stack = new();
     private int[] _positions = [];
+    private int[] _materializedLengths = [];
     private MemoryStream[] _streams = [];
 
     public XFileBlockType CurrentBlock { get; private set; } = XFileBlockType.TEMP;
@@ -20,6 +21,7 @@ public sealed class BlockStreamState
     {
         BlockSizes = xfile.BlockSize;
         _positions = new int[BlockSizes.Length];
+        _materializedLengths = new int[BlockSizes.Length];
         _streams = new MemoryStream[BlockSizes.Length];
         for (int i = 0; i < _streams.Length; i++)
             _streams[i] = new MemoryStream(Math.Max(0, BlockSizes[i]));
@@ -70,6 +72,21 @@ public sealed class BlockStreamState
     {
         AlignCurrent(alignment);
         return CurrentAddress;
+    }
+
+    public XBlockAddress AllocateInsertPointerCell()
+    {
+        int index = GetBlockIndex(XFileBlockType.LARGE);
+        int position = _positions[index];
+        int alignedPosition = checked((position + sizeof(int) - 1) / sizeof(int) * sizeof(int));
+        _positions[index] = alignedPosition;
+        EnsureLength(index, alignedPosition);
+
+        var address = new XBlockAddress(XFileBlockType.LARGE, alignedPosition);
+        WriteInt32(address, 0);
+        _positions[index] = checked(alignedPosition + sizeof(int));
+        EnsureLength(index, _positions[index]);
+        return address;
     }
 
     public void AlignCurrent(int alignment)
@@ -128,7 +145,7 @@ public sealed class BlockStreamState
     {
         int index = GetBlockIndex(address.BlockType);
         int offset = address.Offset;
-        int writtenLength = _positions[index];
+        int writtenLength = _materializedLengths[index];
         if (offset < 0 || offset > writtenLength - sizeof(int))
             throw new InvalidDataException($"Cannot read int32 at {address}; block {address.BlockType} has 0x{writtenLength:X} materialized byte(s).");
 
@@ -189,7 +206,7 @@ public sealed class BlockStreamState
 
         int index = GetBlockIndex(address.BlockType);
         int offset = address.Offset;
-        int writtenLength = _positions[index];
+        int writtenLength = _materializedLengths[index];
         long requiredEnd = (long)offset + byteCount;
 
         if (offset < 0 || offset > writtenLength - byteCount)
@@ -208,7 +225,7 @@ public sealed class BlockStreamState
     {
         int index = GetBlockIndex(address.BlockType);
         int offset = address.Offset;
-        int writtenLength = _positions[index];
+        int writtenLength = _materializedLengths[index];
 
         if (offset < 0 || offset >= writtenLength)
         {
@@ -264,10 +281,14 @@ public sealed class BlockStreamState
 
         MemoryStream stream = _streams[index];
         if (stream.Length >= length)
+        {
+            _materializedLengths[index] = Math.Max(_materializedLengths[index], length);
             return;
+        }
 
         stream.Position = stream.Length;
         stream.Write(new byte[length - stream.Length]);
+        _materializedLengths[index] = Math.Max(_materializedLengths[index], length);
     }
 
     private int GetBlockIndex(XFileBlockType block)
@@ -286,7 +307,7 @@ public sealed class BlockStreamState
 
     private byte[] GetWrittenBytes(int index)
     {
-        int length = _positions[index];
+        int length = _materializedLengths[index];
         MemoryStream stream = _streams[index];
         if (!stream.TryGetBuffer(out ArraySegment<byte> segment))
             return stream.ToArray().AsSpan(0, length).ToArray();

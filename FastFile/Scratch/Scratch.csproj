@@ -9,7 +9,9 @@
 
     <ItemGroup>
       <ProjectReference Include="..\FastFile.Loaders\FastFile.Loaders.csproj" />
+      <ProjectReference Include="..\FastFile.LogicOLD\FastFile.LogicOLD.csproj" />
       <ProjectReference Include="..\FastFile.Models\FastFile.Models.csproj" />
+      <ProjectReference Include="..\FastFile.ModelsOLD\FastFile.ModelsOLD.csproj" />
       <ProjectReference Include="..\FastFile.Runtime\FastFile.Runtime.csproj" />
     </ItemGroup>
 

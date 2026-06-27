@@ -1,9 +1,11 @@
 using FastFile.Loaders.Assets.Material;
 using FastFile.Loaders.Assets.Menu;
+using FastFile.Loaders.Assets.Localize;
 using FastFile.Loaders.Assets.RawFile;
 using FastFile.Loaders.Assets.StringTable;
 using FastFile.Loaders.Assets.StructuredData;
 using FastFile.Loaders.Assets.TechniqueSet;
+using FastFile.Loaders.Assets.Weapon;
 using FastFile.Models.Assets;
 using FastFile.Models.Pointers;
 using FastFile.Models.Pointers.Enums;
@@ -21,6 +23,8 @@ public sealed class XAssetDispatcher
     private readonly StringTableLoader _stringTableLoader = new();
     private readonly StructuredDataDefSetLoader _structuredDataDefSetLoader = new();
     private readonly RawFileLoader _rawFileLoader = new();
+    private readonly LocalizeLoader _localizeLoader = new();
+    private readonly WeaponLoader _weaponLoader = new();
 
     public IReadOnlyList<XAssetLoadResult> LoadSupportedPrefix(
         FastFileCursor cursor,
@@ -54,7 +58,9 @@ public sealed class XAssetDispatcher
                 asset.Type != XAssetType.MenuFile &&
                 asset.Type != XAssetType.StringTable &&
                 asset.Type != XAssetType.StructuredDataDef &&
-                asset.Type != XAssetType.RawFile)
+                asset.Type != XAssetType.RawFile &&
+                asset.Type != XAssetType.Localize &&
+                asset.Type != XAssetType.Weapon)
             {
                 context.Diagnostics.Trace(
                     $"asset[{asset.Index}] type={asset.Type} unsupported end source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
@@ -97,9 +103,17 @@ public sealed class XAssetDispatcher
                 {
                     loadedAsset = _structuredDataDefSetLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
                 }
-                else
+                else if (asset.Type == XAssetType.RawFile)
                 {
                     loadedAsset = _rawFileLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.Localize)
+                {
+                    loadedAsset = _localizeLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else
+                {
+                    loadedAsset = _weaponLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
                 }
             }
             catch (Exception ex)

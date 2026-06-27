@@ -97,7 +97,10 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"Invalid negative MenuFile menu count {count}.");
 
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "MenuDef*[]");
             return [];
+        }
 
         AlignStream(cursor, context, 4);
         int tableOffset = cursor.Offset;
@@ -110,7 +113,7 @@ public sealed class MenuFileLoader
 
         for (int i = 0; i < count; i++)
         {
-            XPointerReference menuPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.AliasCell);
+            XPointerReference menuPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.Direct);
             context.Diagnostics.Trace(
                 $"    MenuFile.menus[{i}] ptr={menuPointer} begin source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
             MenuDefAsset? menu = ReadMenuDefPointer(cursor, menuPointer, context);
@@ -126,7 +129,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, MenuDefSize, "MenuDef");
             return null;
+        }
 
         context.Blocks.Push(XFileBlockType.TEMP);
         try
@@ -283,7 +289,10 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"Invalid negative ItemDef count {count}.");
 
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "ItemDef*[]");
             return [];
+        }
 
         AlignStream(cursor, context, 4);
         int tableOffset = cursor.Offset;
@@ -299,7 +308,7 @@ public sealed class MenuFileLoader
 
         for (int i = 0; i < items.Length; i++)
         {
-            XPointerReference itemPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.AliasCell);
+            XPointerReference itemPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.Direct);
             context.Diagnostics.Trace(
                 $"        MenuDef.items[{i}] ptr={itemPointer} begin source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
             ItemDefAsset? item;
@@ -336,7 +345,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, ItemDefSize, "ItemDef");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -503,7 +515,8 @@ public sealed class MenuFileLoader
         FastFileCursor cursor,
         FastFileLoadContext context)
     {
-        return new WindowDef
+        int start = cursor.Offset;
+        var window = new WindowDef
         {
             NamePointer = ReadXStringPointer(cursor, context),
             Rect = ReadRectangle(cursor),
@@ -522,13 +535,20 @@ public sealed class MenuFileLoader
             BorderColor = ReadVec4(cursor),
             OutlineColor = ReadVec4(cursor),
             DisableColor = ReadVec4(cursor),
-            Background = ReadPointer<MaterialAsset>(cursor, context, XPointerResolutionMode.AliasCell)
+            Background = ReadPointer<MaterialAsset>(cursor, context, WindowDefContract.Background.ResolutionMode)
         };
+
+        int consumed = cursor.Offset - start;
+        if (consumed != WindowDefContract.SerializedSize)
+            throw new InvalidDataException($"WindowDef consumed 0x{consumed:X} bytes instead of 0x{WindowDefContract.SerializedSize:X}.");
+
+        return window;
     }
 
     private static RectangleDef ReadRectangle(FastFileCursor cursor)
     {
-        return new RectangleDef
+        int start = cursor.Offset;
+        var rectangle = new RectangleDef
         {
             X = ReadSingle(cursor),
             Y = ReadSingle(cursor),
@@ -538,6 +558,12 @@ public sealed class MenuFileLoader
             VertAlign = (VerticalAlign)cursor.ReadByte(),
             Pad12 = cursor.ReadUInt16()
         };
+
+        int consumed = cursor.Offset - start;
+        if (consumed != RectangleDefContract.SerializedSize)
+            throw new InvalidDataException($"RectangleDef consumed 0x{consumed:X} bytes instead of 0x{RectangleDefContract.SerializedSize:X}.");
+
+        return rectangle;
     }
 
     private static IReadOnlyList<WindowDynamicFlags> ReadWindowDynamicFlags(FastFileCursor cursor)
@@ -577,7 +603,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, MenuEventHandlerSet.SerializedSize, "MenuEventHandlerSet");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -610,7 +639,10 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"Invalid negative MenuEventHandler count {count}.");
 
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "MenuEventHandler*[]");
             return;
+        }
 
         AlignStream(cursor, context, 4);
         int tableOffset = cursor.Offset;
@@ -622,7 +654,7 @@ public sealed class MenuFileLoader
 
         for (int i = 0; i < count; i++)
         {
-            XPointerReference handlerPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.AliasCell);
+            XPointerReference handlerPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.Direct);
             context.Diagnostics.Trace(
                 $"              MenuEventHandlerSet.events[{i}] ptr={handlerPointer} begin source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
             ReadMenuEventHandlerPointer(cursor, handlerPointer, context);
@@ -635,7 +667,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, MenuEventHandler.SerializedSize, "MenuEventHandler");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -710,7 +745,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, ConditionalScript.SerializedSize, "ConditionalScript");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -738,7 +776,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, SetLocalVarData.SerializedSize, "SetLocalVarData");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -765,7 +806,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, ItemKeyHandler.SerializedSize, "ItemKeyHandler");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -794,6 +838,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, Statement.SerializedSize, "Statement");
             VerifyOffsetStatementPointer(pointer, context);
             return null;
         }
@@ -879,7 +924,10 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"Invalid negative ExpressionEntry count {count}.");
 
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ExpressionEntry.SerializedSize), "ExpressionEntry[]");
             return;
+        }
 
         AlignStream(cursor, context, 4);
         context.Diagnostics.Trace(
@@ -955,7 +1003,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, ExpressionString.SerializedSize, "ExpressionString");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -980,7 +1031,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, ExpressionSupportingData.SerializedSize, "ExpressionSupportingData");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         int offset = cursor.Offset;
@@ -1079,7 +1133,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, StaticDvar.SerializedSize, "StaticDvar");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -1112,7 +1169,10 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"Invalid negative pointer-array count {count}.");
 
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), name);
             return;
+        }
 
         AlignStream(cursor, context, 4);
         int tableOffset = cursor.Offset;
@@ -1124,7 +1184,7 @@ public sealed class MenuFileLoader
 
         for (int i = 0; i < count; i++)
         {
-            XPointerReference elementPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.AliasCell);
+            XPointerReference elementPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.Direct);
             context.Diagnostics.Trace(
                 $"              {name}[{i}] ptr={elementPointer} begin source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
             try
@@ -1192,7 +1252,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, EditFieldDef.SerializedSize, "EditFieldDef");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -1223,7 +1286,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, ListBoxDef.SerializedSize, "ListBoxDef");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -1283,7 +1349,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, MultiDef.SerializedSize, "MultiDef");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -1341,7 +1410,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, NewsTickerDef.SerializedSize, "NewsTickerDef");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -1374,7 +1446,10 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, TextScrollDef.SerializedSize, "TextScrollDef");
             return null;
+        }
 
         AlignStream(cursor, context, 4);
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -1405,7 +1480,10 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"Invalid negative ItemFloatExpression count {count}.");
 
         if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ItemFloatExpression.SerializedSize), "ItemFloatExpression[]");
             return [];
+        }
 
         AlignStream(cursor, context, 4);
         context.Diagnostics.Trace(
