@@ -223,23 +223,23 @@ public sealed class MenuFileLoader
         MenuDefAsset menu,
         FastFileLoadContext context)
     {
-        ReadExpressionSupportingDataPointer(cursor, menu.ExpressionData.Untyped, context);
+        menu.ExpressionDataValue = ReadExpressionSupportingDataPointer(cursor, menu.ExpressionData.Untyped, context);
         ReadWindowChildren(cursor, menu.Window, context);
-        ReadXString(cursor, menu.FontPointer, context);
+        menu.Font = ReadXString(cursor, menu.FontPointer, context);
 
-        ReadMenuEventHandlerSetPointer(cursor, menu.OnOpen.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, menu.OnClose.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, menu.OnCloseRequest.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, menu.OnEsc.Untyped, context);
+        menu.OnOpenSet = ReadMenuEventHandlerSetPointer(cursor, menu.OnOpen.Untyped, context);
+        menu.OnCloseSet = ReadMenuEventHandlerSetPointer(cursor, menu.OnClose.Untyped, context);
+        menu.OnCloseRequestSet = ReadMenuEventHandlerSetPointer(cursor, menu.OnCloseRequest.Untyped, context);
+        menu.OnEscSet = ReadMenuEventHandlerSetPointer(cursor, menu.OnEsc.Untyped, context);
 
-        ReadItemKeyHandlerPointer(cursor, menu.ExecKeys.Untyped, context);
-        ReadStatementPointer(cursor, menu.VisibleExpression.Untyped, context);
-        ReadXString(cursor, menu.AllowedBinding, context);
-        ReadXString(cursor, menu.SoundName, context);
-        ReadStatementPointer(cursor, menu.RectXExpression.Untyped, context);
-        ReadStatementPointer(cursor, menu.RectYExpression.Untyped, context);
-        ReadStatementPointer(cursor, menu.RectWExpression.Untyped, context);
-        ReadStatementPointer(cursor, menu.RectHExpression.Untyped, context);
+        menu.ExecKeyHandler = ReadItemKeyHandlerPointer(cursor, menu.ExecKeys.Untyped, context);
+        menu.VisibleStatement = ReadStatementPointer(cursor, menu.VisibleExpression.Untyped, context);
+        menu.AllowedBindingString = ReadXString(cursor, menu.AllowedBinding, context);
+        menu.SoundNameString = ReadXString(cursor, menu.SoundName, context);
+        menu.RectXStatement = ReadStatementPointer(cursor, menu.RectXExpression.Untyped, context);
+        menu.RectYStatement = ReadStatementPointer(cursor, menu.RectYExpression.Untyped, context);
+        menu.RectWStatement = ReadStatementPointer(cursor, menu.RectWExpression.Untyped, context);
+        menu.RectHStatement = ReadStatementPointer(cursor, menu.RectHExpression.Untyped, context);
 
         if (menu is { ItemCount: >= 0 })
         {
@@ -266,8 +266,8 @@ public sealed class MenuFileLoader
         WindowDef window,
         FastFileLoadContext context)
     {
-        ReadXString(cursor, window.NamePointer, context);
-        ReadXString(cursor, window.GroupPointer, context);
+        window.Name = ReadXString(cursor, window.NamePointer, context);
+        window.Group = ReadXString(cursor, window.GroupPointer, context);
         ReadMaterialPointer(cursor, window.Background.Untyped, context);
     }
 
@@ -423,7 +423,7 @@ public sealed class MenuFileLoader
             CursorPos = ReadInt32Array(rootCursor, 4),
             TypeData = new ItemDefData
             {
-                RawPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct)
+                RawPointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct)
             },
             ImageTrack = rootCursor.ReadInt32(),
             FloatExpressionCount = rootCursor.ReadInt32(),
@@ -473,19 +473,19 @@ public sealed class MenuFileLoader
         FastFileLoadContext context)
     {
         ReadWindowChildren(cursor, item.Window, context);
-        ReadXString(cursor, item.Text, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.MouseEnterText.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.MouseExitText.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.MouseEnter.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.MouseExit.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.Action.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.Accept.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.OnFocus.Untyped, context);
-        ReadMenuEventHandlerSetPointer(cursor, item.LeaveFocus.Untyped, context);
-        ReadXString(cursor, item.Dvar, context);
-        ReadXString(cursor, item.DvarTest, context);
-        ReadItemKeyHandlerPointer(cursor, item.OnKey.Untyped, context);
-        ReadXString(cursor, item.EnableDvar, context);
+        item.TextString = ReadXString(cursor, item.Text, context);
+        item.MouseEnterTextSet = ReadMenuEventHandlerSetPointer(cursor, item.MouseEnterText.Untyped, context);
+        item.MouseExitTextSet = ReadMenuEventHandlerSetPointer(cursor, item.MouseExitText.Untyped, context);
+        item.MouseEnterSet = ReadMenuEventHandlerSetPointer(cursor, item.MouseEnter.Untyped, context);
+        item.MouseExitSet = ReadMenuEventHandlerSetPointer(cursor, item.MouseExit.Untyped, context);
+        item.ActionSet = ReadMenuEventHandlerSetPointer(cursor, item.Action.Untyped, context);
+        item.AcceptSet = ReadMenuEventHandlerSetPointer(cursor, item.Accept.Untyped, context);
+        item.OnFocusSet = ReadMenuEventHandlerSetPointer(cursor, item.OnFocus.Untyped, context);
+        item.LeaveFocusSet = ReadMenuEventHandlerSetPointer(cursor, item.LeaveFocus.Untyped, context);
+        item.DvarString = ReadXString(cursor, item.Dvar, context);
+        item.DvarTestString = ReadXString(cursor, item.DvarTest, context);
+        item.OnKeyHandler = ReadItemKeyHandlerPointer(cursor, item.OnKey.Untyped, context);
+        item.EnableDvarString = ReadXString(cursor, item.EnableDvar, context);
         WarnIfUnsupportedInline(item.FocusSound.Untyped, nameof(ItemDefAsset.FocusSound), context);
         ReadItemTypeData(cursor, item, context);
 
@@ -496,10 +496,10 @@ public sealed class MenuFileLoader
             context);
         item.LoadedFloatExpressions = floatExpressions;
 
-        ReadStatementPointer(cursor, item.VisibleExpression.Untyped, context);
-        ReadStatementPointer(cursor, item.DisabledExpression.Untyped, context);
-        ReadStatementPointer(cursor, item.TextExpression.Untyped, context);
-        ReadStatementPointer(cursor, item.MaterialExpression.Untyped, context);
+        item.VisibleStatement = ReadStatementPointer(cursor, item.VisibleExpression.Untyped, context);
+        item.DisabledStatement = ReadStatementPointer(cursor, item.DisabledExpression.Untyped, context);
+        item.TextStatement = ReadStatementPointer(cursor, item.TextExpression.Untyped, context);
+        item.MaterialStatement = ReadStatementPointer(cursor, item.MaterialExpression.Untyped, context);
     }
 
     private static IReadOnlyList<RectangleDef> ReadRectangles(FastFileCursor cursor, int count)
@@ -625,11 +625,11 @@ public sealed class MenuFileLoader
         context.Diagnostics.Trace(
             $"            MenuEventHandlerSet root handlers={set.EventHandlerCount} events=0x{set.EventHandlers.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
-        ReadMenuEventHandlerPointerArray(cursor, set.EventHandlers.Untyped, set.EventHandlerCount, context);
+        set.Handlers = ReadMenuEventHandlerPointerArray(cursor, set.EventHandlers.Untyped, set.EventHandlerCount, context);
         return set;
     }
 
-    private static void ReadMenuEventHandlerPointerArray(
+    private static IReadOnlyList<MenuEventHandlerReference> ReadMenuEventHandlerPointerArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
@@ -641,7 +641,7 @@ public sealed class MenuFileLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "MenuEventHandler*[]");
-            return;
+            return [];
         }
 
         AlignStream(cursor, context, 4);
@@ -651,14 +651,18 @@ public sealed class MenuFileLoader
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] pointerBytes = context.Blocks.Load(cursor, checked(count * sizeof(int)), out XBlockAddress tableAddress);
         var pointerCursor = new FastFileCursor(pointerBytes, tableAddress);
+        var handlers = new MenuEventHandlerReference[count];
 
         for (int i = 0; i < count; i++)
         {
             XPointerReference handlerPointer = context.PointerReader.ReadCell(pointerCursor, XPointerOffsetMode.Direct);
             context.Diagnostics.Trace(
                 $"              MenuEventHandlerSet.events[{i}] ptr={handlerPointer} begin source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
-            ReadMenuEventHandlerPointer(cursor, handlerPointer, context);
+            MenuEventHandler? handler = ReadMenuEventHandlerPointer(cursor, handlerPointer, context);
+            handlers[i] = new MenuEventHandlerReference(i, handlerPointer.AsPointer<MenuEventHandler>(), handler);
         }
+
+        return handlers;
     }
 
     private static MenuEventHandler? ReadMenuEventHandlerPointer(
@@ -710,21 +714,21 @@ public sealed class MenuFileLoader
         switch (handler.EventType)
         {
             case MenuEventHandlerType.UnconditionalScript:
-                context.PointerReader.LoadXString(cursor, dataCellAddress, handler.EventData.UnconditionalScript);
+                handler.UnconditionalScript = context.PointerReader.LoadXString(cursor, dataCellAddress, handler.EventData.UnconditionalScript);
                 break;
 
             case MenuEventHandlerType.ConditionalScript:
                 if (context.PointerReader.HasInlinePayload(handler.EventData.ConditionalScript.Untyped))
                     context.PointerReader.PatchInlinePointerCell(dataCellAddress, handler.EventData.ConditionalScript.Raw, alignment: 4);
 
-                ReadConditionalScriptPointer(cursor, handler.EventData.ConditionalScript.Untyped, context);
+                handler.ConditionalScript = ReadConditionalScriptPointer(cursor, handler.EventData.ConditionalScript.Untyped, context);
                 break;
 
             case MenuEventHandlerType.ElseScript:
                 if (context.PointerReader.HasInlinePayload(handler.EventData.ElseScript.Untyped))
                     context.PointerReader.PatchInlinePointerCell(dataCellAddress, handler.EventData.ElseScript.Raw, alignment: 4);
 
-                ReadMenuEventHandlerSetPointer(cursor, handler.EventData.ElseScript.Untyped, context);
+                handler.ElseScriptSet = ReadMenuEventHandlerSetPointer(cursor, handler.EventData.ElseScript.Untyped, context);
                 break;
 
             case MenuEventHandlerType.SetLocalVarBool:
@@ -734,7 +738,7 @@ public sealed class MenuFileLoader
                 if (context.PointerReader.HasInlinePayload(handler.EventData.SetLocalVarData.Untyped))
                     context.PointerReader.PatchInlinePointerCell(dataCellAddress, handler.EventData.SetLocalVarData.Raw, alignment: 4);
 
-                ReadSetLocalVarDataPointer(cursor, handler.EventData.SetLocalVarData.Untyped, context);
+                handler.SetLocalVarData = ReadSetLocalVarDataPointer(cursor, handler.EventData.SetLocalVarData.Untyped, context);
                 break;
         }
     }
@@ -764,9 +768,9 @@ public sealed class MenuFileLoader
         if (rootCursor.Offset != ConditionalScript.SerializedSize)
             throw new InvalidDataException($"ConditionalScript consumed 0x{rootCursor.Offset:X} bytes instead of 0x{ConditionalScript.SerializedSize:X}.");
 
-        ReadStatementPointer(cursor, script.EventExpression.Untyped, context);
+        script.EventStatement = ReadStatementPointer(cursor, script.EventExpression.Untyped, context);
 
-        ReadMenuEventHandlerSetPointer(cursor, script.EventHandlerSet.Untyped, context);
+        script.EventHandlers = ReadMenuEventHandlerSetPointer(cursor, script.EventHandlerSet.Untyped, context);
         return script;
     }
 
@@ -795,8 +799,8 @@ public sealed class MenuFileLoader
         if (rootCursor.Offset != SetLocalVarData.SerializedSize)
             throw new InvalidDataException($"SetLocalVarData consumed 0x{rootCursor.Offset:X} bytes instead of 0x{SetLocalVarData.SerializedSize:X}.");
 
-        context.PointerReader.LoadXString(cursor, data.LocalVarName);
-        ReadStatementPointer(cursor, data.Expression.Untyped, context);
+        data.LocalVarNameString = context.PointerReader.LoadXString(cursor, data.LocalVarName);
+        data.ExpressionStatement = ReadStatementPointer(cursor, data.Expression.Untyped, context);
         return data;
     }
 
@@ -826,8 +830,8 @@ public sealed class MenuFileLoader
         if (rootCursor.Offset != ItemKeyHandler.SerializedSize)
             throw new InvalidDataException($"ItemKeyHandler consumed 0x{rootCursor.Offset:X} bytes instead of 0x{ItemKeyHandler.SerializedSize:X}.");
 
-        ReadMenuEventHandlerSetPointer(cursor, handler.Action.Untyped, context);
-        ReadItemKeyHandlerPointer(cursor, handler.Next.Untyped, context);
+        handler.ActionSet = ReadMenuEventHandlerSetPointer(cursor, handler.Action.Untyped, context);
+        handler.NextHandler = ReadItemKeyHandlerPointer(cursor, handler.Next.Untyped, context);
         return handler;
     }
 
@@ -873,9 +877,9 @@ public sealed class MenuFileLoader
                 $"entries=0x{statement.Entries.Raw:X8}, supportingData=0x{statement.SupportingData.Raw:X8}.");
         }
 
-        ReadExpressionEntries(cursor, statement.Entries.Untyped, statement.NumEntries, context);
+        statement.LoadedEntries = ReadExpressionEntries(cursor, statement.Entries.Untyped, statement.NumEntries, context);
 
-        ReadExpressionSupportingDataPointer(cursor, statement.SupportingData.Untyped, context);
+        statement.SupportingDataValue = ReadExpressionSupportingDataPointer(cursor, statement.SupportingData.Untyped, context);
         return statement;
     }
 
@@ -914,7 +918,7 @@ public sealed class MenuFileLoader
         }
     }
 
-    private static void ReadExpressionEntries(
+    private static IReadOnlyList<ExpressionEntry> ReadExpressionEntries(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
@@ -926,7 +930,7 @@ public sealed class MenuFileLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ExpressionEntry.SerializedSize), "ExpressionEntry[]");
-            return;
+            return [];
         }
 
         AlignStream(cursor, context, 4);
@@ -946,17 +950,20 @@ public sealed class MenuFileLoader
             if (entryCursor.Offset - rowStart != ExpressionEntry.SerializedSize)
                 throw new InvalidDataException($"ExpressionEntry consumed 0x{entryCursor.Offset - rowStart:X} bytes instead of 0x{ExpressionEntry.SerializedSize:X}.");
 
-            entries[i] = new ExpressionEntry
+            var entry = new ExpressionEntry
             {
                 Kind = kind,
                 Operand = operand
             };
+            entries[i] = entry;
 
             if (kind != ExpressionEntryKind.Operand)
                 continue;
 
-            ReadOperandChildren(cursor, operand, tableAddress.Add(rowStart + 0x08), context);
+            ReadOperandChildren(cursor, entry, tableAddress.Add(rowStart + 0x08), context);
         }
+
+        return entries;
     }
 
     private static Operand ReadOperand(FastFileCursor cursor, FastFileLoadContext context)
@@ -968,16 +975,28 @@ public sealed class MenuFileLoader
         };
     }
 
+    private static XPointerReference ReadRawCell(
+        FastFileCursor cursor,
+        XPointerOffsetMode offsetMode)
+    {
+        int cellOffset = cursor.Offset;
+        return XPointerReference.FromRaw(
+            cursor.ReadInt32(),
+            offsetMode,
+            cursor.AddressAt(cellOffset));
+    }
+
     private static void ReadOperandChildren(
         FastFileCursor cursor,
-        Operand operand,
+        ExpressionEntry entry,
         XBlockAddress pointerCellAddress,
         FastFileLoadContext context)
     {
+        Operand operand = entry.Operand;
         switch (operand.DataType)
         {
             case ExpDataType.VAL_STRING:
-                context.PointerReader.LoadXString(
+                entry.StringValue = context.PointerReader.LoadXString(
                     cursor,
                     context.PointerReader.FromRaw<string>(
                         operand.Internals.Raw,
@@ -986,7 +1005,7 @@ public sealed class MenuFileLoader
                 break;
 
             case ExpDataType.VAL_FUNCTION:
-                ReadStatementPointer(
+                entry.FunctionStatement = ReadStatementPointer(
                     cursor,
                     context.PointerReader.FromRaw<Statement>(
                         operand.Internals.Raw,
@@ -1058,9 +1077,9 @@ public sealed class MenuFileLoader
             $"staticDvars.count={data.StaticDvarList.NumStaticDvars} ptr=0x{data.StaticDvarList.StaticDvars.Raw:X8} " +
             $"strings.count={data.UiStrings.TotalStrings} ptr=0x{data.UiStrings.Strings.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
-        ReadUiFunctionListChildren(cursor, data.UiFunctions, context);
-        ReadStaticDvarListChildren(cursor, data.StaticDvarList, context);
-        ReadStringListChildren(cursor, data.UiStrings, context);
+        data.UiFunctions.LoadedFunctions = ReadUiFunctionListChildren(cursor, data.UiFunctions, context);
+        data.StaticDvarList.LoadedStaticDvars = ReadStaticDvarListChildren(cursor, data.StaticDvarList, context);
+        data.UiStrings.LoadedStrings = ReadStringListChildren(cursor, data.UiStrings, context);
         return data;
     }
 
@@ -1091,7 +1110,7 @@ public sealed class MenuFileLoader
         };
     }
 
-    private static void ReadUiFunctionListChildren(
+    private static IReadOnlyList<StatementReference> ReadUiFunctionListChildren(
         FastFileCursor cursor,
         UIFunctionList list,
         FastFileLoadContext context)
@@ -1099,11 +1118,11 @@ public sealed class MenuFileLoader
         if (context.PointerReader.HasInlinePayload(list.Functions.Untyped))
             context.PointerReader.PatchInlinePointerCell(list.Functions, alignment: 4);
 
-        ReadPointerArray(cursor, list.Functions.Untyped, list.TotalFunctions, context, "UIFunctionList.functions", (index, pointer) =>
-            ReadStatementPointer(cursor, pointer, context), inlineAlignment: 4);
+        return ReadPointerArray(cursor, list.Functions.Untyped, list.TotalFunctions, context, "UIFunctionList.functions", (index, pointer) =>
+            new StatementReference(index, pointer.AsPointer<Statement>(), ReadStatementPointer(cursor, pointer, context)), inlineAlignment: 4);
     }
 
-    private static void ReadStaticDvarListChildren(
+    private static IReadOnlyList<StaticDvarReference> ReadStaticDvarListChildren(
         FastFileCursor cursor,
         StaticDvarList list,
         FastFileLoadContext context)
@@ -1111,11 +1130,11 @@ public sealed class MenuFileLoader
         if (context.PointerReader.HasInlinePayload(list.StaticDvars.Untyped))
             context.PointerReader.PatchInlinePointerCell(list.StaticDvars, alignment: 4);
 
-        ReadPointerArray(cursor, list.StaticDvars.Untyped, list.NumStaticDvars, context, "StaticDvarList.staticDvars", (index, pointer) =>
-            ReadStaticDvarPointer(cursor, pointer, context), inlineAlignment: 4);
+        return ReadPointerArray(cursor, list.StaticDvars.Untyped, list.NumStaticDvars, context, "StaticDvarList.staticDvars", (index, pointer) =>
+            new StaticDvarReference(index, pointer.AsPointer<StaticDvar>(), ReadStaticDvarPointer(cursor, pointer, context)), inlineAlignment: 4);
     }
 
-    private static void ReadStringListChildren(
+    private static IReadOnlyList<XStringReference> ReadStringListChildren(
         FastFileCursor cursor,
         StringList list,
         FastFileLoadContext context)
@@ -1123,8 +1142,8 @@ public sealed class MenuFileLoader
         if (context.PointerReader.HasInlinePayload(list.Strings.Untyped))
             context.PointerReader.PatchInlinePointerCell(list.Strings, alignment: 4);
 
-        ReadPointerArray(cursor, list.Strings.Untyped, list.TotalStrings, context, "StringList.strings", (index, pointer) =>
-            ReadXString(cursor, pointer.AsPointer<string>(), context), inlineAlignment: 0);
+        return ReadPointerArray(cursor, list.Strings.Untyped, list.TotalStrings, context, "StringList.strings", (index, pointer) =>
+            new XStringReference(index, pointer.AsPointer<string>(), ReadXString(cursor, pointer.AsPointer<string>(), context)), inlineAlignment: 0);
     }
 
     private static StaticDvar? ReadStaticDvarPointer(
@@ -1152,17 +1171,17 @@ public sealed class MenuFileLoader
         if (rootCursor.Offset != StaticDvar.SerializedSize)
             throw new InvalidDataException($"StaticDvar consumed 0x{rootCursor.Offset:X} bytes instead of 0x{StaticDvar.SerializedSize:X}.");
 
-        context.PointerReader.LoadXString(cursor, dvar.DvarName);
+        dvar.DvarNameString = context.PointerReader.LoadXString(cursor, dvar.DvarName);
         return dvar;
     }
 
-    private static void ReadPointerArray(
+    private static IReadOnlyList<T> ReadPointerArray<T>(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context,
         string name,
-        Action<int, XPointerReference> readElement,
+        Func<int, XPointerReference, T> readElement,
         int inlineAlignment)
     {
         if (count < 0)
@@ -1171,7 +1190,7 @@ public sealed class MenuFileLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), name);
-            return;
+            return [];
         }
 
         AlignStream(cursor, context, 4);
@@ -1181,6 +1200,7 @@ public sealed class MenuFileLoader
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] pointerBytes = context.Blocks.Load(cursor, checked(count * sizeof(int)), out XBlockAddress tableAddress);
         var pointerCursor = new FastFileCursor(pointerBytes, tableAddress);
+        var values = new T[count];
 
         for (int i = 0; i < count; i++)
         {
@@ -1192,7 +1212,7 @@ public sealed class MenuFileLoader
                 if (context.PointerReader.HasInlinePayload(elementPointer))
                     context.PointerReader.PatchInlinePointerCell(elementPointer, inlineAlignment);
 
-                readElement(i, elementPointer);
+                values[i] = readElement(i, elementPointer);
             }
             catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException or OverflowException)
             {
@@ -1201,6 +1221,8 @@ public sealed class MenuFileLoader
                     ex);
             }
         }
+
+        return values;
     }
 
     private static void ReadItemTypeData(
@@ -1221,27 +1243,27 @@ public sealed class MenuFileLoader
             case ItemDefType.UpDown:
             case ItemDefType.EmailField:
             case ItemDefType.PassWordField:
-                ReadEditFieldDefPointer(cursor, item.TypeData.EditField.Untyped, context);
+                item.EditField = ReadEditFieldDefPointer(cursor, item.TypeData.EditField.Untyped, context);
                 break;
 
             case ItemDefType.ListBox:
-                ReadListBoxDefPointer(cursor, item.TypeData.ListBox.Untyped, context);
+                item.ListBox = ReadListBoxDefPointer(cursor, item.TypeData.ListBox.Untyped, context);
                 break;
 
             case ItemDefType.Multi:
-                ReadMultiDefPointer(cursor, item.TypeData.Multi.Untyped, context);
+                item.Multi = ReadMultiDefPointer(cursor, item.TypeData.Multi.Untyped, context);
                 break;
 
             case ItemDefType.DvarEnum:
-                ReadXString(cursor, item.TypeData.DvarEnumName, context);
+                item.DvarEnumName = ReadXString(cursor, item.TypeData.DvarEnumName, context);
                 break;
 
             case ItemDefType.NewsTicker:
-                ReadNewsTickerDefPointer(cursor, item.TypeData.NewsTicker.Untyped, context);
+                item.NewsTicker = ReadNewsTickerDefPointer(cursor, item.TypeData.NewsTicker.Untyped, context);
                 break;
 
             case ItemDefType.TextScroll:
-                ReadTextScrollDefPointer(cursor, item.TypeData.TextScroll.Untyped, context);
+                item.TextScroll = ReadTextScrollDefPointer(cursor, item.TypeData.TextScroll.Untyped, context);
                 break;
         }
     }
@@ -1321,7 +1343,7 @@ public sealed class MenuFileLoader
             $"            ListBoxDef root element={listBox.ElementWidth}x{listBox.ElementHeight} numColumns={listBox.NumColumns} " +
             $"doubleClick=0x{listBox.DoubleClick.Raw:X8} selectIcon=0x{listBox.SelectIcon.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
-        ReadMenuEventHandlerSetPointer(cursor, listBox.DoubleClick.Untyped, context);
+        listBox.DoubleClickSet = ReadMenuEventHandlerSetPointer(cursor, listBox.DoubleClick.Untyped, context);
         ReadMaterialPointer(cursor, listBox.SelectIcon.Untyped, context);
         return listBox;
     }
@@ -1374,11 +1396,15 @@ public sealed class MenuFileLoader
         context.Diagnostics.Trace(
             $"            MultiDef root count={multi.Count} strDef=0x{multi.StrDef:X8} blocks={context.Blocks.DescribePositions()}");
 
-        foreach (XPointer<string> dvarList in multi.DvarList)
-            context.PointerReader.LoadXString(cursor, dvarList);
+        var dvarListStrings = new string?[multi.DvarList.Count];
+        for (int i = 0; i < multi.DvarList.Count; i++)
+            dvarListStrings[i] = context.PointerReader.LoadXString(cursor, multi.DvarList[i]);
+        multi.DvarListStrings = dvarListStrings;
 
-        foreach (XPointer<string> dvarStr in multi.DvarStr)
-            context.PointerReader.LoadXString(cursor, dvarStr);
+        var dvarStrStrings = new string?[multi.DvarStr.Count];
+        for (int i = 0; i < multi.DvarStr.Count; i++)
+            dvarStrStrings[i] = context.PointerReader.LoadXString(cursor, multi.DvarStr[i]);
+        multi.DvarStrStrings = dvarStrStrings;
 
         return multi;
     }
@@ -1507,7 +1533,7 @@ public sealed class MenuFileLoader
             if (rootCursor.Offset - rowStart != ItemFloatExpression.SerializedSize)
                 throw new InvalidDataException($"ItemFloatExpression consumed 0x{rootCursor.Offset - rowStart:X} bytes instead of 0x{ItemFloatExpression.SerializedSize:X}.");
 
-            ReadStatementPointer(cursor, expressionPointer.Untyped, context);
+            expressions[i].Statement = ReadStatementPointer(cursor, expressionPointer.Untyped, context);
         }
 
         return expressions;

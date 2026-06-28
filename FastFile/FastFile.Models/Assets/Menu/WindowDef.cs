@@ -9,9 +9,11 @@ public sealed class WindowDef
     public const int SerializedSize = WindowDefContract.SerializedSize;
 
     public XString NamePointer { get; init; }
+    public string? Name { get; set; }
     public RectangleDef Rect { get; init; } = new();
     public RectangleDef RectClient { get; init; } = new();
     public XString GroupPointer { get; init; }
+    public string? Group { get; set; }
     public WindowStyle Style { get; init; }
     public WindowBorder Border { get; init; }
 

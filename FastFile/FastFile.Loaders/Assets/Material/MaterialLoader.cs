@@ -85,12 +85,12 @@ public sealed class MaterialLoader
             rootCursor.Skip(0x42 - rootCursor.Offset);
             int xstringCount = rootCursor.ReadByte();
             rootCursor.Skip(0x90 - rootCursor.Offset);
-            XPointerReference runtimeUshortPayload = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+            XPointerReference runtimeUshortPayload = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
             XPointerReference techniqueSetPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.AliasCell);
             XPointerReference textureTablePointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
             XPointerReference constantTablePointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
             XPointerReference stateBitsPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
-            XPointerReference xstringTablePointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+            XPointerReference xstringTablePointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
 
             if (rootCursor.Offset != MaterialSize)
                 throw new InvalidDataException($"Material consumed 0x{rootCursor.Offset:X} bytes instead of 0x{MaterialSize:X}.");
@@ -111,6 +111,9 @@ public sealed class MaterialLoader
                 ReadFixedArray(cursor, constantTablePointer, constantCount, ConstantDefSize, 16, context);
                 ReadGfxStateBitsArray(cursor, stateBitsPointer, stateBitsCount, context);
                 ReadXStringPointerArray(cursor, xstringTablePointer, xstringCount, context);
+
+                context.Diagnostics.Trace(
+                    $"  Material end source=0x{cursor.Offset:X} rootSource=0x{offset:X} blocks={context.Blocks.DescribePositions()}");
 
                 return new MaterialAssetModel
             {
@@ -142,16 +145,18 @@ public sealed class MaterialLoader
         FastFileLoadContext context)
     {
         int byteCount = TechniqueSlotCount * sizeof(ushort);
-        if (!context.PointerReader.HasInlinePayload(pointer))
-        {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "Material runtime ushort payload");
+        if (pointer.Type == PointerType.Null)
             return;
-        }
+
+        if (pointer.CellAddress is not { } cellAddress)
+            throw new InvalidDataException($"Material runtime ushort payload cell 0x{pointer.Raw:X8} has no destination cell address.");
 
         context.Blocks.Push(XFileBlockType.RUNTIME);
         try
         {
-            context.PointerReader.PatchInlinePointerCell(pointer, alignment: 2);
+            context.Blocks.AlignCurrent(2);
+            XBlockAddress payloadAddress = context.Blocks.CurrentAddress;
+            context.Blocks.WriteInt32(cellAddress, XPointerCodec.Encode(payloadAddress));
             context.Blocks.Load(cursor, byteCount);
         }
         finally
@@ -388,6 +393,9 @@ public sealed class MaterialLoader
 
         foreach ((byte semantic, XPointerReference dataPointer) in textures)
         {
+            context.Diagnostics.Trace(
+                $"      Material.texture semantic=0x{semantic:X2} data=0x{dataPointer.Raw:X8} mode={dataPointer.ResolutionMode} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
+
             if (semantic == 0x0b)
                 ReadWaterPointer(cursor, dataPointer, context);
             else
@@ -413,10 +421,19 @@ public sealed class MaterialLoader
             byte[] rootBytes = context.Blocks.Load(cursor, GfxImageSize, out XBlockAddress rootAddress);
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
-            rootCursor.Skip(0x19);
+            byte formatByte = rootCursor.ReadByte();
+            byte levelCount = rootCursor.ReadByte();
+            byte unknown02 = rootCursor.ReadByte();
+            byte multiFaceControl = rootCursor.ReadByte();
+            uint textureFlags = rootCursor.ReadUInt32();
+            ushort width = rootCursor.ReadUInt16();
+            ushort height = rootCursor.ReadUInt16();
+            ushort depth = rootCursor.ReadUInt16();
+            rootCursor.Skip(0x18 - rootCursor.Offset);
+            byte mapType = rootCursor.ReadByte();
             byte textureSemantic = rootCursor.ReadByte();
             rootCursor.Skip(0x28 - rootCursor.Offset);
-            XPointerReference payloadPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+            XPointerReference payloadPointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
             rootCursor.Skip(0x4c - rootCursor.Offset);
             XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
 
@@ -424,17 +441,31 @@ public sealed class MaterialLoader
                 throw new InvalidDataException($"GfxImage consumed 0x{rootCursor.Offset:X} bytes instead of 0x{GfxImageSize:X}.");
 
             context.Diagnostics.Trace(
-                $"      GfxImage root semantic=0x{textureSemantic:X2} payload=0x{payloadPointer.Raw:X8} name=0x{namePointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
+                $"      GfxImage root.pre source=0x{cursor.Offset:X} root={rootAddress} format=0x{formatByte:X2} flags=0x{textureFlags:X8} " +
+                $"dims={width}x{height}x{depth} levels={levelCount} map=0x{mapType:X2} semantic=0x{textureSemantic:X2} " +
+                $"payload=0x{payloadPointer.Raw:X8} name=0x{namePointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
+
+            context.Diagnostics.Trace(
+                $"      GfxImage root format=0x{formatByte:X2} flags=0x{textureFlags:X8} dims={width}x{height}x{depth} " +
+                $"levels={levelCount} map=0x{mapType:X2} semantic=0x{textureSemantic:X2} payload=0x{payloadPointer.Raw:X8} " +
+                $"name=0x{namePointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
                 ReadXString(cursor, namePointer, context);
-                if (context.PointerReader.HasInlinePayload(payloadPointer))
-                {
-                    throw new NotSupportedException(
-                        $"GfxImage payload pointer {payloadPointer} is inline, but the payload byte-count loader is not implemented.");
-                }
+                ReadGfxImagePayload(
+                    cursor,
+                    payloadPointer,
+                    formatByte,
+                    levelCount,
+                    multiFaceControl,
+                    textureFlags,
+                    width,
+                    height,
+                    depth,
+                    textureSemantic,
+                    context);
             }
             finally
             {
@@ -445,6 +476,119 @@ public sealed class MaterialLoader
         {
             context.Blocks.Pop();
         }
+    }
+
+    private static void ReadGfxImagePayload(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        byte formatByte,
+        byte levelCount,
+        byte multiFaceControl,
+        uint textureFlags,
+        ushort width,
+        ushort height,
+        ushort depth,
+        byte textureSemantic,
+        FastFileLoadContext context)
+    {
+        if (pointer.Type == PointerType.Null)
+            return;
+
+        int byteCount = ComputeGfxImagePayloadByteCount(
+            formatByte,
+            levelCount,
+            multiFaceControl,
+            textureFlags,
+            width,
+            height,
+            depth);
+
+        XFileBlockType payloadBlock = textureSemantic == 0x0b
+            ? XFileBlockType.RUNTIME
+            : XFileBlockType.PHYSICAL;
+
+        if (pointer.CellAddress is not { } cellAddress)
+            throw new InvalidDataException($"GfxImage payload pointer 0x{pointer.Raw:X8} has no destination cell address.");
+
+        context.Blocks.Push(payloadBlock);
+        try
+        {
+            context.Blocks.AlignCurrent(128);
+            XBlockAddress payloadAddress = context.Blocks.CurrentAddress;
+            context.Blocks.WriteInt32(cellAddress, XPointerCodec.Encode(payloadAddress));
+            context.Blocks.Load(cursor, byteCount);
+            context.Diagnostics.Trace(
+                $"        GfxImage payload block={payloadBlock} target={payloadAddress} bytes=0x{byteCount:X} blocks={context.Blocks.DescribePositions()}");
+        }
+        finally
+        {
+            context.Blocks.Pop();
+        }
+    }
+
+    private static int ComputeGfxImagePayloadByteCount(
+        byte formatByte,
+        byte levelCount,
+        byte multiFaceControl,
+        uint textureFlags,
+        ushort width,
+        ushort height,
+        ushort depth)
+    {
+        byte normalizedFormat = (byte)(formatByte & 0xdf);
+        uint formatKey = (textureFlags << 8) | normalizedFormat;
+        long total = 0;
+
+        for (int level = 0; level < levelCount; level++)
+        {
+            int levelWidth = Math.Max(1, width >> level);
+            int levelHeight = Math.Max(1, height >> level);
+            int levelDepth = Math.Max(1, depth >> level);
+            total += ComputeGfxImageMipByteCount(formatKey, levelWidth, levelHeight, levelDepth);
+        }
+
+        total = Align(total, 128);
+        if (multiFaceControl != 0)
+            total = Align(checked(total * 6), 128);
+
+        if (total > int.MaxValue)
+            throw new InvalidDataException($"GfxImage payload size 0x{total:X} does not fit in this loader.");
+
+        return (int)total;
+    }
+
+    private static long ComputeGfxImageMipByteCount(uint formatKey, int width, int height, int depth)
+    {
+        return formatKey switch
+        {
+            0x01AAE485 or
+            0x01AAE490 or
+            0x01AAE49C or
+            0x01AAE49E or
+            0x00AAFE9F => checked((long)width * height * depth * 4),
+
+            0x01AAE492 or
+            0x01AAAB8B => checked((long)width * height * depth * 2),
+
+            0x01A9FF81 or
+            0x0156FF81 => checked((long)width * height * depth),
+
+            0x01A9AA86 or
+            0x01AA5686 or
+            0x0156AA86 or
+            0x01AAE486 => checked((long)((width + 3) >> 2) * ((height + 3) >> 2) * depth * 8),
+
+            0x01AAE487 or
+            0x01AAE488 => checked((long)((width + 3) >> 2) * ((height + 3) >> 2) * depth * 16),
+
+            _ => throw new NotSupportedException(
+                $"Unsupported GfxImage format key 0x{formatKey:X8} for {width}x{height}x{depth} mip payload.")
+        };
+    }
+
+    private static long Align(long value, int alignment)
+    {
+        return checked((value + alignment - 1) / alignment * alignment);
     }
 
     private static void ReadWaterPointer(
@@ -512,23 +656,71 @@ public sealed class MaterialLoader
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] stateBytes = context.Blocks.Load(cursor, checked(count * GfxStateBitsSize), out XBlockAddress stateAddress);
+        context.Diagnostics.Trace(
+            $"      GfxStateBits table source=0x{cursor.Offset:X} count={count} root={stateAddress} ptr=0x{pointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
         var stateCursor = new FastFileCursor(stateBytes, stateAddress);
         var loadBits = new XPointerReference[count];
 
         for (int i = 0; i < loadBits.Length; i++)
         {
-            loadBits[i] = context.PointerReader.ReadCell(stateCursor, XPointerOffsetMode.AliasCell);
+            int loadBitsCellOffset = stateCursor.Offset;
+            loadBits[i] = XPointerReference.FromRaw(
+                stateCursor.ReadInt32(),
+                XPointerResolutionMode.AliasCell,
+                stateCursor.AddressAt(loadBitsCellOffset));
             stateCursor.ReadInt32();
         }
 
         foreach (XPointerReference loadBitsPointer in loadBits)
+            ReadGfxStateBitsLoadBits(cursor, loadBitsPointer, context);
+    }
+
+    private static void ReadGfxStateBitsLoadBits(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        FastFileLoadContext context)
+    {
+        const int byteCount = 2 * sizeof(int);
+
+        context.Diagnostics.Trace(
+            $"        GfxStateBits.LoadBits raw=0x{pointer.Raw:X8} mode={pointer.ResolutionMode} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
+
+        if (pointer.Type == PointerType.Null)
+            return;
+
+        if (pointer.Type == PointerType.Offset)
         {
-            ReadFixedObject(
-                cursor,
-                loadBitsPointer,
-                2 * sizeof(int),
-                4,
-                context);
+            try
+            {
+                context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "GfxStateBits.LoadBits");
+            }
+            catch (InvalidDataException)
+            {
+                context.Diagnostics.Trace(
+                    $"      GfxStateBits raw loadBits=0x{pointer.Raw:X8} at {pointer.CellAddress} is not a materialized alias pointer.");
+            }
+
+            return;
+        }
+
+        if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
+            return;
+
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
+        context.Blocks.Push(XFileBlockType.TEMP);
+        try
+        {
+            XBlockAddress loadBitsAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+            context.Blocks.Load(cursor, byteCount);
+            if (insertCell is { } cell)
+                context.Blocks.WriteInt32(cell, XPointerCodec.Encode(loadBitsAddress));
+        }
+        finally
+        {
+            context.Blocks.Pop();
         }
     }
 
@@ -541,14 +733,19 @@ public sealed class MaterialLoader
         if (count < 0)
             throw new InvalidDataException($"Invalid negative Material XString count {count}.");
 
-        if (!context.PointerReader.HasInlinePayload(pointer))
-        {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "Material XString[]");
+        if (pointer.Type == PointerType.Null)
             return;
-        }
 
-        context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+        if (pointer.CellAddress is not { } cellAddress)
+            throw new InvalidDataException($"Material XString[] cell 0x{pointer.Raw:X8} has no destination cell address.");
+
+        context.Blocks.AlignCurrent(4);
+        XBlockAddress tableAddress = context.Blocks.CurrentAddress;
+        context.Blocks.WriteInt32(cellAddress, XPointerCodec.Encode(tableAddress));
         byte[] pointerBytes = context.Blocks.Load(cursor, checked(count * sizeof(int)), out XBlockAddress pointerTableAddress);
+        if (pointerTableAddress != tableAddress)
+            throw new InvalidDataException($"Material XString[] pointer patched to {tableAddress}, but table loaded at {pointerTableAddress}.");
+
         var pointerCursor = new FastFileCursor(pointerBytes, pointerTableAddress);
         var pointers = new XPointer<string>[count];
 
@@ -624,6 +821,17 @@ public sealed class MaterialLoader
         FastFileLoadContext context)
     {
         return context.PointerReader.LoadXString(cursor, pointer);
+    }
+
+    private static XPointerReference ReadRawCell(
+        FastFileCursor cursor,
+        XPointerOffsetMode offsetMode)
+    {
+        int cellOffset = cursor.Offset;
+        return XPointerReference.FromRaw(
+            cursor.ReadInt32(),
+            offsetMode,
+            cursor.AddressAt(cellOffset));
     }
 
     private readonly record struct MaterialPassRoot(

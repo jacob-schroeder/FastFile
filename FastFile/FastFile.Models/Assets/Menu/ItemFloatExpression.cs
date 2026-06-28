@@ -8,6 +8,7 @@ public sealed class ItemFloatExpression
 
     public ItemFloatExpressionTarget Target { get; init; }
     public XPointer<Statement> Expression { get; init; }
+    public Statement? Statement { get; set; }
 }
 
 public enum ItemFloatExpressionTarget

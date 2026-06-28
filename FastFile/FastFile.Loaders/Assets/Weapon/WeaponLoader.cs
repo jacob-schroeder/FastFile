@@ -1,4 +1,5 @@
 using FastFile.Loaders.Assets.Material;
+using FastFile.Loaders.Assets.Physics;
 using FastFile.Models.Assets.Weapon;
 using FastFile.Models.Math;
 using FastFile.Models.Pointers;
@@ -37,6 +38,7 @@ public sealed class WeaponLoader
     private const int FxSparkFountainDefSize = 0x34;
     private const int TracerDefSize = 0x70;
     private static readonly MaterialLoader MaterialLoader = new();
+    private static readonly PhysCollmapLoader PhysCollmapLoader = new();
 
     public WeaponAsset LoadFromAssetPointer(
         FastFileCursor cursor,
@@ -61,6 +63,54 @@ public sealed class WeaponLoader
                     Offset = root.Offset,
                     Variant = variant
                 };
+            }
+            finally
+            {
+                context.Blocks.Pop();
+            }
+        }
+        finally
+        {
+            context.Blocks.Pop();
+        }
+    }
+
+    public WeaponVariantDef? LoadVariantFromPointer(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        FastFileLoadContext context)
+    {
+        if (ResolveAliasCellOffset(pointer, context, WeaponVariantDef.SerializedSize, "WeaponVariantDef"))
+            return null;
+
+        if (pointer.Type == PointerType.Null)
+            return null;
+
+        if (pointer.Type == PointerType.Offset)
+        {
+            ValidateOffsetPointerRange(pointer, WeaponVariantDef.SerializedSize, "WeaponVariantDef", context);
+            return null;
+        }
+
+        if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
+            throw new NotSupportedException($"WeaponVariantDef pointer 0x{pointer.Raw:X8} uses unsupported source sentinel {pointer.Type}.");
+
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
+        context.Blocks.Push(XFileBlockType.TEMP);
+        try
+        {
+            XBlockAddress rootAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+            WeaponVariantRoot root = ReadWeaponVariantRoot(cursor, context);
+            if (insertCell is { } cell)
+                context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
+
+            context.Blocks.Push(XFileBlockType.LARGE);
+            try
+            {
+                return ReadWeaponVariantChildren(cursor, root, context);
             }
             finally
             {
@@ -141,8 +191,8 @@ public sealed class WeaponLoader
         IReadOnlyList<string?> animationNames = ReadXStrings(cursor, animationPointers, context);
         string? alternateWeaponName = ReadXString(cursor, root.AlternateWeaponNamePointer, context);
 
-        ReadMaterialPointer(cursor, root.KillIconPointer.Untyped, context);
-        ReadMaterialPointer(cursor, root.DpadIconPointer.Untyped, context);
+        ReadMaterialPointer(cursor, root.KillIconPointer.Untyped, "WeaponVariantDef.killIcon", context);
+        ReadMaterialPointer(cursor, root.DpadIconPointer.Untyped, "WeaponVariantDef.dpadIcon", context);
 
         IReadOnlyList<Vec2> accuracyGraphKnots = ReadVec2Array(cursor, root.AccuracyGraphKnotsPointer.Untyped, root.AccuracyGraphKnotCount, context);
         IReadOnlyList<Vec2> originalAccuracyGraphKnots = ReadVec2Array(cursor, root.OriginalAccuracyGraphKnotsPointer.Untyped, root.OriginalAccuracyGraphKnotCount, context);
@@ -233,9 +283,11 @@ public sealed class WeaponLoader
                 ReadPointer<ushort[]>(c, context, XPointerResolutionMode.Direct))
         };
 
-        Seek(c, 0x02c);
+        Seek(c, 0x028);
+        root.Unknown028 = c.ReadInt32();
         root.WeaponType = (WeaponType)c.ReadInt32();
         root.WeaponClass = (WeaponClass)c.ReadInt32();
+        root.Unknown034To044 = ReadInt32Array(c, 5);
 
         Seek(c, 0x048);
         root.FlashEffectPointers = ReadAliasPointerArray<FxEffectDefAsset>(c, 2, context);
@@ -245,6 +297,9 @@ public sealed class WeaponLoader
         root.BounceSoundPointer = ReadPointer<XString[]>(c, context, XPointerResolutionMode.Direct);
         root.EffectPointers = ReadAliasPointerArray<FxEffectDefAsset>(c, 4, context);
         root.MaterialPointers = ReadAliasPointerArray<MaterialAsset>(c, 2, context);
+        root.ReticleFields = ReadInt32Array(c, 4);
+        root.ViewMovementRotationFields = ReadInt32Array(c, 30);
+        root.PositionalMovementRotationFields = ReadInt32Array(c, 10);
 
         Seek(c, 0x1d8);
         root.WorldGunModelsPointer = ReadPointer<XPointer<XModelAsset>[]>(c, context, XPointerResolutionMode.Direct);
@@ -257,33 +312,49 @@ public sealed class WeaponLoader
             CompassIconRatio = c.ReadInt32(),
             OverlayMaterialPointer = ReadPointer<MaterialAsset>(c, context, XPointerResolutionMode.AliasCell)
         };
+        root.OverlayFieldsA = ReadInt32Array(c, 3);
 
         Seek(c, 0x20c);
         root.OverlayReticlePointer = ReadXStringPointer(c, context);
         root.OverlayReticleCacheIndex = c.ReadInt32();
         root.OverlayInterfacePointer = ReadXStringPointer(c, context);
         root.OverlayInterfaceCacheIndex = c.ReadInt32();
+        root.OverlayFieldsB = ReadInt32Array(c, 2);
         Seek(c, 0x224);
         root.AlternateModeNamePointer = ReadXStringPointer(c, context);
         root.AlternateModeCacheIndex = c.ReadInt32();
+        root.ModeFields = ReadInt32Array(c, 5);
+        root.WeaponTimingFields = ReadInt32Array(c, 40);
+        root.AimMovementTuningFields = ReadInt32Array(c, 10);
 
         Seek(c, 0x308);
         root.OverlayMaterials = ReadAliasPointerArray<MaterialAsset>(c, 4, context);
+        root.OverlayDimensionFields = ReadInt32Array(c, 6);
+        root.BobSpreadIdleSwayAdsViewErrorFields = ReadInt32Array(c, 38);
 
         Seek(c, 0x3c8);
-        root.GfxImagePointer3C8 = ReadPointer<GfxImageAsset>(c, context, XPointerResolutionMode.AliasCell);
+        root.PhysCollmapPointer3C8 = ReadPointer<PhysCollmapAsset>(c, context, XPointerResolutionMode.AliasCell);
+        root.PhysicsFieldsA = ReadInt32Array(c, 2);
+        root.PhysicsFieldsB = ReadInt32Array(c, 5);
+        root.PhysicsFieldsC = ReadInt32Array(c, 7);
+        root.PhysicsFieldsD = ReadInt32Array(c, 7);
 
         Seek(c, 0x420);
         root.ProjectileModelPointer = ReadPointer<XModelAsset>(c, context, XPointerResolutionMode.AliasCell);
+        root.ProjectileModelField = c.ReadInt32();
         root.ProjectileEffectPointers = ReadAliasPointerArray<FxEffectDefAsset>(c, 2, context);
         root.ProjectileSoundAliasPointers = ReadSoundAliasCellPointers(c, 2, context);
-        Seek(c, 0x444);
+        root.ProjectileFieldsA = ReadInt32Array(c, 3);
         root.ParallelBouncePointer = ReadPointer<float[]>(c, context, XPointerResolutionMode.Direct);
         root.PerpendicularBouncePointer = ReadPointer<float[]>(c, context, XPointerResolutionMode.Direct);
         root.ImpactEffectPointers = ReadAliasPointerArray<FxEffectDefAsset>(c, 2, context);
-        Seek(c, 0x46c);
+        root.ImpactFieldsA = ReadInt32Array(c, 3);
+        root.ImpactFieldB = c.ReadInt32();
+        root.ImpactFieldsC = ReadInt32Array(c, 2);
         root.ViewShellEjectEffectPointer = ReadPointer<FxEffectDefAsset>(c, context, XPointerResolutionMode.AliasCell);
         root.ShellEjectSoundPointer = ReadXStringPointer(c, context);
+        root.ShellEjectFields = ReadInt32Array(c, 3);
+        root.AdsHipGunKickAiDistanceFields = ReadInt32Array(c, 35);
 
         Seek(c, 0x50c);
         root.AccuracyGraphName0Pointer = ReadXStringPointer(c, context);
@@ -300,33 +371,35 @@ public sealed class WeaponLoader
         root.Accuracy = ReadSingle(c);
         root.AiSpread = ReadSingle(c);
         root.PlayerSpread = ReadSingle(c);
+        root.TurnSpeedAndRangeFields = ReadSingleArray(c, 10);
 
-        Seek(c, 0x568);
         root.UseHintStringPointer = ReadXStringPointer(c, context);
         root.DropHintStringPointer = ReadXStringPointer(c, context);
-        Seek(c, 0x574);
+        root.Unknown570 = c.ReadInt32();
         root.DropHintStringState = c.ReadInt32();
+        root.HintFieldsB = ReadInt32Array(c, 5);
 
-        Seek(c, 0x58c);
         root.ScriptNamePointer = ReadXStringPointer(c, context);
+        root.ScriptFieldsA = ReadInt32Array(c, 2);
+        root.ScriptFieldsB = ReadInt32Array(c, 6);
+        root.HitLocationField = c.ReadInt32();
 
-        Seek(c, 0x5b4);
         root.LocationDamageMultipliersPointer = ReadPointer<float[]>(c, context, XPointerResolutionMode.Direct);
         root.FireRumblePointer = ReadXStringPointer(c, context);
         root.MeleeImpactRumblePointer = ReadXStringPointer(c, context);
         root.TracerPointer = ReadPointer<TracerDefAsset>(c, context, XPointerResolutionMode.AliasCell);
+        root.TracerFields = ReadInt32Array(c, 6);
 
-        Seek(c, 0x5dc);
         root.TurretOverheatSoundPointer = ReadXStringPointer(c, context);
         root.TurretOverheatEffectPointer = ReadPointer<FxEffectDefAsset>(c, context, XPointerResolutionMode.AliasCell);
         root.TurretBarrelSpinRumblePointer = ReadXStringPointer(c, context);
-        Seek(c, 0x5f4);
+        root.TurretFields = ReadInt32Array(c, 3);
         root.TurretBarrelSpinMaxSoundPointer = ReadXStringPointer(c, context);
         root.TurretBarrelSpinUpSoundPointers = ReadPointer<XString[]>(c, context, XPointerResolutionMode.Direct);
-        Seek(c, 0x608);
+        root.TurretUnknown5FCTo604 = ReadInt32Array(c, 3);
         root.TurretBarrelSpinDownSoundPointers = ReadPointer<XString[]>(c, context, XPointerResolutionMode.Direct);
+        root.TurretUnknown60CTo614 = ReadInt32Array(c, 3);
 
-        Seek(c, 0x618);
         root.MissileConeSoundAliasPointer = ReadXStringPointer(c, context);
         root.MissileConeSoundAliasAtBasePointer = ReadXStringPointer(c, context);
         root.MissileConeFloats = ReadSingleArray(c, 13);
@@ -342,7 +415,7 @@ public sealed class WeaponLoader
             $"xanims=0x{root.RightHandAnimationNamesPointer.Raw:X8}/0x{root.LeftHandAnimationNamesPointer.Raw:X8} " +
             $"sounds={root.SoundAliasPointers.Count} mats=0x{root.MaterialPointers[0].Raw:X8}/0x{root.MaterialPointers[1].Raw:X8} " +
             $"effects=0x{root.EffectPointers[0].Raw:X8}/0x{root.EffectPointers[1].Raw:X8}/0x{root.EffectPointers[2].Raw:X8}/0x{root.EffectPointers[3].Raw:X8} " +
-            $"worldGunModels=0x{root.WorldGunModelsPointer.Raw:X8} gfxImage3c8=0x{root.GfxImagePointer3C8.Raw:X8} blocks={context.Blocks.DescribePositions()}");
+            $"worldGunModels=0x{root.WorldGunModelsPointer.Raw:X8} physCollmap3c8=0x{root.PhysCollmapPointer3C8.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
         return root;
     }
@@ -357,9 +430,9 @@ public sealed class WeaponLoader
         IReadOnlyList<XPointer<XModelAsset>> gunModelPointers = ReadXModelPointerArray(cursor, root.GunModelsPointer.Untyped, WeaponDef.GunModelCount, context);
         ReadXModelPointer(cursor, root.HandModelPointer.Untyped, context);
         IReadOnlyList<XString> rightHandAnimationNames = ReadXStringPointerArray(cursor, root.RightHandAnimationNamesPointer.Untyped, WeaponDef.WeaponAnimCount, context);
-        ReadXStrings(cursor, rightHandAnimationNames, context);
+        IReadOnlyList<string?> rightHandAnimationNameValues = ReadXStrings(cursor, rightHandAnimationNames, context);
         IReadOnlyList<XString> leftHandAnimationNames = ReadXStringPointerArray(cursor, root.LeftHandAnimationNamesPointer.Untyped, WeaponDef.WeaponAnimCount, context);
-        ReadXStrings(cursor, leftHandAnimationNames, context);
+        IReadOnlyList<string?> leftHandAnimationNameValues = ReadXStrings(cursor, leftHandAnimationNames, context);
         string? modeName = ReadXString(cursor, root.ModeNamePointer, context);
 
         WeaponNoteTrackMaps noteTrackMaps = new()
@@ -375,26 +448,26 @@ public sealed class WeaponLoader
         };
 
         ReadFxPointers(cursor, root.FlashEffectPointers, context);
-        ReadSoundAliasCells(cursor, root.SoundAliasPointers, context);
-        ReadSoundAliasCellArray(cursor, root.BounceSoundPointer.Untyped, WeaponDef.SurfaceCount, context);
+        IReadOnlyList<string?> soundAliasNames = ReadSoundAliasCells(cursor, root.SoundAliasPointers, context);
+        SoundAliasCellArrayPayload bounceSounds = ReadSoundAliasCellArray(cursor, root.BounceSoundPointer.Untyped, WeaponDef.SurfaceCount, context);
         ReadFxPointers(cursor, root.EffectPointers, context);
-        ReadMaterialPointers(cursor, root.MaterialPointers, context);
+        ReadMaterialPointers(cursor, root.MaterialPointers, "WeaponDef.materialPointers", context);
 
         IReadOnlyList<XPointer<XModelAsset>> worldGunModelPointers = ReadXModelPointerArray(cursor, root.WorldGunModelsPointer.Untyped, WeaponDef.GunModelCount, context);
         ReadXModelPointers(cursor, root.WorldModelPointers, context);
-        ReadMaterialPointer(cursor, root.Icons.AmmoCounterIconPointer.Untyped, context);
-        ReadMaterialPointer(cursor, root.Icons.CompassIconPointer.Untyped, context);
-        ReadMaterialPointer(cursor, root.Icons.OverlayMaterialPointer.Untyped, context);
+        ReadMaterialPointer(cursor, root.Icons.AmmoCounterIconPointer.Untyped, "WeaponDef.icons.ammoCounter", context);
+        ReadMaterialPointer(cursor, root.Icons.CompassIconPointer.Untyped, "WeaponDef.icons.compass", context);
+        ReadMaterialPointer(cursor, root.Icons.OverlayMaterialPointer.Untyped, "WeaponDef.icons.overlay", context);
 
         string? overlayReticle = ReadXString(cursor, root.OverlayReticlePointer, context);
         string? overlayInterface = ReadXString(cursor, root.OverlayInterfacePointer, context);
         string? alternateModeName = ReadXString(cursor, root.AlternateModeNamePointer, context);
-        ReadMaterialPointers(cursor, root.OverlayMaterials, context);
-        ReadGfxImagePointer(cursor, root.GfxImagePointer3C8.Untyped, context);
+        ReadMaterialPointers(cursor, root.OverlayMaterials, "WeaponDef.overlayMaterials", context);
+        ReadPhysCollmapPointer(cursor, root.PhysCollmapPointer3C8.Untyped, context);
 
         ReadXModelPointer(cursor, root.ProjectileModelPointer.Untyped, context);
         ReadFxPointers(cursor, root.ProjectileEffectPointers, context);
-        ReadSoundAliasCells(cursor, root.ProjectileSoundAliasPointers, context);
+        IReadOnlyList<string?> projectileSoundAliasNames = ReadSoundAliasCells(cursor, root.ProjectileSoundAliasPointers, context);
         IReadOnlyList<float> parallelBounce = ReadFloatArray(cursor, root.ParallelBouncePointer.Untyped, WeaponDef.SurfaceCount, context);
         IReadOnlyList<float> perpendicularBounce = ReadFloatArray(cursor, root.PerpendicularBouncePointer.Untyped, WeaponDef.SurfaceCount, context);
         ReadFxPointers(cursor, root.ImpactEffectPointers, context);
@@ -418,8 +491,8 @@ public sealed class WeaponLoader
         ReadFxPointer(cursor, root.TurretOverheatEffectPointer.Untyped, context);
         string? turretBarrelSpinRumble = ReadXString(cursor, root.TurretBarrelSpinRumblePointer, context);
         string? turretBarrelSpinMaxSound = ReadSoundAliasCell(cursor, root.TurretBarrelSpinMaxSoundPointer, context);
-        IReadOnlyList<XString> barrelSpinUpSounds = ReadSoundAliasCellArray(cursor, root.TurretBarrelSpinUpSoundPointers.Untyped, WeaponDef.TurretBarrelSpinSoundCount, context);
-        IReadOnlyList<XString> barrelSpinDownSounds = ReadSoundAliasCellArray(cursor, root.TurretBarrelSpinDownSoundPointers.Untyped, WeaponDef.TurretBarrelSpinSoundCount, context);
+        SoundAliasCellArrayPayload barrelSpinUpSounds = ReadSoundAliasCellArray(cursor, root.TurretBarrelSpinUpSoundPointers.Untyped, WeaponDef.TurretBarrelSpinSoundCount, context);
+        SoundAliasCellArrayPayload barrelSpinDownSounds = ReadSoundAliasCellArray(cursor, root.TurretBarrelSpinDownSoundPointers.Untyped, WeaponDef.TurretBarrelSpinSoundCount, context);
         string? missileConeSoundAlias = ReadSoundAliasCell(cursor, root.MissileConeSoundAliasPointer, context);
         string? missileConeSoundAliasAtBase = ReadSoundAliasCell(cursor, root.MissileConeSoundAliasAtBasePointer, context);
 
@@ -433,22 +506,33 @@ public sealed class WeaponLoader
             HandModelPointer = root.HandModelPointer,
             RightHandAnimationNamesPointer = root.RightHandAnimationNamesPointer,
             RightHandAnimationNamePointers = rightHandAnimationNames,
+            RightHandAnimationNames = rightHandAnimationNameValues,
             LeftHandAnimationNamesPointer = root.LeftHandAnimationNamesPointer,
             LeftHandAnimationNamePointers = leftHandAnimationNames,
+            LeftHandAnimationNames = leftHandAnimationNameValues,
             ModeNamePointer = root.ModeNamePointer,
             ModeName = modeName,
             NoteTrackMaps = noteTrackMaps,
+            Unknown028 = root.Unknown028,
             WeaponType = root.WeaponType,
             WeaponClass = root.WeaponClass,
+            Unknown034To044 = root.Unknown034To044,
             FlashEffectPointers = root.FlashEffectPointers,
             SoundAliasPointers = root.SoundAliasPointers,
+            SoundAliasNames = soundAliasNames,
             BounceSoundPointer = root.BounceSoundPointer,
+            BounceSoundPointers = bounceSounds.Pointers,
+            BounceSoundNames = bounceSounds.Values,
             EffectPointers = root.EffectPointers,
             MaterialPointers = root.MaterialPointers,
+            ReticleFields = root.ReticleFields,
+            ViewMovementRotationFields = root.ViewMovementRotationFields,
+            PositionalMovementRotationFields = root.PositionalMovementRotationFields,
             WorldGunModelsPointer = root.WorldGunModelsPointer,
             WorldGunModelPointers = worldGunModelPointers,
             WorldModelPointers = root.WorldModelPointers,
             Icons = root.Icons,
+            OverlayFieldsA = root.OverlayFieldsA,
             Overlay = new WeaponOverlayFields
             {
                 OverlayReticlePointer = root.OverlayReticlePointer,
@@ -457,25 +541,43 @@ public sealed class WeaponLoader
                 OverlayInterfacePointer = root.OverlayInterfacePointer,
                 OverlayInterface = overlayInterface,
                 OverlayInterfaceCacheIndex = root.OverlayInterfaceCacheIndex,
+                OverlayFieldsB = root.OverlayFieldsB,
                 AlternateModeNamePointer = root.AlternateModeNamePointer,
                 AlternateModeName = alternateModeName,
                 AlternateModeCacheIndex = root.AlternateModeCacheIndex,
+                ModeFields = root.ModeFields,
                 OverlayMaterials = root.OverlayMaterials
             },
-            GfxImagePointer3C8 = root.GfxImagePointer3C8,
+            WeaponTimingFields = root.WeaponTimingFields,
+            AimMovementTuningFields = root.AimMovementTuningFields,
+            OverlayDimensionFields = root.OverlayDimensionFields,
+            BobSpreadIdleSwayAdsViewErrorFields = root.BobSpreadIdleSwayAdsViewErrorFields,
+            PhysCollmapPointer3C8 = root.PhysCollmapPointer3C8,
+            PhysicsFieldsA = root.PhysicsFieldsA,
+            PhysicsFieldsB = root.PhysicsFieldsB,
+            PhysicsFieldsC = root.PhysicsFieldsC,
+            PhysicsFieldsD = root.PhysicsFieldsD,
             Projectile = new WeaponProjectileFields
             {
                 ModelPointer = root.ProjectileModelPointer,
+                ModelField = root.ProjectileModelField,
                 EffectPointers = root.ProjectileEffectPointers,
                 SoundAliasPointers = root.ProjectileSoundAliasPointers,
+                SoundAliasNames = projectileSoundAliasNames,
+                ProjectileFieldsA = root.ProjectileFieldsA,
                 ParallelBouncePointer = root.ParallelBouncePointer,
                 ParallelBounce = parallelBounce,
                 PerpendicularBouncePointer = root.PerpendicularBouncePointer,
                 PerpendicularBounce = perpendicularBounce,
                 ImpactEffectPointers = root.ImpactEffectPointers,
+                ImpactFieldsA = root.ImpactFieldsA,
+                ImpactFieldB = root.ImpactFieldB,
+                ImpactFieldsC = root.ImpactFieldsC,
                 ViewShellEjectEffectPointer = root.ViewShellEjectEffectPointer,
                 ShellEjectSoundPointer = root.ShellEjectSoundPointer,
-                ShellEjectSound = shellEjectSound
+                ShellEjectSound = shellEjectSound,
+                ShellEjectFields = root.ShellEjectFields,
+                AdsHipGunKickAiDistanceFields = root.AdsHipGunKickAiDistanceFields
             },
             Accuracy = new WeaponAccuracyFields
             {
@@ -498,16 +600,22 @@ public sealed class WeaponLoader
                 AiSpread = root.AiSpread,
                 PlayerSpread = root.PlayerSpread
             },
+            TurnSpeedAndRangeFields = root.TurnSpeedAndRangeFields,
             Hints = new WeaponHintFields
             {
                 UseHintStringPointer = root.UseHintStringPointer,
                 UseHintString = useHintString,
                 DropHintStringPointer = root.DropHintStringPointer,
                 DropHintString = dropHintString,
-                DropHintStringState = root.DropHintStringState
+                Unknown570 = root.Unknown570,
+                DropHintStringState = root.DropHintStringState,
+                HintFieldsB = root.HintFieldsB
             },
             ScriptNamePointer = root.ScriptNamePointer,
             ScriptName = scriptName,
+            ScriptFieldsA = root.ScriptFieldsA,
+            ScriptFieldsB = root.ScriptFieldsB,
+            HitLocationField = root.HitLocationField,
             LocationDamageMultipliersPointer = root.LocationDamageMultipliersPointer,
             LocationDamageMultipliers = locationDamageMultipliers,
             Rumble = new WeaponRumbleFields
@@ -518,6 +626,7 @@ public sealed class WeaponLoader
                 MeleeImpactRumble = meleeImpactRumble
             },
             TracerPointer = root.TracerPointer,
+            TracerFields = root.TracerFields,
             Turret = new WeaponTurretFields
             {
                 OverheatSoundPointer = root.TurretOverheatSoundPointer,
@@ -525,12 +634,17 @@ public sealed class WeaponLoader
                 OverheatEffectPointer = root.TurretOverheatEffectPointer,
                 BarrelSpinRumblePointer = root.TurretBarrelSpinRumblePointer,
                 BarrelSpinRumble = turretBarrelSpinRumble,
+                TurretFields = root.TurretFields,
                 BarrelSpinMaxSoundPointer = root.TurretBarrelSpinMaxSoundPointer,
                 BarrelSpinMaxSound = turretBarrelSpinMaxSound,
                 BarrelSpinUpSoundPointers = root.TurretBarrelSpinUpSoundPointers,
-                BarrelSpinUpSounds = barrelSpinUpSounds,
+                BarrelSpinUpSounds = barrelSpinUpSounds.Pointers,
+                BarrelSpinUpSoundNames = barrelSpinUpSounds.Values,
+                Unknown5FCTo604 = root.TurretUnknown5FCTo604,
                 BarrelSpinDownSoundPointers = root.TurretBarrelSpinDownSoundPointers,
-                BarrelSpinDownSounds = barrelSpinDownSounds
+                BarrelSpinDownSounds = barrelSpinDownSounds.Pointers,
+                BarrelSpinDownSoundNames = barrelSpinDownSounds.Values,
+                Unknown60CTo614 = root.TurretUnknown60CTo614
             },
             MissileConeSound = new WeaponMissileConeSoundFields
             {
@@ -818,7 +932,7 @@ public sealed class WeaponLoader
         return ReadXString(cursor, nestedStringPointer, context);
     }
 
-    private static IReadOnlyList<XString> ReadSoundAliasCellArray(
+    private static SoundAliasCellArrayPayload ReadSoundAliasCellArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
@@ -831,38 +945,44 @@ public sealed class WeaponLoader
         {
             if (pointer.PackedAddress is { } address)
                 context.Blocks.ValidateMaterializedRange(address, checked(count * sizeof(int)), "snd_alias_list_name[]", pointer.Raw);
-            return [];
+            return new SoundAliasCellArrayPayload([], []);
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] cellBytes = context.Blocks.Load(cursor, checked(count * sizeof(int)), out XBlockAddress arrayAddress);
         var cellCursor = new FastFileCursor(cellBytes, arrayAddress);
         IReadOnlyList<XString> pointers = ReadSoundAliasCellPointers(cellCursor, count, context);
+        var values = new string?[pointers.Count];
         for (int i = 0; i < pointers.Count; i++)
         {
             context.Diagnostics.Trace(
                 $"      SndAliasCustom[] entry[{i}] table={arrayAddress} raw=0x{pointers[i].Raw:X8} " +
                 $"source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
-            ReadSoundAliasCell(cursor, pointers[i], context);
+            values[i] = ReadSoundAliasCell(cursor, pointers[i], context);
         }
 
-        return pointers;
+        return new SoundAliasCellArrayPayload(pointers, values);
     }
 
     private static void ReadMaterialPointers(
         FastFileCursor cursor,
         IReadOnlyList<XPointer<MaterialAsset>> pointers,
+        string ownerName,
         FastFileLoadContext context)
     {
-        foreach (XPointer<MaterialAsset> pointer in pointers)
-            ReadMaterialPointer(cursor, pointer.Untyped, context);
+        for (int i = 0; i < pointers.Count; i++)
+            ReadMaterialPointer(cursor, pointers[i].Untyped, $"{ownerName}[{i}]", context);
     }
 
     private static void ReadMaterialPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
+        string ownerName,
         FastFileLoadContext context)
     {
+        context.Diagnostics.Trace(
+            $"    Weapon.materialRef {ownerName} raw=0x{pointer.Raw:X8} mode={pointer.ResolutionMode} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
+
         if (ResolveAliasCellOffset(pointer, context, MaterialSize, "Material"))
             return;
 
@@ -887,7 +1007,10 @@ public sealed class WeaponLoader
         if (ResolveAliasCellOffset(pointer, context, XModelSize, "XModel"))
             return;
 
-        if (!context.PointerReader.HasInlinePayload(pointer))
+        if (pointer.Type == PointerType.Null)
+            return;
+
+        if (pointer.Type == PointerType.Offset)
         {
             ValidateOffsetPointerRange(pointer, XModelSize, "XModel", context);
             return;
@@ -901,12 +1024,20 @@ public sealed class WeaponLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
         context.Blocks.Push(XFileBlockType.TEMP);
         try
         {
-            context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+            XBlockAddress targetAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
             byte[] rootBytes = context.Blocks.Load(cursor, XModelSize, out XBlockAddress rootAddress);
+            if (rootAddress != targetAddress)
+                throw new InvalidDataException($"XModel pointer patched to {targetAddress}, but root loaded at {rootAddress}.");
+
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
+            int xmodelSource = cursor.Offset - XModelSize;
 
             XString namePointer = ReadXStringPointer(rootCursor, context);
             byte numBones = rootCursor.ReadByte();
@@ -937,20 +1068,34 @@ public sealed class WeaponLoader
                 throw new InvalidDataException($"XModel consumed 0x{rootCursor.Offset:X} bytes instead of 0x{XModelSize:X}.");
 
             int partCount = Math.Max(0, numBones - numRootBones);
+            context.Diagnostics.Trace(
+                $"      XModel.inline root source=0x{xmodelSource:X} root={rootAddress} bones={numBones}/{numRootBones} " +
+                $"surfs={numSurfs} collSurfs={numCollSurfs} name=0x{namePointer.Raw:X8} materials=0x{materialHandlesPointer.Raw:X8} " +
+                $"coll=0x{collSurfsPointer.Raw:X8} boneInfo=0x{boneInfoPointer.Raw:X8} invHighMip=0x{invHighMipRadiusPointer.Raw:X8} " +
+                $"physPreset=0x{physPresetPointer.Raw:X8} physCollmap=0x{physCollmapPointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
                 ReadXString(cursor, namePointer, context);
-                ReadUInt16Array(cursor, boneNamesPointer.Untyped, numBones, context);
-                ReadByteArray(cursor, parentListPointer.Untyped, partCount, context);
-                ReadInt16Array(cursor, quatsPointer.Untyped, partCount * 4, context);
-                ReadFloatArray(cursor, transPointer.Untyped, partCount * 3, context);
-                ReadByteArray(cursor, partClassificationPointer.Untyped, numBones, context);
-                ReadRawBytes(cursor, baseMatPointer.Untyped, numBones * 0x20, alignment: 4, context);
+                TraceXModelStep(cursor, "name", context);
+                ReadBytePayload(cursor, boneNamesPointer.Untyped, checked(numBones * sizeof(ushort)), "boneNames", context, () =>
+                    ReadUInt16Array(cursor, boneNamesPointer.Untyped, numBones, context));
+                ReadBytePayload(cursor, parentListPointer.Untyped, partCount, "parentList", context, () =>
+                    ReadByteArray(cursor, parentListPointer.Untyped, partCount, context));
+                ReadBytePayload(cursor, quatsPointer.Untyped, checked(partCount * 4 * sizeof(short)), "quats", context, () =>
+                    ReadInt16Array(cursor, quatsPointer.Untyped, partCount * 4, context));
+                ReadBytePayload(cursor, transPointer.Untyped, checked(partCount * 3 * sizeof(float)), "trans", context, () =>
+                    ReadFloatArray(cursor, transPointer.Untyped, partCount * 3, context));
+                ReadBytePayload(cursor, partClassificationPointer.Untyped, numBones, "partClassification", context, () =>
+                    ReadByteArray(cursor, partClassificationPointer.Untyped, numBones, context));
+                ReadBytePayload(cursor, baseMatPointer.Untyped, checked(numBones * 0x20), "baseMat", context, () =>
+                    ReadRawBytes(cursor, baseMatPointer.Untyped, numBones * 0x20, alignment: 4, context));
                 IReadOnlyList<XPointer<MaterialAsset>> materialPointers =
                     ReadAliasPointerArrayPayload<MaterialAsset>(cursor, materialHandlesPointer.Untyped, numSurfs, context);
-                ReadMaterialPointers(cursor, materialPointers, context);
+                TraceXModelStep(cursor, $"materialHandles.table raw=0x{materialHandlesPointer.Raw:X8} count={numSurfs}", context);
+                ReadMaterialPointers(cursor, materialPointers, "XModel.materialHandles", context);
+                TraceXModelStep(cursor, "materialHandles.children", context);
 
                 for (int i = 0; i < 4; i++)
                 {
@@ -960,19 +1105,31 @@ public sealed class WeaponLoader
                     ushort lodNumSurfs = lodCursor.ReadUInt16();
                     lodCursor.Skip(0x08 - lodCursor.Offset);
                     XPointerReference modelSurfsPointer = ReadPointer<XModelSurfsAsset>(lodCursor, context, XPointerResolutionMode.AliasCell).Untyped;
+                    context.Diagnostics.Trace(
+                        $"      XModel.lod[{i}] source=0x{cursor.Offset:X} lodNumSurfs={lodNumSurfs} modelSurfs=0x{modelSurfsPointer.Raw:X8} " +
+                        $"mode={modelSurfsPointer.ResolutionMode} blocks={context.Blocks.DescribePositions()}");
                     ReadXModelSurfsPointer(cursor, modelSurfsPointer, lodNumSurfs, context);
+                    TraceXModelStep(cursor, $"lod[{i}].modelSurfs", context);
                 }
 
-                ReadRawBytes(cursor, collSurfsPointer.Untyped, checked(numCollSurfs * 0x24), alignment: 4, context);
-                ReadRawBytes(cursor, boneInfoPointer.Untyped, checked(numBones * 0x1c), alignment: 4, context);
-                ReadUInt16Array(cursor, invHighMipRadiusPointer.Untyped, numSurfs, context);
+                ReadBytePayload(cursor, collSurfsPointer.Untyped, checked(numCollSurfs * 0x24), "collSurfs", context, () =>
+                    ReadRawBytes(cursor, collSurfsPointer.Untyped, checked(numCollSurfs * 0x24), alignment: 4, context));
+                ReadBytePayload(cursor, boneInfoPointer.Untyped, checked(numBones * 0x1c), "boneInfo", context, () =>
+                    ReadRawBytes(cursor, boneInfoPointer.Untyped, checked(numBones * 0x1c), alignment: 4, context));
+                ReadBytePayload(cursor, invHighMipRadiusPointer.Untyped, checked(numSurfs * sizeof(ushort)), "invHighMipRadius", context, () =>
+                    ReadUInt16Array(cursor, invHighMipRadiusPointer.Untyped, numSurfs, context));
                 ReadPhysPresetPointer(cursor, physPresetPointer, context);
+                TraceXModelStep(cursor, "physPreset", context);
                 ReadPhysCollmapPointer(cursor, physCollmapPointer, context);
+                TraceXModelStep(cursor, "physCollmap", context);
             }
             finally
             {
                 context.Blocks.Pop();
             }
+
+            if (insertCell is { } cell)
+                context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
         }
         finally
         {
@@ -989,33 +1146,53 @@ public sealed class WeaponLoader
         if (ResolveAliasCellOffset(pointer, context, XModelSurfsSize, "XModelSurfs"))
             return;
 
-        if (!context.PointerReader.HasInlinePayload(pointer))
+        if (pointer.Type == PointerType.Null)
+            return;
+
+        if (pointer.Type == PointerType.Offset)
         {
             ValidateOffsetPointerRange(pointer, XModelSurfsSize, "XModelSurfs", context);
             return;
         }
 
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
         context.Blocks.Push(XFileBlockType.TEMP);
         try
         {
-            context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+            XBlockAddress targetAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
             byte[] rootBytes = context.Blocks.Load(cursor, XModelSurfsSize, out XBlockAddress rootAddress);
+            if (rootAddress != targetAddress)
+                throw new InvalidDataException($"XModelSurfs pointer patched to {targetAddress}, but root loaded at {rootAddress}.");
+
+            int sourceOffset = cursor.Offset - XModelSurfsSize;
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
             XString namePointer = ReadXStringPointer(rootCursor, context);
             XPointer<byte[]> surfsPointer = ReadPointer<byte[]>(rootCursor, context, XPointerResolutionMode.Direct);
             ushort numSurfs = rootCursor.ReadUInt16();
             rootCursor.Skip(XModelSurfsSize - rootCursor.Offset);
+            context.Diagnostics.Trace(
+                $"        XModelSurfs root source=0x{sourceOffset:X} root={rootAddress} ptr=0x{pointer.Raw:X8} " +
+                $"name=0x{namePointer.Raw:X8} surfs=0x{surfsPointer.Raw:X8} numSurfs={numSurfs} lodNumSurfs={lodNumSurfs} " +
+                $"blocks={context.Blocks.DescribePositions()}");
 
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
                 ReadXString(cursor, namePointer, context);
+                TraceXModelStep(cursor, "XModelSurfs.name", context);
                 ReadXSurfaceArray(cursor, surfsPointer.Untyped, numSurfs == 0 ? lodNumSurfs : numSurfs, context);
+                TraceXModelStep(cursor, "XModelSurfs.surfs", context);
             }
             finally
             {
                 context.Blocks.Pop();
             }
+
+            if (insertCell is { } cell)
+                context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
         }
         finally
         {
@@ -1040,18 +1217,22 @@ public sealed class WeaponLoader
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] surfaceBytes = context.Blocks.Load(cursor, checked(count * XSurfaceSize), out XBlockAddress arrayAddress);
+        context.Diagnostics.Trace(
+            $"          XSurface[] source=0x{cursor.Offset - checked(count * XSurfaceSize):X} root={arrayAddress} " +
+            $"count={count} ptr=0x{pointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
         for (int i = 0; i < count; i++)
         {
             int offset = i * XSurfaceSize;
             var surfaceCursor = new FastFileCursor(surfaceBytes.AsSpan(offset, XSurfaceSize).ToArray(), arrayAddress with { Offset = arrayAddress.Offset + offset });
-            ReadXSurfaceChildren(cursor, surfaceCursor, context);
+            ReadXSurfaceChildren(cursor, surfaceCursor, i, context);
         }
     }
 
     private static void ReadXSurfaceChildren(
         FastFileCursor cursor,
         FastFileCursor surfaceCursor,
+        int surfaceIndex,
         FastFileLoadContext context)
     {
         surfaceCursor.Skip(0x02);
@@ -1074,12 +1255,22 @@ public sealed class WeaponLoader
         surfaceCursor.Skip(XSurfaceSize - surfaceCursor.Offset);
 
         int blendCount = blend0 + (blend1 * 3) + (blend2 * 5) + (blend3 * 7);
+        context.Diagnostics.Trace(
+            $"          XSurface[{surfaceIndex}] source=0x{cursor.Offset:X} flags=0x{streamFlags:X2} verts={vertCount} tris={triCount} " +
+            $"blend={blendCount} vertLists={vertListCount} ptrs blend=0x{vertsBlendPointer.Raw:X8} v0=0x{verts0Pointer.Raw:X8} " +
+            $"v1=0x{verts1Pointer.Raw:X8} lists=0x{vertListPointer.Raw:X8} tris=0x{triIndicesPointer.Raw:X8} " +
+            $"blocks={context.Blocks.DescribePositions()}");
 
-        ReadRawBytes(cursor, vertsBlendPointer.Untyped, checked(blendCount * sizeof(ushort)), alignment: 2, context);
-        ReadSurfaceStreamBytes(cursor, verts0Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushStreamOne: (streamFlags & 0x01) == 0, context);
-        ReadSurfaceStreamBytes(cursor, verts1Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushStreamOne: (streamFlags & 0x02) == 0, context);
-        ReadRigidVertListArray(cursor, vertListPointer.Untyped, vertListCount, context);
-        ReadSurfaceStreamBytes(cursor, triIndicesPointer.Untyped, checked(triCount * 3 * sizeof(ushort)), alignment: 16, pushStreamOne: (streamFlags & 0x04) == 0, context);
+        ReadBytePayload(cursor, vertsBlendPointer.Untyped, checked(blendCount * sizeof(ushort)), $"XSurface[{surfaceIndex}].vertsBlend", context, () =>
+            ReadRawBytes(cursor, vertsBlendPointer.Untyped, checked(blendCount * sizeof(ushort)), alignment: 2, context));
+        ReadBytePayload(cursor, verts0Pointer.Untyped, checked(vertCount * 0x10), $"XSurface[{surfaceIndex}].verts0", context, () =>
+            ReadSurfaceStreamBytes(cursor, verts0Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushStreamOne: (streamFlags & 0x01) == 0, context));
+        ReadBytePayload(cursor, verts1Pointer.Untyped, checked(vertCount * 0x10), $"XSurface[{surfaceIndex}].verts1", context, () =>
+            ReadSurfaceStreamBytes(cursor, verts1Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushStreamOne: (streamFlags & 0x02) == 0, context));
+        ReadBytePayload(cursor, vertListPointer.Untyped, checked(vertListCount * XRigidVertListSize), $"XSurface[{surfaceIndex}].vertList", context, () =>
+            ReadRigidVertListArray(cursor, vertListPointer.Untyped, vertListCount, context));
+        ReadBytePayload(cursor, triIndicesPointer.Untyped, checked(triCount * 3 * sizeof(ushort)), $"XSurface[{surfaceIndex}].triIndices", context, () =>
+            ReadSurfaceStreamBytes(cursor, triIndicesPointer.Untyped, checked(triCount * 3 * sizeof(ushort)), alignment: 16, pushStreamOne: (streamFlags & 0x04) == 0, context));
     }
 
     private static void ReadRigidVertListArray(
@@ -1105,7 +1296,11 @@ public sealed class WeaponLoader
             var listCursor = new FastFileCursor(listBytes.AsSpan(offset, XRigidVertListSize).ToArray(), listAddress with { Offset = listAddress.Offset + offset });
             listCursor.Skip(0x08);
             XPointer<byte[]> collisionTreePointer = ReadPointer<byte[]>(listCursor, context, XPointerResolutionMode.Direct);
+            context.Diagnostics.Trace(
+                $"            XRigidVertList[{i}] source=0x{cursor.Offset:X} collisionTree=0x{collisionTreePointer.Raw:X8} " +
+                $"blocks={context.Blocks.DescribePositions()}");
             ReadXSurfaceCollisionTree(cursor, collisionTreePointer.Untyped, context);
+            TraceXModelStep(cursor, $"XRigidVertList[{i}].collisionTree", context);
         }
     }
 
@@ -1128,9 +1323,40 @@ public sealed class WeaponLoader
         XPointer<byte[]> nodesPointer = ReadPointer<byte[]>(treeCursor, context, XPointerResolutionMode.Direct);
         int leafCount = treeCursor.ReadInt32();
         XPointer<byte[]> leafsPointer = ReadPointer<byte[]>(treeCursor, context, XPointerResolutionMode.Direct);
+        context.Diagnostics.Trace(
+            $"              XSurfaceCollisionTree root source=0x{cursor.Offset - XSurfaceCollisionTreeSize:X} root={treeAddress} " +
+            $"nodes={nodeCount} leafs={leafCount} nodePtr=0x{nodesPointer.Raw:X8} leafPtr=0x{leafsPointer.Raw:X8} " +
+            $"blocks={context.Blocks.DescribePositions()}");
 
-        ReadRawBytes(cursor, nodesPointer.Untyped, checked(nodeCount * XSurfaceCollisionNodeSize), alignment: 16, context);
-        ReadRawBytes(cursor, leafsPointer.Untyped, checked(leafCount * XSurfaceCollisionLeafSize), alignment: 2, context);
+        ReadBytePayload(cursor, nodesPointer.Untyped, checked(nodeCount * XSurfaceCollisionNodeSize), "XSurfaceCollisionTree.nodes", context, () =>
+            ReadRawBytes(cursor, nodesPointer.Untyped, checked(nodeCount * XSurfaceCollisionNodeSize), alignment: 16, context));
+        ReadBytePayload(cursor, leafsPointer.Untyped, checked(leafCount * XSurfaceCollisionLeafSize), "XSurfaceCollisionTree.leafs", context, () =>
+            ReadRawBytes(cursor, leafsPointer.Untyped, checked(leafCount * XSurfaceCollisionLeafSize), alignment: 2, context));
+    }
+
+    private static void ReadBytePayload(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int expectedBytes,
+        string label,
+        FastFileLoadContext context,
+        Action read)
+    {
+        int before = cursor.Offset;
+        read();
+        int consumed = cursor.Offset - before;
+        context.Diagnostics.Trace(
+            $"      XModel.step {label} raw=0x{pointer.Raw:X8} expected=0x{expectedBytes:X} source=0x{before:X}->0x{cursor.Offset:X} " +
+            $"consumed=0x{consumed:X} blocks={context.Blocks.DescribePositions()}");
+    }
+
+    private static void TraceXModelStep(
+        FastFileCursor cursor,
+        string label,
+        FastFileLoadContext context)
+    {
+        context.Diagnostics.Trace(
+            $"      XModel.step {label} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
     }
 
     private static void ReadSurfaceStreamBytes(
@@ -1337,8 +1563,8 @@ public sealed class WeaponLoader
         {
             XPointerReference material0 = ReadPointer<MaterialAsset>(markCursor, context, XPointerResolutionMode.AliasCell).Untyped;
             XPointerReference material1 = ReadPointer<MaterialAsset>(markCursor, context, XPointerResolutionMode.AliasCell).Untyped;
-            ReadMaterialPointer(cursor, material0, context);
-            ReadMaterialPointer(cursor, material1, context);
+            ReadMaterialPointer(cursor, material0, "Fx.visual.markVisuals.material0", context);
+            ReadMaterialPointer(cursor, material1, "Fx.visual.markVisuals.material1", context);
         }
     }
 
@@ -1363,7 +1589,7 @@ public sealed class WeaponLoader
                 ReadXString(cursor, pointer.AsPointer<string>(), context);
                 break;
             default:
-                ReadMaterialPointer(cursor, pointer, context);
+                ReadMaterialPointer(cursor, pointer, "Fx.visual.material", context);
                 break;
         }
     }
@@ -1443,7 +1669,7 @@ public sealed class WeaponLoader
             try
             {
                 ReadXString(cursor, namePointer, context);
-                ReadMaterialPointer(cursor, materialPointer, context);
+                ReadMaterialPointer(cursor, materialPointer, "Tracer.material", context);
             }
             finally
             {
@@ -1464,17 +1690,27 @@ public sealed class WeaponLoader
         if (ResolveAliasCellOffset(pointer, context, PhysPresetSize, "PhysPreset"))
             return;
 
-        if (!context.PointerReader.HasInlinePayload(pointer))
+        if (pointer.Type == PointerType.Null)
+            return;
+
+        if (pointer.Type == PointerType.Offset)
         {
             ValidateOffsetPointerRange(pointer, PhysPresetSize, "PhysPreset", context);
             return;
         }
 
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
         context.Blocks.Push(XFileBlockType.TEMP);
         try
         {
-            context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+            XBlockAddress targetAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
             byte[] rootBytes = context.Blocks.Load(cursor, PhysPresetSize, out XBlockAddress rootAddress);
+            if (rootAddress != targetAddress)
+                throw new InvalidDataException($"PhysPreset pointer patched to {targetAddress}, but root loaded at {rootAddress}.");
+
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
             XString namePointer = ReadXStringPointer(rootCursor, context);
             rootCursor.Skip(0x1c - rootCursor.Offset);
@@ -1490,6 +1726,9 @@ public sealed class WeaponLoader
             {
                 context.Blocks.Pop();
             }
+
+            if (insertCell is { } cell)
+                context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
         }
         finally
         {
@@ -1502,11 +1741,7 @@ public sealed class WeaponLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, PhysCollmapSize, "PhysCollmap"))
-            return;
-
-        ValidateOffsetPointerRange(pointer, PhysCollmapSize, "PhysCollmap", context);
-        ThrowIfInlineShell(pointer, "PhysCollmap", cursor, context);
+        PhysCollmapLoader.LoadFromPointer(cursor, pointer, context);
     }
 
     private static void ReadGfxImagePointer(
@@ -1692,6 +1927,15 @@ public sealed class WeaponLoader
         return values;
     }
 
+    private static int[] ReadInt32Array(FastFileCursor cursor, int count)
+    {
+        var values = new int[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = cursor.ReadInt32();
+
+        return values;
+    }
+
     private static WeaponTailFlags ReadTailFlags(FastFileCursor cursor)
     {
         return new WeaponTailFlags
@@ -1796,6 +2040,10 @@ public sealed class WeaponLoader
         XPointer<ushort[]> RumbleMapKeysPointer,
         XPointer<ushort[]> RumbleMapValuesPointer);
 
+    private readonly record struct SoundAliasCellArrayPayload(
+        IReadOnlyList<XString> Pointers,
+        IReadOnlyList<string?> Values);
+
     private sealed class WeaponDefRoot
     {
         public int Offset { get; init; }
@@ -1806,34 +2054,57 @@ public sealed class WeaponLoader
         public XPointer<XString[]> LeftHandAnimationNamesPointer { get; set; }
         public XString ModeNamePointer { get; set; }
         public WeaponNoteTrackMapPointers NoteTrackMaps { get; set; }
+        public int Unknown028 { get; set; }
         public WeaponType WeaponType { get; set; }
         public WeaponClass WeaponClass { get; set; }
+        public IReadOnlyList<int> Unknown034To044 { get; set; } = [];
         public IReadOnlyList<XPointer<FxEffectDefAsset>> FlashEffectPointers { get; set; } = [];
         public XPointer<XString[]> SoundAliasPointersPointer { get; set; }
         public IReadOnlyList<XString> SoundAliasPointers { get; set; } = [];
         public XPointer<XString[]> BounceSoundPointer { get; set; }
         public IReadOnlyList<XPointer<FxEffectDefAsset>> EffectPointers { get; set; } = [];
         public IReadOnlyList<XPointer<MaterialAsset>> MaterialPointers { get; set; } = [];
+        public IReadOnlyList<int> ReticleFields { get; set; } = [];
+        public IReadOnlyList<int> ViewMovementRotationFields { get; set; } = [];
+        public IReadOnlyList<int> PositionalMovementRotationFields { get; set; } = [];
         public XPointer<XPointer<XModelAsset>[]> WorldGunModelsPointer { get; set; }
         public IReadOnlyList<XPointer<XModelAsset>> WorldModelPointers { get; set; } = [];
         public WeaponIconPointers Icons { get; set; } = new();
+        public IReadOnlyList<int> OverlayFieldsA { get; set; } = [];
         public XString OverlayReticlePointer { get; set; }
         public int OverlayReticleCacheIndex { get; set; }
         public XString OverlayInterfacePointer { get; set; }
         public int OverlayInterfaceCacheIndex { get; set; }
+        public IReadOnlyList<int> OverlayFieldsB { get; set; } = [];
         public XString AlternateModeNamePointer { get; set; }
         public int AlternateModeCacheIndex { get; set; }
+        public IReadOnlyList<int> ModeFields { get; set; } = [];
+        public IReadOnlyList<int> WeaponTimingFields { get; set; } = [];
+        public IReadOnlyList<int> AimMovementTuningFields { get; set; } = [];
         public IReadOnlyList<XPointer<MaterialAsset>> OverlayMaterials { get; set; } = [];
-        public XPointer<GfxImageAsset> GfxImagePointer3C8 { get; set; }
+        public IReadOnlyList<int> OverlayDimensionFields { get; set; } = [];
+        public IReadOnlyList<int> BobSpreadIdleSwayAdsViewErrorFields { get; set; } = [];
+        public XPointer<PhysCollmapAsset> PhysCollmapPointer3C8 { get; set; }
+        public IReadOnlyList<int> PhysicsFieldsA { get; set; } = [];
+        public IReadOnlyList<int> PhysicsFieldsB { get; set; } = [];
+        public IReadOnlyList<int> PhysicsFieldsC { get; set; } = [];
+        public IReadOnlyList<int> PhysicsFieldsD { get; set; } = [];
         public XPointer<XModelAsset> ProjectileModelPointer { get; set; }
+        public int ProjectileModelField { get; set; }
         public IReadOnlyList<XPointer<FxEffectDefAsset>> ProjectileEffectPointers { get; set; } = [];
         public XPointer<XString[]> ProjectileSoundAliasPointersPointer { get; set; }
         public IReadOnlyList<XString> ProjectileSoundAliasPointers { get; set; } = [];
+        public IReadOnlyList<int> ProjectileFieldsA { get; set; } = [];
         public XPointer<float[]> ParallelBouncePointer { get; set; }
         public XPointer<float[]> PerpendicularBouncePointer { get; set; }
         public IReadOnlyList<XPointer<FxEffectDefAsset>> ImpactEffectPointers { get; set; } = [];
+        public IReadOnlyList<int> ImpactFieldsA { get; set; } = [];
+        public int ImpactFieldB { get; set; }
+        public IReadOnlyList<int> ImpactFieldsC { get; set; } = [];
         public XPointer<FxEffectDefAsset> ViewShellEjectEffectPointer { get; set; }
         public XString ShellEjectSoundPointer { get; set; }
+        public IReadOnlyList<int> ShellEjectFields { get; set; } = [];
+        public IReadOnlyList<int> AdsHipGunKickAiDistanceFields { get; set; } = [];
         public XString AccuracyGraphName0Pointer { get; set; }
         public XString AccuracyGraphName1Pointer { get; set; }
         public XPointer<Vec2[]> AccuracyGraphKnotsPointer { get; set; }
@@ -1848,20 +2119,30 @@ public sealed class WeaponLoader
         public float Accuracy { get; set; }
         public float AiSpread { get; set; }
         public float PlayerSpread { get; set; }
+        public IReadOnlyList<float> TurnSpeedAndRangeFields { get; set; } = [];
         public XString UseHintStringPointer { get; set; }
         public XString DropHintStringPointer { get; set; }
+        public int Unknown570 { get; set; }
         public int DropHintStringState { get; set; }
+        public IReadOnlyList<int> HintFieldsB { get; set; } = [];
         public XString ScriptNamePointer { get; set; }
+        public IReadOnlyList<int> ScriptFieldsA { get; set; } = [];
+        public IReadOnlyList<int> ScriptFieldsB { get; set; } = [];
+        public int HitLocationField { get; set; }
         public XPointer<float[]> LocationDamageMultipliersPointer { get; set; }
         public XString FireRumblePointer { get; set; }
         public XString MeleeImpactRumblePointer { get; set; }
         public XPointer<TracerDefAsset> TracerPointer { get; set; }
+        public IReadOnlyList<int> TracerFields { get; set; } = [];
         public XString TurretOverheatSoundPointer { get; set; }
         public XPointer<FxEffectDefAsset> TurretOverheatEffectPointer { get; set; }
         public XString TurretBarrelSpinRumblePointer { get; set; }
+        public IReadOnlyList<int> TurretFields { get; set; } = [];
         public XString TurretBarrelSpinMaxSoundPointer { get; set; }
         public XPointer<XString[]> TurretBarrelSpinUpSoundPointers { get; set; }
+        public IReadOnlyList<int> TurretUnknown5FCTo604 { get; set; } = [];
         public XPointer<XString[]> TurretBarrelSpinDownSoundPointers { get; set; }
+        public IReadOnlyList<int> TurretUnknown60CTo614 { get; set; } = [];
         public XString MissileConeSoundAliasPointer { get; set; }
         public XString MissileConeSoundAliasAtBasePointer { get; set; }
         public float[] MissileConeFloats { get; set; } = [];

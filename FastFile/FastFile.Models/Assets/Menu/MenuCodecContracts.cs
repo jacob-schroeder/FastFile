@@ -7,7 +7,8 @@ public static class MenuCodecContracts
     public static readonly IReadOnlyList<IXCodecContract> All =
     [
         RectangleDefContract.Contract,
-        WindowDefContract.Contract
+        WindowDefContract.Contract,
+        .. MenuFileCodecContracts.All
     ];
 
     public static void Register(XCodecContractRegistry registry)

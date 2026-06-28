@@ -34,17 +34,22 @@ public sealed class WeaponOverlayFields
     public XString OverlayInterfacePointer { get; init; }                         // 0x214
     public string? OverlayInterface { get; init; }
     public int OverlayInterfaceCacheIndex { get; init; }                          // 0x218
+    public IReadOnlyList<int> OverlayFieldsB { get; init; } = [];                 // 0x21C..0x220
     public XString AlternateModeNamePointer { get; init; }                        // 0x224
     public string? AlternateModeName { get; init; }
     public int AlternateModeCacheIndex { get; init; }                             // 0x228
+    public IReadOnlyList<int> ModeFields { get; init; } = [];                     // 0x22C..0x23C
     public IReadOnlyList<XPointer<Material.MaterialAsset>> OverlayMaterials { get; init; } = []; // 0x308..0x314
 }
 
 public sealed class WeaponProjectileFields
 {
     public XPointer<XModelAsset> ModelPointer { get; init; }                      // 0x420
+    public int ModelField { get; init; }                                          // 0x424
     public IReadOnlyList<XPointer<FxEffectDefAsset>> EffectPointers { get; init; } = []; // 0x428 / 0x42C
     public IReadOnlyList<XString> SoundAliasPointers { get; init; } = [];         // 0x430 / 0x434
+    public IReadOnlyList<string?> SoundAliasNames { get; init; } = [];
+    public IReadOnlyList<int> ProjectileFieldsA { get; init; } = [];              // 0x438..0x440
 
     // 0x444 / 0x448: loader-proven float[31], names are Xbox-correlated/open.
     public XPointer<float[]> ParallelBouncePointer { get; init; }
@@ -53,9 +58,14 @@ public sealed class WeaponProjectileFields
     public IReadOnlyList<float> PerpendicularBounce { get; init; } = [];
 
     public IReadOnlyList<XPointer<FxEffectDefAsset>> ImpactEffectPointers { get; init; } = []; // 0x44C / 0x450
+    public IReadOnlyList<int> ImpactFieldsA { get; init; } = [];                  // 0x454..0x45C
+    public int ImpactFieldB { get; init; }                                        // 0x460
+    public IReadOnlyList<int> ImpactFieldsC { get; init; } = [];                  // 0x464..0x468
     public XPointer<FxEffectDefAsset> ViewShellEjectEffectPointer { get; init; }   // 0x46C
     public XString ShellEjectSoundPointer { get; init; }                          // 0x470
     public string? ShellEjectSound { get; init; }
+    public IReadOnlyList<int> ShellEjectFields { get; init; } = [];               // 0x474..0x47C
+    public IReadOnlyList<int> AdsHipGunKickAiDistanceFields { get; init; } = [];  // 0x480..0x508
 }
 
 public sealed class WeaponAccuracyFields
@@ -93,7 +103,9 @@ public sealed class WeaponHintFields
     // 0x56C / 0x574: runtime-proven target/cursor hint behavior.
     public XString DropHintStringPointer { get; init; }
     public string? DropHintString { get; init; }
+    public int Unknown570 { get; init; }                                          // 0x570
     public int DropHintStringState { get; init; }                                 // 0x574
+    public IReadOnlyList<int> HintFieldsB { get; init; } = [];                    // 0x578..0x588
 }
 
 public sealed class WeaponRumbleFields
@@ -112,12 +124,17 @@ public sealed class WeaponTurretFields
     public XPointer<FxEffectDefAsset> OverheatEffectPointer { get; init; }        // 0x5E0
     public XString BarrelSpinRumblePointer { get; init; }                         // 0x5E4
     public string? BarrelSpinRumble { get; init; }
+    public IReadOnlyList<int> TurretFields { get; init; } = [];                   // 0x5E8..0x5F0
     public XString BarrelSpinMaxSoundPointer { get; init; }                       // 0x5F4
     public string? BarrelSpinMaxSound { get; init; }
     public XPointer<XString[]> BarrelSpinUpSoundPointers { get; init; }           // 0x5F8, count 4
     public IReadOnlyList<XString> BarrelSpinUpSounds { get; init; } = [];
+    public IReadOnlyList<string?> BarrelSpinUpSoundNames { get; init; } = [];
+    public IReadOnlyList<int> Unknown5FCTo604 { get; init; } = [];
     public XPointer<XString[]> BarrelSpinDownSoundPointers { get; init; }         // 0x608, count 4
     public IReadOnlyList<XString> BarrelSpinDownSounds { get; init; } = [];
+    public IReadOnlyList<string?> BarrelSpinDownSoundNames { get; init; } = [];
+    public IReadOnlyList<int> Unknown60CTo614 { get; init; } = [];
 }
 
 public sealed class WeaponMissileConeSoundFields

@@ -1,0 +1,3 @@
+"asset_type","struct","field","offset","size","serialized_type","readiness","ps3_evidence","observed_values","xbox_correlation","notes"
+"LightDef","LightDefAsset","Unknown08","0x08","0x04","uint32","OPEN","EBOOT LightDef body 0x1089a0 copies root size 0x10; no PS3 consumer name proven for +0x08","common_mp asset 10059: 0x62000000","","Copied root tail field; revisit with PS3 consumers before renaming"
+"LightDef","LightDefAsset","Unknown0C","0x0C","0x04","uint32","OPEN","EBOOT LightDef body 0x1089a0 copies root size 0x10; no PS3 consumer name proven for +0x0C","common_mp asset 10059: 0x00000001","","Copied root tail field; revisit with PS3 consumers before renaming"

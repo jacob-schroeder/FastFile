@@ -1,11 +1,20 @@
 using FastFile.Loaders.Assets.Material;
 using FastFile.Loaders.Assets.Menu;
+using FastFile.Loaders.Assets.Font;
+using FastFile.Loaders.Assets.Fx;
+using FastFile.Loaders.Assets.ImpactFx;
+using FastFile.Loaders.Assets.LightDef;
 using FastFile.Loaders.Assets.Localize;
+using FastFile.Loaders.Assets.Physics;
 using FastFile.Loaders.Assets.RawFile;
+using FastFile.Loaders.Assets.Sound;
 using FastFile.Loaders.Assets.StringTable;
 using FastFile.Loaders.Assets.StructuredData;
 using FastFile.Loaders.Assets.TechniqueSet;
+using FastFile.Loaders.Assets.Vehicle;
 using FastFile.Loaders.Assets.Weapon;
+using FastFile.Loaders.Assets.XAnim;
+using FastFile.Loaders.Assets.XModel;
 using FastFile.Models.Assets;
 using FastFile.Models.Pointers;
 using FastFile.Models.Pointers.Enums;
@@ -19,12 +28,21 @@ public sealed class XAssetDispatcher
 {
     private readonly MenuFileLoader _menuFileLoader = new();
     private readonly MaterialLoader _materialLoader = new();
+    private readonly FontLoader _fontLoader = new();
     private readonly MaterialTechniqueSetLoader _techsetLoader = new();
     private readonly StringTableLoader _stringTableLoader = new();
     private readonly StructuredDataDefSetLoader _structuredDataDefSetLoader = new();
     private readonly RawFileLoader _rawFileLoader = new();
     private readonly LocalizeLoader _localizeLoader = new();
     private readonly WeaponLoader _weaponLoader = new();
+    private readonly SoundAliasListLoader _soundLoader = new();
+    private readonly FxEffectDefLoader _fxLoader = new();
+    private readonly FxImpactTableLoader _impactFxLoader = new();
+    private readonly XAnimPartsLoader _xanimLoader = new();
+    private readonly XModelLoader _xmodelLoader = new();
+    private readonly PhysCollmapLoader _physCollmapLoader = new();
+    private readonly VehicleDefLoader _vehicleLoader = new();
+    private readonly LightDefLoader _lightDefLoader = new();
 
     public IReadOnlyList<XAssetLoadResult> LoadSupportedPrefix(
         FastFileCursor cursor,
@@ -60,6 +78,15 @@ public sealed class XAssetDispatcher
                 asset.Type != XAssetType.StructuredDataDef &&
                 asset.Type != XAssetType.RawFile &&
                 asset.Type != XAssetType.Localize &&
+                asset.Type != XAssetType.Sound &&
+                asset.Type != XAssetType.Fx &&
+                asset.Type != XAssetType.ImpactFx &&
+                asset.Type != XAssetType.XAnim &&
+                asset.Type != XAssetType.XModel &&
+                asset.Type != XAssetType.PhysCollmap &&
+                asset.Type != XAssetType.Font &&
+                asset.Type != XAssetType.Vehicle &&
+                asset.Type != XAssetType.LightDef &&
                 asset.Type != XAssetType.Weapon)
             {
                 context.Diagnostics.Trace(
@@ -110,6 +137,42 @@ public sealed class XAssetDispatcher
                 else if (asset.Type == XAssetType.Localize)
                 {
                     loadedAsset = _localizeLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.Sound)
+                {
+                    loadedAsset = _soundLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.Fx)
+                {
+                    loadedAsset = _fxLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.ImpactFx)
+                {
+                    loadedAsset = _impactFxLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.XAnim)
+                {
+                    loadedAsset = _xanimLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.XModel)
+                {
+                    loadedAsset = _xmodelLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.PhysCollmap)
+                {
+                    loadedAsset = _physCollmapLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.Font)
+                {
+                    loadedAsset = _fontLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.Vehicle)
+                {
+                    loadedAsset = _vehicleLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.LightDef)
+                {
+                    loadedAsset = _lightDefLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
                 }
                 else
                 {

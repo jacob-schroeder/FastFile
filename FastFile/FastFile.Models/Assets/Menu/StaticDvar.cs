@@ -11,6 +11,7 @@ public sealed class StaticDvar
     public XPointer<DvarRuntimeHandle> Dvar { get; init; }
 
     public XPointer<string> DvarName { get; init; }
+    public string? DvarNameString { get; set; }
 }
 
 public sealed class DvarRuntimeHandle;
@@ -21,6 +22,7 @@ public sealed class StaticDvarList
 
     public int NumStaticDvars { get; init; }
     public XPointer<XPointer<StaticDvar>[]> StaticDvars { get; init; }
+    public IReadOnlyList<StaticDvarReference> LoadedStaticDvars { get; set; } = [];
 }
 
 public sealed class UIFunctionList
@@ -29,6 +31,7 @@ public sealed class UIFunctionList
 
     public int TotalFunctions { get; init; }
     public XPointer<XPointer<Statement>[]> Functions { get; init; }
+    public IReadOnlyList<StatementReference> LoadedFunctions { get; set; } = [];
 }
 
 public sealed class StringList
@@ -37,4 +40,20 @@ public sealed class StringList
 
     public int TotalStrings { get; init; }
     public XPointer<XPointer<string>[]> Strings { get; init; }
+    public IReadOnlyList<XStringReference> LoadedStrings { get; set; } = [];
 }
+
+public sealed record StatementReference(
+    int Index,
+    XPointer<Statement> Pointer,
+    Statement? Statement);
+
+public sealed record StaticDvarReference(
+    int Index,
+    XPointer<StaticDvar> Pointer,
+    StaticDvar? StaticDvar);
+
+public sealed record XStringReference(
+    int Index,
+    XString Pointer,
+    string? Value);

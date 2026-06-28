@@ -16,6 +16,30 @@ public sealed class XSourceWriter
         _stream.Write(bytes);
     }
 
+    public void WriteUInt32(uint value)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(uint)];
+        BinaryPrimitives.WriteUInt32BigEndian(bytes, value);
+        _stream.Write(bytes);
+    }
+
+    public void WriteUInt16(ushort value)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(ushort)];
+        BinaryPrimitives.WriteUInt16BigEndian(bytes, value);
+        _stream.Write(bytes);
+    }
+
+    public void WriteByte(byte value)
+    {
+        _stream.WriteByte(value);
+    }
+
+    public void WriteSingle(float value)
+    {
+        WriteInt32(BitConverter.SingleToInt32Bits(value));
+    }
+
     public void WriteBytes(ReadOnlySpan<byte> bytes)
     {
         _stream.Write(bytes);

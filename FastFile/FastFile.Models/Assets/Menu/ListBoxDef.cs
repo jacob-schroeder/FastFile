@@ -21,6 +21,7 @@ public sealed class ListBoxDef
     public int NumColumns { get; init; }
     public IReadOnlyList<ColumnInfo> ColumnInfo { get; init; } = [];
     public XPointer<MenuEventHandlerSet> DoubleClick { get; init; }
+    public MenuEventHandlerSet? DoubleClickSet { get; set; }
     public int NotSelectable { get; init; }
     public int NoScrollbars { get; init; }
 
