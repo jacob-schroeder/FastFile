@@ -1,8 +1,10 @@
+using System.Buffers.Binary;
 using FastFile.Loaders.Assets.Material;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.Menu;
 using FastFile.Models.Math;
 using FastFile.Models.Pointers;
+using FastFile.Models.Pointers.Enums;
 using FastFile.Models.Zone;
 using FastFile.Runtime;
 using FastFile.Runtime.IO;
@@ -98,7 +100,7 @@ public sealed class MenuFileLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "MenuDef*[]");
+            context.PointerReader.ValidateOffsetPointerRange<XPointer<MenuDefAsset>[]>(pointer, checked(count * sizeof(int)), "MenuDef*[]");
             return [];
         }
 
@@ -130,7 +132,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, MenuDefSize, "MenuDef");
+            context.PointerReader.ValidateOffsetPointerRange<MenuDefAsset>(pointer, MenuDefSize, "MenuDef");
             return null;
         }
 
@@ -290,7 +292,7 @@ public sealed class MenuFileLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "ItemDef*[]");
+            context.PointerReader.ValidateOffsetPointerRange<XPointer<ItemDefAsset>[]>(pointer, checked(count * sizeof(int)), "ItemDef*[]");
             return [];
         }
 
@@ -320,7 +322,7 @@ public sealed class MenuFileLoader
             {
                 throw new InvalidDataException(
                     $"ItemDef[{i}] pointer 0x{itemPointer.Raw:X8} failed at cursor 0x{cursor.Offset:X}. " +
-                    $"Previous item was {(previousItem is null ? "<none>" : $"source 0x{previousItem.Offset:X}..0x{previousEndOffset:X} type={previousItem.Type} dataType=0x{previousItem.DataType:X8} typeData=0x{previousItem.TypeData.RawPointer.Raw:X8}")}. " +
+                    $"Previous item was {(previousItem is null ? "<none>" : $"source 0x{previousItem.Offset:X}..0x{previousEndOffset:X} type={previousItem.Type} dataType=0x{previousItem.DataType:X8} typeData=0x{GetItemTypeDataRaw(previousItem.TypeData):X8}")}. " +
                     $"Recent items: {string.Join("; ", recentItems)}.",
                     ex);
             }
@@ -330,7 +332,7 @@ public sealed class MenuFileLoader
             {
                 previousItem = item;
                 previousEndOffset = cursor.Offset;
-                recentItems.Enqueue($"[{i}] 0x{item.Offset:X}..0x{previousEndOffset:X} type={item.Type} data=0x{item.DataType:X8} typeData=0x{item.TypeData.RawPointer.Raw:X8}");
+                recentItems.Enqueue($"[{i}] 0x{item.Offset:X}..0x{previousEndOffset:X} type={item.Type} data=0x{item.DataType:X8} typeData=0x{GetItemTypeDataRaw(item.TypeData):X8}");
                 while (recentItems.Count > 8)
                     recentItems.Dequeue();
             }
@@ -346,7 +348,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, ItemDefSize, "ItemDef");
+            context.PointerReader.ValidateOffsetPointerRange<ItemDefAsset>(pointer, ItemDefSize, "ItemDef");
             return null;
         }
 
@@ -364,7 +366,7 @@ public sealed class MenuFileLoader
                 $"ItemDef root at source 0x{item.Offset:X} parsed before child failure at cursor 0x{cursor.Offset:X}: " +
                 $"type={item.Type} dataType=0x{item.DataType:X8} text=0x{item.Text.Raw:X8} textSaveGameInfo=0x{item.TextSaveGameInfo:X8} " +
                 $"runtimeParent=0x{item.RuntimeParentPointer:X8} mouseEnterText=0x{item.MouseEnterText.Raw:X8} " +
-                $"typeData=0x{item.TypeData.RawPointer.Raw:X8} floatCount=0x{item.FloatExpressionCount:X8} " +
+                $"typeData=0x{GetItemTypeDataRaw(item.TypeData):X8} floatCount=0x{item.FloatExpressionCount:X8} " +
                 $"floatExpressions=0x{item.FloatExpressions.Raw:X8} visible=0x{item.VisibleExpression.Raw:X8} " +
                 $"disabled=0x{item.DisabledExpression.Raw:X8} textExpr=0x{item.TextExpression.Raw:X8} " +
                 $"materialExpr=0x{item.MaterialExpression.Raw:X8} background=0x{item.Window.Background.Raw:X8}.",
@@ -421,10 +423,7 @@ public sealed class MenuFileLoader
             FocusSound = ReadPointer<SoundAliasListAsset>(rootCursor, context, XPointerResolutionMode.AliasCell),
             Special = ReadSingle(rootCursor),
             CursorPos = ReadInt32Array(rootCursor, 4),
-            TypeData = new ItemDefData
-            {
-                RawPointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct)
-            },
+            TypeData = ReadItemDefData(rootCursor, itemType: (ItemDefType)BinaryPrimitives.ReadInt32BigEndian(rootBytes.AsSpan(0x100, sizeof(int)))),
             ImageTrack = rootCursor.ReadInt32(),
             FloatExpressionCount = rootCursor.ReadInt32(),
             FloatExpressions = ReadPointer<ItemFloatExpression[]>(rootCursor, context, XPointerResolutionMode.Direct),
@@ -451,13 +450,13 @@ public sealed class MenuFileLoader
         {
             throw new InvalidDataException(
                 $"ItemDef at source 0x{item.Offset:X} has invalid floatExpressionCount 0x{item.FloatExpressionCount:X8}; " +
-                $"type={item.Type} dataType=0x{item.DataType:X8} typeData=0x{item.TypeData.RawPointer.Raw:X8} " +
+                $"type={item.Type} dataType=0x{item.DataType:X8} typeData=0x{GetItemTypeDataRaw(item.TypeData):X8} " +
                 $"floatExpressions=0x{item.FloatExpressions.Raw:X8} visible=0x{item.VisibleExpression.Raw:X8}.");
         }
 
         context.Diagnostics.Trace(
             $"          ItemDef root source=0x{offset:X} type={item.Type} dataType=0x{item.DataType:X8} " +
-            $"text=0x{item.Text.Raw:X8} runtimeParent=0x{item.RuntimeParentPointer:X8} typeData=0x{item.TypeData.RawPointer.Raw:X8} " +
+            $"text=0x{item.Text.Raw:X8} runtimeParent=0x{item.RuntimeParentPointer:X8} typeData=0x{GetItemTypeDataRaw(item.TypeData):X8} " +
             $"floatCount={item.FloatExpressionCount} floatExpressions=0x{item.FloatExpressions.Raw:X8} " +
             $"visible=0x{item.VisibleExpression.Raw:X8} disabled=0x{item.DisabledExpression.Raw:X8} " +
             $"textExpr=0x{item.TextExpression.Raw:X8} materialExpr=0x{item.MaterialExpression.Raw:X8} " +
@@ -604,7 +603,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, MenuEventHandlerSet.SerializedSize, "MenuEventHandlerSet");
+            context.PointerReader.ValidateOffsetPointerRange<MenuEventHandlerSet>(pointer, MenuEventHandlerSet.SerializedSize, "MenuEventHandlerSet");
             return null;
         }
 
@@ -640,7 +639,7 @@ public sealed class MenuFileLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "MenuEventHandler*[]");
+            context.PointerReader.ValidateOffsetPointerRange<XPointer<MenuEventHandler>[]>(pointer, checked(count * sizeof(int)), "MenuEventHandler*[]");
             return [];
         }
 
@@ -672,7 +671,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, MenuEventHandler.SerializedSize, "MenuEventHandler");
+            context.PointerReader.ValidateOffsetPointerRange<MenuEventHandler>(pointer, MenuEventHandler.SerializedSize, "MenuEventHandler");
             return null;
         }
 
@@ -680,14 +679,13 @@ public sealed class MenuFileLoader
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] rootBytes = context.Blocks.Load(cursor, MenuEventHandler.SerializedSize, out XBlockAddress rootAddress);
         var rootCursor = new FastFileCursor(rootBytes, rootAddress);
+        XPointerReference eventDataPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+        var eventType = (MenuEventHandlerType)rootCursor.ReadByte();
 
         var handler = new MenuEventHandler
         {
-            EventData = new EventData
-            {
-                Data = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct)
-            },
-            EventType = (MenuEventHandlerType)rootCursor.ReadByte(),
+            EventData = ReadEventDataValue(eventDataPointer, eventType),
+            EventType = eventType,
             Pad05 = rootCursor.ReadByte(),
             Pad06 = rootCursor.ReadByte(),
             Pad07 = rootCursor.ReadByte()
@@ -697,7 +695,7 @@ public sealed class MenuFileLoader
             throw new InvalidDataException($"MenuEventHandler consumed 0x{rootCursor.Offset:X} bytes instead of 0x{MenuEventHandler.SerializedSize:X}.");
 
         context.Diagnostics.Trace(
-            $"                MenuEventHandler root type={handler.EventType} data=0x{handler.EventData.Data.Raw:X8} blocks={context.Blocks.DescribePositions()}");
+            $"                MenuEventHandler root type={handler.EventType} data=0x{GetEventDataRaw(handler.EventData):X8} blocks={context.Blocks.DescribePositions()}");
 
         ReadEventData(cursor, handler, rootAddress, context);
         return handler;
@@ -714,33 +712,87 @@ public sealed class MenuFileLoader
         switch (handler.EventType)
         {
             case MenuEventHandlerType.UnconditionalScript:
-                handler.UnconditionalScript = context.PointerReader.LoadXString(cursor, dataCellAddress, handler.EventData.UnconditionalScript);
+                if (handler.EventData.UnconditionalScript is { } script)
+                    handler.UnconditionalScript = context.PointerReader.LoadXString(cursor, dataCellAddress, script.Script);
                 break;
 
             case MenuEventHandlerType.ConditionalScript:
-                if (context.PointerReader.HasInlinePayload(handler.EventData.ConditionalScript.Untyped))
-                    context.PointerReader.PatchInlinePointerCell(dataCellAddress, handler.EventData.ConditionalScript.Raw, alignment: 4);
+                if (handler.EventData.ConditionalScript is not { } conditional)
+                    break;
 
-                handler.ConditionalScript = ReadConditionalScriptPointer(cursor, handler.EventData.ConditionalScript.Untyped, context);
+                if (context.PointerReader.HasInlinePayload(conditional.ConditionalScriptPointer.Untyped))
+                    context.PointerReader.PatchInlinePointerCell(dataCellAddress, conditional.ConditionalScriptPointer.Raw, alignment: 4);
+
+                handler.ConditionalScript = ReadConditionalScriptPointer(cursor, conditional.ConditionalScriptPointer.Untyped, context);
                 break;
 
             case MenuEventHandlerType.ElseScript:
-                if (context.PointerReader.HasInlinePayload(handler.EventData.ElseScript.Untyped))
-                    context.PointerReader.PatchInlinePointerCell(dataCellAddress, handler.EventData.ElseScript.Raw, alignment: 4);
+                if (handler.EventData.ElseScript is not { } elseScript)
+                    break;
 
-                handler.ElseScriptSet = ReadMenuEventHandlerSetPointer(cursor, handler.EventData.ElseScript.Untyped, context);
+                if (context.PointerReader.HasInlinePayload(elseScript.EventHandlerSetPointer.Untyped))
+                    context.PointerReader.PatchInlinePointerCell(dataCellAddress, elseScript.EventHandlerSetPointer.Raw, alignment: 4);
+
+                handler.ElseScriptSet = ReadMenuEventHandlerSetPointer(cursor, elseScript.EventHandlerSetPointer.Untyped, context);
                 break;
 
             case MenuEventHandlerType.SetLocalVarBool:
             case MenuEventHandlerType.SetLocalVarInt:
             case MenuEventHandlerType.SetLocalVarFloat:
             case MenuEventHandlerType.SetLocalVarString:
-                if (context.PointerReader.HasInlinePayload(handler.EventData.SetLocalVarData.Untyped))
-                    context.PointerReader.PatchInlinePointerCell(dataCellAddress, handler.EventData.SetLocalVarData.Raw, alignment: 4);
+                if (handler.EventData.SetLocalVarData is not { } setLocal)
+                    break;
 
-                handler.SetLocalVarData = ReadSetLocalVarDataPointer(cursor, handler.EventData.SetLocalVarData.Untyped, context);
+                if (context.PointerReader.HasInlinePayload(setLocal.SetLocalVarDataPointer.Untyped))
+                    context.PointerReader.PatchInlinePointerCell(dataCellAddress, setLocal.SetLocalVarDataPointer.Raw, alignment: 4);
+
+                handler.SetLocalVarData = ReadSetLocalVarDataPointer(cursor, setLocal.SetLocalVarDataPointer.Untyped, context);
                 break;
         }
+    }
+
+    private static EventData ReadEventDataValue(
+        XPointerReference pointer,
+        MenuEventHandlerType eventType)
+    {
+        EventDataValue value = eventType switch
+        {
+            MenuEventHandlerType.UnconditionalScript => new UnconditionalScriptEventData
+            {
+                Script = pointer.AsPointer<string>()
+            },
+            MenuEventHandlerType.ConditionalScript => new ConditionalScriptEventData
+            {
+                ConditionalScriptPointer = pointer.AsPointer<ConditionalScript>()
+            },
+            MenuEventHandlerType.ElseScript => new ElseScriptEventData
+            {
+                EventHandlerSetPointer = pointer.AsPointer<MenuEventHandlerSet>()
+            },
+            MenuEventHandlerType.SetLocalVarBool
+                or MenuEventHandlerType.SetLocalVarInt
+                or MenuEventHandlerType.SetLocalVarFloat
+                or MenuEventHandlerType.SetLocalVarString => new SetLocalVarEventData
+                {
+                    SetLocalVarDataPointer = pointer.AsPointer<SetLocalVarData>()
+                },
+            _ => new IgnoredEventData { Reserved = pointer.Raw }
+        };
+
+        return new EventData { Value = value };
+    }
+
+    private static int GetEventDataRaw(EventData eventData)
+    {
+        return eventData.Value switch
+        {
+            UnconditionalScriptEventData script => script.Script.Raw,
+            ConditionalScriptEventData conditional => conditional.ConditionalScriptPointer.Raw,
+            ElseScriptEventData elseScript => elseScript.EventHandlerSetPointer.Raw,
+            SetLocalVarEventData setLocal => setLocal.SetLocalVarDataPointer.Raw,
+            IgnoredEventData ignored => ignored.Reserved,
+            _ => 0
+        };
     }
 
     private static ConditionalScript? ReadConditionalScriptPointer(
@@ -750,7 +802,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, ConditionalScript.SerializedSize, "ConditionalScript");
+            context.PointerReader.ValidateOffsetPointerRange<ConditionalScript>(pointer, ConditionalScript.SerializedSize, "ConditionalScript");
             return null;
         }
 
@@ -781,7 +833,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, SetLocalVarData.SerializedSize, "SetLocalVarData");
+            context.PointerReader.ValidateOffsetPointerRange<SetLocalVarData>(pointer, SetLocalVarData.SerializedSize, "SetLocalVarData");
             return null;
         }
 
@@ -811,7 +863,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, ItemKeyHandler.SerializedSize, "ItemKeyHandler");
+            context.PointerReader.ValidateOffsetPointerRange<ItemKeyHandler>(pointer, ItemKeyHandler.SerializedSize, "ItemKeyHandler");
             return null;
         }
 
@@ -842,7 +894,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, Statement.SerializedSize, "Statement");
+            context.PointerReader.ValidateOffsetPointerRange<Statement>(pointer, Statement.SerializedSize, "Statement");
             VerifyOffsetStatementPointer(pointer, context);
             return null;
         }
@@ -868,7 +920,7 @@ public sealed class MenuFileLoader
         context.Diagnostics.Trace(
             $"            Statement root source=0x{offset:X} entries={statement.NumEntries} entriesPtr=0x{statement.Entries.Raw:X8} " +
             $"supportingData=0x{statement.SupportingData.Raw:X8} lastExecute=0x{statement.LastExecuteTime:X8} " +
-            $"lastResultType={statement.LastResult.DataType} lastResultRaw=0x{statement.LastResult.Internals.Raw:X8} blocks={context.Blocks.DescribePositions()}");
+            $"lastResultType={statement.LastResult.DataType} lastResultValue=0x{statement.LastResult.EncodedValue:X8} blocks={context.Blocks.DescribePositions()}");
 
         if (statement.NumEntries is < 0 or > 0x10000)
         {
@@ -929,7 +981,7 @@ public sealed class MenuFileLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ExpressionEntry.SerializedSize), "ExpressionEntry[]");
+            context.PointerReader.ValidateOffsetPointerRange<ExpressionEntry[]>(pointer, checked(count * ExpressionEntry.SerializedSize), "ExpressionEntry[]");
             return [];
         }
 
@@ -968,10 +1020,11 @@ public sealed class MenuFileLoader
 
     private static Operand ReadOperand(FastFileCursor cursor, FastFileLoadContext context)
     {
+        var dataType = (ExpDataType)cursor.ReadInt32();
         return new Operand
         {
-            DataType = (ExpDataType)cursor.ReadInt32(),
-            Internals = new OperandInternalData(cursor.ReadInt32())
+            DataType = dataType,
+            Value = OperandValueFactory.FromEncoded(dataType, cursor.ReadInt32())
         };
     }
 
@@ -986,6 +1039,68 @@ public sealed class MenuFileLoader
             cursor.AddressAt(cellOffset));
     }
 
+    private static ItemDefData ReadItemDefData(
+        FastFileCursor cursor,
+        ItemDefType itemType)
+    {
+        XPointerReference pointer = ReadRawCell(cursor, XPointerOffsetMode.Direct);
+        ItemDefDataValue value = itemType switch
+        {
+            ItemDefType.Text
+                or ItemDefType.EditField
+                or ItemDefType.NumericField
+                or ItemDefType.Slider
+                or ItemDefType.YesNo
+                or ItemDefType.Bind
+                or ItemDefType.Validation
+                or ItemDefType.DecimalField
+                or ItemDefType.UpDown
+                or ItemDefType.EmailField
+                or ItemDefType.PassWordField => new EditFieldItemDefData
+                {
+                    EditFieldPointer = pointer.AsPointer<EditFieldDef>()
+                },
+            ItemDefType.ListBox => new ListBoxItemDefData
+            {
+                ListBoxPointer = pointer.AsPointer<ListBoxDef>()
+            },
+            ItemDefType.Multi => new MultiItemDefData
+            {
+                MultiPointer = pointer.AsPointer<MultiDef>()
+            },
+            ItemDefType.DvarEnum => new DvarEnumItemDefData
+            {
+                DvarEnumNamePointer = pointer.AsPointer<string>()
+            },
+            ItemDefType.NewsTicker => new NewsTickerItemDefData
+            {
+                NewsTickerPointer = pointer.AsPointer<NewsTickerDef>()
+            },
+            ItemDefType.TextScroll => new TextScrollItemDefData
+            {
+                TextScrollPointer = pointer.AsPointer<TextScrollDef>()
+            },
+            _ => new NoItemDefData { Reserved = pointer.Raw }
+        };
+
+        return new ItemDefData { Value = value };
+    }
+
+    private static int GetItemTypeDataRaw(ItemDefData typeData)
+    {
+        return typeData.Value switch
+        {
+            EditFieldItemDefData editField => editField.EditFieldPointer.Raw,
+            ListBoxItemDefData listBox => listBox.ListBoxPointer.Raw,
+            MultiItemDefData multi => multi.MultiPointer.Raw,
+            DvarEnumItemDefData dvarEnum => dvarEnum.DvarEnumNamePointer.Raw,
+            NewsTickerItemDefData newsTicker => newsTicker.NewsTickerPointer.Raw,
+            TextScrollItemDefData textScroll => textScroll.TextScrollPointer.Raw,
+            NoItemDefData none => none.Reserved,
+            _ => 0
+        };
+    }
+
     private static void ReadOperandChildren(
         FastFileCursor cursor,
         ExpressionEntry entry,
@@ -996,22 +1111,28 @@ public sealed class MenuFileLoader
         switch (operand.DataType)
         {
             case ExpDataType.VAL_STRING:
-                entry.StringValue = context.PointerReader.LoadXString(
-                    cursor,
-                    context.PointerReader.FromRaw<string>(
-                        operand.Internals.Raw,
-                        XPointerResolutionMode.Direct,
-                        pointerCellAddress));
+                if (operand.Value is StringOperandValue stringValue)
+                {
+                    entry.StringValue = context.PointerReader.LoadXString(
+                        cursor,
+                        context.PointerReader.FromRaw<string>(
+                            stringValue.StringPointer.Raw,
+                            XPointerResolutionMode.Direct,
+                            pointerCellAddress));
+                }
                 break;
 
             case ExpDataType.VAL_FUNCTION:
-                entry.FunctionStatement = ReadStatementPointer(
-                    cursor,
-                    context.PointerReader.FromRaw<Statement>(
-                        operand.Internals.Raw,
-                        XPointerResolutionMode.Direct,
-                        pointerCellAddress).Untyped,
-                    context);
+                if (operand.Value is FunctionOperandValue functionValue)
+                {
+                    entry.FunctionStatement = ReadStatementPointer(
+                        cursor,
+                        context.PointerReader.FromRaw<Statement>(
+                            functionValue.StatementPointer.Raw,
+                            XPointerResolutionMode.Direct,
+                            pointerCellAddress).Untyped,
+                        context);
+                }
                 break;
         }
     }
@@ -1021,9 +1142,12 @@ public sealed class MenuFileLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
+        if (pointer.Type == PointerType.Null)
+            return null;
+
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, ExpressionString.SerializedSize, "ExpressionString");
+            context.PointerReader.ValidateOffsetPointerRange<ExpressionString>(pointer, ExpressionString.SerializedSize, "ExpressionString");
             return null;
         }
 
@@ -1051,7 +1175,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, ExpressionSupportingData.SerializedSize, "ExpressionSupportingData");
+            context.PointerReader.ValidateOffsetPointerRange<ExpressionSupportingData>(pointer, ExpressionSupportingData.SerializedSize, "ExpressionSupportingData");
             return null;
         }
 
@@ -1153,7 +1277,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, StaticDvar.SerializedSize, "StaticDvar");
+            context.PointerReader.ValidateOffsetPointerRange<StaticDvar>(pointer, StaticDvar.SerializedSize, "StaticDvar");
             return null;
         }
 
@@ -1243,27 +1367,33 @@ public sealed class MenuFileLoader
             case ItemDefType.UpDown:
             case ItemDefType.EmailField:
             case ItemDefType.PassWordField:
-                item.EditField = ReadEditFieldDefPointer(cursor, item.TypeData.EditField.Untyped, context);
+                if (item.TypeData.EditField is { } editField)
+                    item.EditField = ReadEditFieldDefPointer(cursor, editField.EditFieldPointer.Untyped, context);
                 break;
 
             case ItemDefType.ListBox:
-                item.ListBox = ReadListBoxDefPointer(cursor, item.TypeData.ListBox.Untyped, context);
+                if (item.TypeData.ListBox is { } listBox)
+                    item.ListBox = ReadListBoxDefPointer(cursor, listBox.ListBoxPointer.Untyped, context);
                 break;
 
             case ItemDefType.Multi:
-                item.Multi = ReadMultiDefPointer(cursor, item.TypeData.Multi.Untyped, context);
+                if (item.TypeData.Multi is { } multi)
+                    item.Multi = ReadMultiDefPointer(cursor, multi.MultiPointer.Untyped, context);
                 break;
 
             case ItemDefType.DvarEnum:
-                item.DvarEnumName = ReadXString(cursor, item.TypeData.DvarEnumName, context);
+                if (item.TypeData.DvarEnum is { } dvarEnum)
+                    item.DvarEnumName = ReadXString(cursor, dvarEnum.DvarEnumNamePointer, context);
                 break;
 
             case ItemDefType.NewsTicker:
-                item.NewsTicker = ReadNewsTickerDefPointer(cursor, item.TypeData.NewsTicker.Untyped, context);
+                if (item.TypeData.NewsTicker is { } newsTicker)
+                    item.NewsTicker = ReadNewsTickerDefPointer(cursor, newsTicker.NewsTickerPointer.Untyped, context);
                 break;
 
             case ItemDefType.TextScroll:
-                item.TextScroll = ReadTextScrollDefPointer(cursor, item.TypeData.TextScroll.Untyped, context);
+                if (item.TypeData.TextScroll is { } textScroll)
+                    item.TextScroll = ReadTextScrollDefPointer(cursor, textScroll.TextScrollPointer.Untyped, context);
                 break;
         }
     }
@@ -1275,7 +1405,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, EditFieldDef.SerializedSize, "EditFieldDef");
+            context.PointerReader.ValidateOffsetPointerRange<EditFieldDef>(pointer, EditFieldDef.SerializedSize, "EditFieldDef");
             return null;
         }
 
@@ -1309,7 +1439,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, ListBoxDef.SerializedSize, "ListBoxDef");
+            context.PointerReader.ValidateOffsetPointerRange<ListBoxDef>(pointer, ListBoxDef.SerializedSize, "ListBoxDef");
             return null;
         }
 
@@ -1372,7 +1502,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, MultiDef.SerializedSize, "MultiDef");
+            context.PointerReader.ValidateOffsetPointerRange<MultiDef>(pointer, MultiDef.SerializedSize, "MultiDef");
             return null;
         }
 
@@ -1437,7 +1567,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, NewsTickerDef.SerializedSize, "NewsTickerDef");
+            context.PointerReader.ValidateOffsetPointerRange<NewsTickerDef>(pointer, NewsTickerDef.SerializedSize, "NewsTickerDef");
             return null;
         }
 
@@ -1473,7 +1603,7 @@ public sealed class MenuFileLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, TextScrollDef.SerializedSize, "TextScrollDef");
+            context.PointerReader.ValidateOffsetPointerRange<TextScrollDef>(pointer, TextScrollDef.SerializedSize, "TextScrollDef");
             return null;
         }
 
@@ -1507,7 +1637,7 @@ public sealed class MenuFileLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ItemFloatExpression.SerializedSize), "ItemFloatExpression[]");
+            context.PointerReader.ValidateOffsetPointerRange<ItemFloatExpression[]>(pointer, checked(count * ItemFloatExpression.SerializedSize), "ItemFloatExpression[]");
             return [];
         }
 

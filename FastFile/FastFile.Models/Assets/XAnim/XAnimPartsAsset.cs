@@ -20,7 +20,7 @@ public sealed class XAnimPartsAsset : BaseAsset
     public byte BoneNameCount { get; init; }
     public byte NotifyCount { get; init; }
     public byte AssetType { get; init; }
-    public byte Unknown1F { get; init; }
+    public byte Pad1F { get; init; }
     public int RandomDataShortCount { get; init; }
     public int IndexCount { get; init; }
     public float Framerate { get; init; }
@@ -34,10 +34,29 @@ public sealed class XAnimPartsAsset : BaseAsset
     public XPointer<byte[]> RandomDataBytePointer { get; init; }
     public XPointer<int[]> RandomDataIntPointer { get; init; }
     public XPointer<object> IndicesPointer { get; init; }
+    public XAnimPackedDataStreams PackedDataStreams { get; init; } = new();
+    public XAnimFrameIndexStream Indices { get; init; } = new();
     public XPointer<XAnimNotifyInfo[]> NotifyPointer { get; init; }
     public IReadOnlyList<XAnimNotifyInfo> Notify { get; init; } = [];
     public XPointer<XAnimDeltaPart> DeltaPartPointer { get; init; }
     public XAnimDeltaPart? DeltaPart { get; init; }
+}
+
+public sealed class XAnimPackedDataStreams
+{
+    public IReadOnlyList<byte> QuantizedBytes { get; init; } = [];
+    public IReadOnlyList<short> QuantizedShorts { get; init; } = [];
+    public IReadOnlyList<int> QuantizedInts { get; init; } = [];
+    public IReadOnlyList<short> RandomizedQuantizedShorts { get; init; } = [];
+    public IReadOnlyList<byte> RandomizedQuantizedBytes { get; init; } = [];
+    public IReadOnlyList<int> RandomizedQuantizedInts { get; init; } = [];
+}
+
+public sealed class XAnimFrameIndexStream
+{
+    public IReadOnlyList<ushort> FrameIndices { get; init; } = [];
+    public int EncodedByteCount { get; init; }
+    public bool IsByteEncoded { get; init; }
 }
 
 public sealed record XAnimNotifyInfo(ushort Name, float Time)
@@ -80,11 +99,40 @@ public sealed class XAnimPartTransFrames
     public XAnimVec3 Mins { get; init; } = new(0, 0, 0);
     public XAnimVec3 Size { get; init; } = new(0, 0, 0);
     public XPointer<byte[]> FramesPointer { get; init; }
-    public int DynamicFrameByteCount { get; init; }
-    public int FramePayloadByteCount { get; init; }
+    public XAnimDynamicFrames DynamicFrames { get; init; } = new();
+    public XAnimTransFramePayload FramePayload { get; init; } = new EmptyXAnimTransFramePayload();
 }
 
 public sealed record XAnimVec3(float X, float Y, float Z);
+
+public sealed class XAnimDynamicFrames
+{
+    public IReadOnlyList<ushort> FrameIndices { get; init; } = [];
+    public int EncodedByteCount { get; init; }
+}
+
+public abstract class XAnimTransFramePayload
+{
+}
+
+public sealed class EmptyXAnimTransFramePayload : XAnimTransFramePayload
+{
+}
+
+public sealed class SmallXAnimTransFramePayload : XAnimTransFramePayload
+{
+    public IReadOnlyList<SmallXAnimTransFrame> Frames { get; init; } = [];
+}
+
+public sealed class LargeXAnimTransFramePayload : XAnimTransFramePayload
+{
+    public IReadOnlyList<LargeXAnimTransFrame> Frames { get; init; } = [];
+}
+
+public sealed record SmallXAnimTransFrame(byte X, byte Y, byte Z);
+
+public sealed record LargeXAnimTransFrame(short X, short Y, short Z);
+
 public sealed record XQuat2(short Value0, short Value1)
 {
     public const int SerializedSize = 0x04;

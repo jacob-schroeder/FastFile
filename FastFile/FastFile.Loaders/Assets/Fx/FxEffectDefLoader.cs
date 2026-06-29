@@ -33,7 +33,7 @@ public sealed class FxEffectDefLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, FxEffectDefAsset.SerializedSize, "FxEffectDef"))
+        if (ResolveAliasCellOffset<FxEffectDefAsset>(pointer, context, FxEffectDefAsset.SerializedSize, "FxEffectDef"))
             return null;
 
         if (pointer.Type == PointerType.Null)
@@ -41,7 +41,7 @@ public sealed class FxEffectDefLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, FxEffectDefAsset.SerializedSize, "FxEffectDef");
+            context.PointerReader.ValidateOffsetPointerRange<FxEffectDefAsset>(pointer, FxEffectDefAsset.SerializedSize, "FxEffectDef");
             return null;
         }
 
@@ -189,7 +189,7 @@ public sealed class FxEffectDefLoader
         byte visStateIntervalCount = cursor.ReadByte();
         XPointer<FxElemVelStateSample[]> velSamplesPointer = ReadPointer<FxElemVelStateSample[]>(cursor, XPointerResolutionMode.Direct);
         XPointer<FxElemVisStateSample[]> visSamplesPointer = ReadPointer<FxElemVisStateSample[]>(cursor, XPointerResolutionMode.Direct);
-        FxElemDefVisuals visuals = ReadFxElemDefVisualsRoot(cursor);
+        FxElemDefVisualsRoot visuals = ReadFxElemDefVisualsRoot(cursor);
         Bounds collBounds = ReadBounds(cursor);
         FxEffectDefRef effectOnImpact = ReadFxEffectDefRefRoot(cursor);
         FxEffectDefRef effectOnDeath = ReadFxEffectDefRefRoot(cursor);
@@ -298,8 +298,10 @@ public sealed class FxEffectDefLoader
             VelSamples = velSamples,
             VisSamplesPointer = root.VisSamplesPointer,
             VisSamples = visSamples,
-            Visuals = visuals.InlineVisual ?? root.Visuals,
+            Visuals = visuals.InlineVisual ?? new FxElemDefVisuals { Offset = root.Visuals.Offset },
+            VisualArrayPointer = visuals.VisualArrayPointer,
             VisualArray = visuals.VisualArray,
+            MarkVisualArrayPointer = visuals.MarkVisualArrayPointer,
             MarkVisualArray = visuals.MarkVisualArray,
             CollBounds = root.CollBounds,
             EffectOnImpact = effectOnImpact,
@@ -354,18 +356,24 @@ public sealed class FxEffectDefLoader
 
     private FxVisualPayload ReadFxElemDefVisuals(
         FastFileCursor cursor,
-        FxElemDefVisuals inlineVisual,
+        FxElemDefVisualsRoot inlineVisual,
         FxElemType elemType,
         byte visualCount,
         FastFileLoadContext context)
     {
         if (elemType == FxElemType.Decal)
-            return new FxVisualPayload(null, [], ReadFxElemMarkVisualArray(cursor, inlineVisual.Raw.Untyped, visualCount, context));
+        {
+            XPointer<FxElemMarkVisuals[]> markPointer = ReinterpretPointer<FxElemMarkVisuals[]>(inlineVisual.Raw, XPointerResolutionMode.Direct);
+            return new FxVisualPayload(null, null, [], markPointer, ReadFxElemMarkVisualArray(cursor, markPointer.Untyped, visualCount, context));
+        }
 
         if (visualCount > 1)
-            return new FxVisualPayload(null, ReadFxElemVisualArray(cursor, inlineVisual.Raw.Untyped, elemType, visualCount, context), []);
+        {
+            XPointer<FxElemDefVisuals[]> visualPointer = ReinterpretPointer<FxElemDefVisuals[]>(inlineVisual.Raw, XPointerResolutionMode.Direct);
+            return new FxVisualPayload(null, visualPointer, ReadFxElemVisualArray(cursor, visualPointer.Untyped, elemType, visualCount, context), null, []);
+        }
 
-        return new FxVisualPayload(ReadFxElemVisual(cursor, inlineVisual, elemType, context), [], []);
+        return new FxVisualPayload(ReadFxElemVisual(cursor, inlineVisual, elemType, context), null, [], null, []);
     }
 
     private IReadOnlyList<FxElemDefVisuals> ReadFxElemVisualArray(
@@ -423,7 +431,7 @@ public sealed class FxEffectDefLoader
 
     private FxElemDefVisuals ReadFxElemVisual(
         FastFileCursor cursor,
-        FxElemDefVisuals visual,
+        FxElemDefVisualsRoot visual,
         FxElemType elemType,
         FastFileLoadContext context)
     {
@@ -436,15 +444,21 @@ public sealed class FxEffectDefLoader
                 return new FxElemDefVisuals
                 {
                     Offset = visual.Offset,
-                    Raw = visual.Raw,
-                    ModelPointer = modelPointer,
-                    Model = model
+                    Visual = new FxModelVisual
+                    {
+                        ModelPointer = modelPointer,
+                        Model = model
+                    }
                 };
             }
 
             case FxElemType.OmniLight:
             case FxElemType.SpotLight:
-                return visual;
+                return new FxElemDefVisuals
+                {
+                    Offset = visual.Offset,
+                    Visual = new FxNoChildVisual { Reserved = visual.Raw.Raw }
+                };
 
             case FxElemType.Sound:
             {
@@ -453,9 +467,11 @@ public sealed class FxEffectDefLoader
                 return new FxElemDefVisuals
                 {
                     Offset = visual.Offset,
-                    Raw = visual.Raw,
-                    SoundNamePointer = soundPointer,
-                    SoundName = soundName
+                    Visual = new FxSoundVisual
+                    {
+                        SoundNamePointer = soundPointer,
+                        SoundName = soundName
+                    }
                 };
             }
 
@@ -465,8 +481,7 @@ public sealed class FxEffectDefLoader
                 return new FxElemDefVisuals
                 {
                     Offset = visual.Offset,
-                    Raw = visual.Raw,
-                    EffectDef = effectRef
+                    Visual = new FxEffectVisual { EffectDef = effectRef }
                 };
             }
 
@@ -477,9 +492,11 @@ public sealed class FxEffectDefLoader
                 return new FxElemDefVisuals
                 {
                     Offset = visual.Offset,
-                    Raw = visual.Raw,
-                    MaterialPointer = materialPointer,
-                    Material = material
+                    Visual = new FxMaterialVisual
+                    {
+                        MaterialPointer = materialPointer,
+                        Material = material
+                    }
                 };
             }
         }
@@ -520,8 +537,8 @@ public sealed class FxEffectDefLoader
             },
             _ => new FxElemExtendedDef
             {
-                Kind = FxElemExtendedDefKind.Unknown,
-                UnknownValue = ReadFxExtendedUnknown(cursor, pointer, context)
+                Kind = FxElemExtendedDefKind.DefaultBytePayload,
+                DefaultBytePayload = ReadFxExtendedDefaultByte(cursor, pointer, context)
             }
         };
     }
@@ -588,7 +605,7 @@ public sealed class FxEffectDefLoader
             ReadSingle(c));
     }
 
-    private static byte ReadFxExtendedUnknown(
+    private static byte ReadFxExtendedDefaultByte(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
@@ -639,7 +656,7 @@ public sealed class FxEffectDefLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, MaterialAsset.SerializedSize, "Material"))
+        if (ResolveAliasCellOffset<MaterialAsset>(pointer, context, MaterialAsset.SerializedSize, "Material"))
             return null;
 
         if (pointer.Type == PointerType.Null)
@@ -653,13 +670,13 @@ public sealed class FxEffectDefLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, XModelAssetModel.SerializedSize, "XModel"))
+        if (ResolveAliasCellOffset<XModelAssetModel>(pointer, context, XModelAssetModel.SerializedSize, "XModel"))
             return null;
 
         return _xmodelLoader.LoadFromPointer(cursor, pointer, context);
     }
 
-    private static bool ResolveAliasCellOffset(
+    private static bool ResolveAliasCellOffset<T>(
         XPointerReference pointer,
         FastFileLoadContext context,
         int targetByteCount,
@@ -677,7 +694,7 @@ public sealed class FxEffectDefLoader
             if (XPointerCodec.GetType(aliasedRaw) != PointerType.Offset)
                 throw new InvalidDataException($"Alias-cell pointer 0x{pointer.Raw:X8} resolved to unresolved sentinel 0x{aliasedRaw:X8} for {targetName}.");
 
-            context.PointerReader.ValidateOffsetPointerRange(
+            context.PointerReader.ValidateOffsetPointerRange<T>(
                 XPointerReference.FromRaw(aliasedRaw, XPointerResolutionMode.Direct, pointer.PackedAddress),
                 targetByteCount,
                 targetName);
@@ -734,14 +751,10 @@ public sealed class FxEffectDefLoader
         return ReadPointer<string>(cursor, XPointerResolutionMode.Direct);
     }
 
-    private static FxElemDefVisuals ReadFxElemDefVisualsRoot(FastFileCursor cursor)
+    private static FxElemDefVisualsRoot ReadFxElemDefVisualsRoot(FastFileCursor cursor)
     {
         int offset = cursor.AddressAt(cursor.Offset)?.Offset ?? cursor.Offset;
-        return new FxElemDefVisuals
-        {
-            Offset = offset,
-            Raw = ReadPointer<object>(cursor, XPointerResolutionMode.Direct)
-        };
+        return new FxElemDefVisualsRoot(offset, ReadPointer<object>(cursor, XPointerResolutionMode.Direct));
     }
 
     private static FxEffectDefRef ReadFxEffectDefRefRoot(FastFileCursor cursor)
@@ -824,8 +837,14 @@ public sealed class FxEffectDefLoader
 
     private sealed record FxVisualPayload(
         FxElemDefVisuals? InlineVisual,
+        XPointer<FxElemDefVisuals[]>? VisualArrayPointer,
         IReadOnlyList<FxElemDefVisuals> VisualArray,
+        XPointer<FxElemMarkVisuals[]>? MarkVisualArrayPointer,
         IReadOnlyList<FxElemMarkVisuals> MarkVisualArray);
+
+    private sealed record FxElemDefVisualsRoot(
+        int Offset,
+        XPointer<object> Raw);
 
     private sealed record FxElemDefRoot(
         int Offset,
@@ -852,7 +871,7 @@ public sealed class FxEffectDefLoader
         byte VisStateIntervalCount,
         XPointer<FxElemVelStateSample[]> VelSamplesPointer,
         XPointer<FxElemVisStateSample[]> VisSamplesPointer,
-        FxElemDefVisuals Visuals,
+        FxElemDefVisualsRoot Visuals,
         Bounds CollBounds,
         FxEffectDefRef EffectOnImpact,
         FxEffectDefRef EffectOnDeath,

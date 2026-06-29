@@ -59,7 +59,7 @@ public sealed class XAnimPartsLoader
         byte boneNameCount = rootCursor.ReadByte();
         byte notifyCount = rootCursor.ReadByte();
         byte assetType = rootCursor.ReadByte();
-        byte unknown1F = rootCursor.ReadByte();
+        byte pad1F = rootCursor.ReadByte();
         int randomDataShortCount = rootCursor.ReadInt32();
         int indexCount = rootCursor.ReadInt32();
         float framerate = ReadSingle(rootCursor);
@@ -82,6 +82,8 @@ public sealed class XAnimPartsLoader
         IReadOnlyList<ushort> names;
         IReadOnlyList<XAnimNotifyInfo> notify;
         XAnimDeltaPart? deltaPart;
+        XAnimPackedDataStreams packedDataStreams;
+        XAnimFrameIndexStream indices;
 
         context.Blocks.Push(XFileBlockType.LARGE);
         try
@@ -90,13 +92,16 @@ public sealed class XAnimPartsLoader
             names = ReadUInt16Array(cursor, namesPointer.Untyped, boneNameCount, alignment: 2, "XAnimParts.Names", context);
             notify = ReadXAnimNotifyInfoArray(cursor, notifyPointer.Untyped, notifyCount, context);
             deltaPart = ReadXAnimDeltaPart(cursor, deltaPartPointer.Untyped, numFrames, context);
-            ReadRawBytes(cursor, dataBytePointer.Untyped, dataByteCount, alignment: 1, "XAnimParts.DataByte", context);
-            ReadRawBytes(cursor, dataShortPointer.Untyped, checked(dataShortCount * sizeof(short)), alignment: 2, "XAnimParts.DataShort", context);
-            ReadRawBytes(cursor, dataIntPointer.Untyped, checked(dataIntCount * sizeof(int)), alignment: 4, "XAnimParts.DataInt", context);
-            ReadRawBytes(cursor, randomDataShortPointer.Untyped, checked(randomDataShortCount * sizeof(short)), alignment: 2, "XAnimParts.RandomDataShort", context);
-            ReadRawBytes(cursor, randomDataBytePointer.Untyped, randomDataByteCount, alignment: 1, "XAnimParts.RandomDataByte", context);
-            ReadRawBytes(cursor, randomDataIntPointer.Untyped, checked(randomDataIntCount * sizeof(int)), alignment: 4, "XAnimParts.RandomDataInt", context);
-            ReadXAnimIndices(cursor, indicesPointer.Untyped, numFrames, indexCount, context);
+            packedDataStreams = new XAnimPackedDataStreams
+            {
+                QuantizedBytes = ReadByteStream(cursor, dataBytePointer.Untyped, dataByteCount, alignment: 1, "XAnimParts.DataByte", context),
+                QuantizedShorts = ReadInt16Stream(cursor, dataShortPointer.Untyped, dataShortCount, alignment: 2, "XAnimParts.DataShort", context),
+                QuantizedInts = ReadInt32Stream(cursor, dataIntPointer.Untyped, dataIntCount, alignment: 4, "XAnimParts.DataInt", context),
+                RandomizedQuantizedShorts = ReadInt16Stream(cursor, randomDataShortPointer.Untyped, randomDataShortCount, alignment: 2, "XAnimParts.RandomDataShort", context),
+                RandomizedQuantizedBytes = ReadByteStream(cursor, randomDataBytePointer.Untyped, randomDataByteCount, alignment: 1, "XAnimParts.RandomDataByte", context),
+                RandomizedQuantizedInts = ReadInt32Stream(cursor, randomDataIntPointer.Untyped, randomDataIntCount, alignment: 4, "XAnimParts.RandomDataInt", context)
+            };
+            indices = ReadXAnimIndices(cursor, indicesPointer.Untyped, numFrames, indexCount, context);
         }
         finally
         {
@@ -125,7 +130,7 @@ public sealed class XAnimPartsLoader
             BoneNameCount = boneNameCount,
             NotifyCount = notifyCount,
             AssetType = assetType,
-            Unknown1F = unknown1F,
+            Pad1F = pad1F,
             RandomDataShortCount = randomDataShortCount,
             IndexCount = indexCount,
             Framerate = framerate,
@@ -139,6 +144,8 @@ public sealed class XAnimPartsLoader
             RandomDataBytePointer = randomDataBytePointer,
             RandomDataIntPointer = randomDataIntPointer,
             IndicesPointer = indicesPointer,
+            PackedDataStreams = packedDataStreams,
+            Indices = indices,
             NotifyPointer = notifyPointer,
             Notify = notify,
             DeltaPartPointer = deltaPartPointer,
@@ -253,17 +260,17 @@ public sealed class XAnimPartsLoader
         XPointer<byte[]> framesPointer = ReadPointer<byte[]>(c, XPointerResolutionMode.Direct);
         int frameCount = checked(size + 1);
         int dynamicByteCount = GetDynamicIndexByteCount(numFrames, frameCount);
-        context.Blocks.Load(cursor, dynamicByteCount);
+        byte[] dynamicBytes = context.Blocks.Load(cursor, dynamicByteCount);
         int framePayloadByteCount = checked(frameCount * (smallTrans != 0 ? 3 : 6));
-        ReadRawBytes(cursor, framesPointer.Untyped, framePayloadByteCount, smallTrans != 0 ? 1 : 4, "XAnimPartTransFrames.Frames", context);
+        byte[] framePayloadBytes = ReadRawBytes(cursor, framesPointer.Untyped, framePayloadByteCount, smallTrans != 0 ? 1 : 4, "XAnimPartTransFrames.Frames", context);
 
         return new XAnimPartTransFrames
         {
             Mins = mins,
             Size = frameSize,
             FramesPointer = framesPointer,
-            DynamicFrameByteCount = dynamicByteCount,
-            FramePayloadByteCount = framePayloadByteCount
+            DynamicFrames = ReadDynamicFrames(dynamicBytes, numFrames, frameCount),
+            FramePayload = ReadTransFramePayload(framePayloadBytes, smallTrans, frameCount)
         };
     }
 
@@ -391,7 +398,7 @@ public sealed class XAnimPartsLoader
         };
     }
 
-    private static void ReadXAnimIndices(
+    private static XAnimFrameIndexStream ReadXAnimIndices(
         FastFileCursor cursor,
         XPointerReference pointer,
         ushort numFrames,
@@ -400,7 +407,26 @@ public sealed class XAnimPartsLoader
     {
         int elementSize = numFrames <= byte.MaxValue ? sizeof(byte) : sizeof(ushort);
         int alignment = numFrames <= byte.MaxValue ? 1 : 2;
-        ReadRawBytes(cursor, pointer, checked(indexCount * elementSize), alignment, "XAnimIndices", context);
+        byte[] bytes = ReadRawBytes(cursor, pointer, checked(indexCount * elementSize), alignment, "XAnimIndices", context);
+        var indices = new ushort[indexCount];
+        var c = new FastFileCursor(bytes);
+        if (numFrames <= byte.MaxValue)
+        {
+            for (int i = 0; i < indices.Length; i++)
+                indices[i] = c.ReadByte();
+        }
+        else
+        {
+            for (int i = 0; i < indices.Length; i++)
+                indices[i] = c.ReadUInt16();
+        }
+
+        return new XAnimFrameIndexStream
+        {
+            FrameIndices = indices,
+            EncodedByteCount = bytes.Length,
+            IsByteEncoded = numFrames <= byte.MaxValue
+        };
     }
 
     private static IReadOnlyList<ushort> ReadUInt16Array(
@@ -426,7 +452,7 @@ public sealed class XAnimPartsLoader
         return values;
     }
 
-    private static void ReadRawBytes(
+    private static byte[] ReadRawBytes(
         FastFileCursor cursor,
         XPointerReference pointer,
         int byteCount,
@@ -438,10 +464,110 @@ public sealed class XAnimPartsLoader
             throw new InvalidDataException($"Invalid negative byte count {byteCount} for {targetName}.");
 
         if (pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         PatchCurrentPayloadPointer(pointer, alignment, byteCount, targetName, context);
-        context.Blocks.Load(cursor, byteCount);
+        return context.Blocks.Load(cursor, byteCount);
+    }
+
+    private static IReadOnlyList<byte> ReadByteStream(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        int alignment,
+        string targetName,
+        FastFileLoadContext context)
+    {
+        return ReadRawBytes(cursor, pointer, count, alignment, targetName, context);
+    }
+
+    private static IReadOnlyList<short> ReadInt16Stream(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        int alignment,
+        string targetName,
+        FastFileLoadContext context)
+    {
+        byte[] bytes = ReadRawBytes(cursor, pointer, checked(count * sizeof(short)), alignment, targetName, context);
+        var values = new short[count];
+        var c = new FastFileCursor(bytes);
+        for (int i = 0; i < values.Length; i++)
+            values[i] = unchecked((short)c.ReadUInt16());
+
+        return values;
+    }
+
+    private static IReadOnlyList<int> ReadInt32Stream(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        int alignment,
+        string targetName,
+        FastFileLoadContext context)
+    {
+        byte[] bytes = ReadRawBytes(cursor, pointer, checked(count * sizeof(int)), alignment, targetName, context);
+        var values = new int[count];
+        var c = new FastFileCursor(bytes);
+        for (int i = 0; i < values.Length; i++)
+            values[i] = c.ReadInt32();
+
+        return values;
+    }
+
+    private static XAnimDynamicFrames ReadDynamicFrames(
+        IReadOnlyList<byte> bytes,
+        ushort numFrames,
+        int frameCount)
+    {
+        var indices = new ushort[frameCount];
+        var cursor = new FastFileCursor(bytes.ToArray());
+        if (numFrames <= byte.MaxValue)
+        {
+            for (int i = 0; i < indices.Length; i++)
+                indices[i] = cursor.ReadByte();
+        }
+        else
+        {
+            for (int i = 0; i < indices.Length; i++)
+                indices[i] = cursor.ReadUInt16();
+        }
+
+        return new XAnimDynamicFrames
+        {
+            FrameIndices = indices,
+            EncodedByteCount = bytes.Count
+        };
+    }
+
+    private static XAnimTransFramePayload ReadTransFramePayload(
+        IReadOnlyList<byte> bytes,
+        byte smallTrans,
+        int frameCount)
+    {
+        if (bytes.Count == 0)
+            return new EmptyXAnimTransFramePayload();
+
+        var cursor = new FastFileCursor(bytes.ToArray());
+        if (smallTrans != 0)
+        {
+            var frames = new SmallXAnimTransFrame[frameCount];
+            for (int i = 0; i < frames.Length; i++)
+                frames[i] = new SmallXAnimTransFrame(cursor.ReadByte(), cursor.ReadByte(), cursor.ReadByte());
+
+            return new SmallXAnimTransFramePayload { Frames = frames };
+        }
+
+        var fullFrames = new LargeXAnimTransFrame[frameCount];
+        for (int i = 0; i < fullFrames.Length; i++)
+        {
+            fullFrames[i] = new LargeXAnimTransFrame(
+                unchecked((short)cursor.ReadUInt16()),
+                unchecked((short)cursor.ReadUInt16()),
+                unchecked((short)cursor.ReadUInt16()));
+        }
+
+        return new LargeXAnimTransFramePayload { Frames = fullFrames };
     }
 
     private static XBlockAddress PatchCurrentPayloadPointer(

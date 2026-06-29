@@ -13,10 +13,10 @@ public sealed class MaterialTechniqueSetLoader
     private const int TechniqueSetSize = 0x9c;
     private const int TechniqueSize = 0x08;
     private const int PassSize = 0x18;
-    private const int VertexDeclSize = 0x1c;
     private const int VertexShaderSize = 0x0c;
     private const int PixelShaderSize = 0x18;
     private const int ShaderArgSize = 0x08;
+    private const int LiteralFloat4Size = 0x10;
 
     public MaterialTechniqueSetAsset LoadFromAssetPointer(
         FastFileCursor cursor,
@@ -105,7 +105,7 @@ public sealed class MaterialTechniqueSetLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, TechniqueSize, "MaterialTechnique");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialTechniqueAsset>(pointer, TechniqueSize, "MaterialTechnique");
             return null;
         }
 
@@ -208,18 +208,61 @@ public sealed class MaterialTechniqueSetLoader
         MaterialPassAsset pass,
         FastFileLoadContext context)
     {
-        pass.VertexDeclBytes = ReadVertexDeclPointer(cursor, pass.VertexDeclPointer.Untyped, context);
+        pass.VertexDeclaration = ReadVertexDeclPointer(cursor, pass.VertexDeclPointer.Untyped, context);
         pass.VertexShader = ReadShaderPointer(cursor, pass.VertexShaderPointer.Untyped, MaterialShaderKind.Vertex, context);
         pass.PixelShader = ReadShaderPointer(cursor, pass.PixelShaderPointer.Untyped, MaterialShaderKind.Pixel, context);
         pass.Args = ReadShaderArgs(cursor, pass.ArgsPointer.Untyped, pass.PerPrimArgCount + pass.PerObjArgCount + pass.StableArgCount, context);
     }
 
-    private static byte[]? ReadVertexDeclPointer(
+    private static MaterialVertexDeclarationAsset? ReadVertexDeclPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        return context.PointerReader.LoadBytes(cursor, pointer, VertexDeclSize, alignment: 4);
+        if (pointer.Type == PointerType.Null)
+            return null;
+
+        if (pointer.Type == PointerType.Offset)
+        {
+            context.PointerReader.ValidateOffsetPointerRange<MaterialVertexDeclarationAsset>(
+                pointer,
+                MaterialVertexDeclarationAsset.SerializedSize,
+                "MaterialVertexDeclaration");
+            return null;
+        }
+
+        if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
+            return null;
+
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
+        XBlockAddress rootAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+        byte[] rootBytes = context.Blocks.Load(cursor, MaterialVertexDeclarationAsset.SerializedSize);
+        if (insertCell is { } cell)
+            context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
+
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
+        byte streamCount = rootCursor.ReadByte();
+        byte hasOptionalSource = rootCursor.ReadByte();
+        var routing = new MaterialVertexStreamRouting[MaterialVertexDeclarationAsset.RoutingCount];
+        for (int i = 0; i < routing.Length; i++)
+            routing[i] = new MaterialVertexStreamRouting(rootCursor.ReadByte(), rootCursor.ReadByte());
+
+        if (rootCursor.Offset != MaterialVertexDeclarationAsset.SerializedSize)
+            throw new InvalidDataException($"MaterialVertexDeclaration consumed 0x{rootCursor.Offset:X} bytes instead of 0x{MaterialVertexDeclarationAsset.SerializedSize:X}.");
+
+        context.Diagnostics.Trace(
+            $"        MaterialVertexDeclaration root sourceEnd=0x{cursor.Offset:X} streamCount={streamCount} " +
+            $"hasOptionalSource={hasOptionalSource} target={rootAddress} blocks={context.Blocks.DescribePositions()}");
+
+        return new MaterialVertexDeclarationAsset
+        {
+            StreamCount = streamCount,
+            HasOptionalSource = hasOptionalSource,
+            Routing = routing
+        };
     }
 
     private static MaterialShaderAsset? ReadShaderPointer(
@@ -237,7 +280,7 @@ public sealed class MaterialTechniqueSetLoader
             if (pointer.Type == PointerType.Offset)
             {
                 int rootSize = kind == MaterialShaderKind.Vertex ? VertexShaderSize : PixelShaderSize;
-                context.PointerReader.ValidateOffsetPointerRange(pointer, rootSize, $"Material{kind}Shader");
+                context.PointerReader.ValidateOffsetPointerRange<MaterialShaderAsset>(pointer, rootSize, $"Material{kind}Shader");
                 return null;
             }
 
@@ -369,7 +412,7 @@ public sealed class MaterialTechniqueSetLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, (int)dataSize, "MaterialShaderBytecode");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialShaderBytecode>(pointer, (int)dataSize, "MaterialShaderBytecode");
             return null;
         }
 
@@ -403,7 +446,7 @@ public sealed class MaterialTechniqueSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ShaderArgSize), "MaterialShaderArgument[]");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialShaderArgumentAsset[]>(pointer, checked(count * ShaderArgSize), "MaterialShaderArgument[]");
             return [];
         }
 
@@ -429,20 +472,62 @@ public sealed class MaterialTechniqueSetLoader
                 throw new InvalidDataException($"MaterialShaderArgument consumed 0x{argCursor.Offset - argStart:X} bytes instead of 0x{ShaderArgSize:X}.");
 
             argumentPointers[i] = argumentPointer;
-            args[i] = new MaterialShaderArgumentAsset(offset, type, dest, argumentPointer.Raw, LiteralFloat4Bytes: null);
+            args[i] = new MaterialShaderArgumentAsset(offset, type, dest, argumentPointer.Raw, LiteralConstant: null);
         }
 
         for (int i = 0; i < args.Length; i++)
         {
-            byte[]? literal = null;
+            MaterialShaderLiteralConstant? literal = null;
             XPointerReference argumentPointer = argumentPointers[i];
-            if (args[i].Type is 1 or 7 && context.PointerReader.HasInlinePayload(argumentPointer))
-                literal = context.PointerReader.LoadBytes(cursor, argumentPointer, 0x10, alignment: 16);
+            if (args[i].Type is 1 or 7)
+                literal = ReadLiteralFloat4Pointer(cursor, argumentPointer, context);
 
-            args[i] = args[i] with { LiteralFloat4Bytes = literal };
+            args[i] = args[i] with { LiteralConstant = literal };
         }
 
         return args;
+    }
+
+    private static MaterialShaderLiteralConstant? ReadLiteralFloat4Pointer(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        FastFileLoadContext context)
+    {
+        if (pointer.Type == PointerType.Null)
+            return null;
+
+        if (pointer.Type == PointerType.Offset)
+        {
+            context.PointerReader.ValidateOffsetPointerRange<MaterialShaderLiteralConstant>(
+                pointer,
+                LiteralFloat4Size,
+                "MaterialShaderLiteralConstant");
+            return null;
+        }
+
+        if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
+            return null;
+
+        XBlockAddress? insertCell = pointer.Type == PointerType.Insert
+            ? context.Blocks.AllocateInsertPointerCell()
+            : null;
+
+        XBlockAddress literalAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 16);
+        byte[] literalBytes = context.Blocks.Load(cursor, LiteralFloat4Size);
+        if (insertCell is { } cell)
+            context.Blocks.WriteInt32(cell, XPointerCodec.Encode(literalAddress));
+
+        var literalCursor = new FastFileCursor(literalBytes, literalAddress);
+        var literal = new MaterialShaderLiteralConstant(
+            ReadSingle(literalCursor),
+            ReadSingle(literalCursor),
+            ReadSingle(literalCursor),
+            ReadSingle(literalCursor));
+
+        if (literalCursor.Offset != LiteralFloat4Size)
+            throw new InvalidDataException($"MaterialShaderLiteralConstant consumed 0x{literalCursor.Offset:X} bytes instead of 0x{LiteralFloat4Size:X}.");
+
+        return literal;
     }
 
     private static XPointer<string> ReadXStringPointer(
@@ -458,5 +543,10 @@ public sealed class MaterialTechniqueSetLoader
         FastFileLoadContext context)
     {
         return context.PointerReader.LoadXString(cursor, pointer);
+    }
+
+    private static float ReadSingle(FastFileCursor cursor)
+    {
+        return BitConverter.Int32BitsToSingle(cursor.ReadInt32());
     }
 }

@@ -97,7 +97,7 @@ public sealed class SoundAliasListLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "snd_alias_t[]");
+            context.PointerReader.ValidateOffsetPointerRange<SndAlias[]>(pointer, byteCount, "snd_alias_t[]");
             return [];
         }
 
@@ -252,7 +252,7 @@ public sealed class SoundAliasListLoader
             if (pointer.PackedAddress == context.Blocks.CurrentAddress)
                 return ReadInlineSoundFileArray(cursor, soundFileCount, context);
 
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "SoundFile[]");
+            context.PointerReader.ValidateOffsetPointerRange<SoundFile[]>(pointer, byteCount, "SoundFile[]");
             return [];
         }
 
@@ -300,10 +300,10 @@ public sealed class SoundAliasListLoader
         byte exists = cursor.ReadByte();
         ushort padding = cursor.ReadUInt16();
         int unionCellOffset = cursor.Offset;
-        byte[] unionData = cursor.ReadBytes(12);
-        int unionRaw0 = BinaryPrimitives.ReadInt32BigEndian(unionData.AsSpan(0, sizeof(int)));
-        int unionRaw1 = BinaryPrimitives.ReadInt32BigEndian(unionData.AsSpan(4, sizeof(int)));
-        int unionRaw2 = BinaryPrimitives.ReadInt32BigEndian(unionData.AsSpan(8, sizeof(int)));
+        byte[] unionBytes = cursor.ReadBytes(12);
+        int unionRaw0 = BinaryPrimitives.ReadInt32BigEndian(unionBytes.AsSpan(0, sizeof(int)));
+        int unionRaw1 = BinaryPrimitives.ReadInt32BigEndian(unionBytes.AsSpan(4, sizeof(int)));
+        int unionRaw2 = BinaryPrimitives.ReadInt32BigEndian(unionBytes.AsSpan(8, sizeof(int)));
 
         if (cursor.Offset - start != SoundFile.SerializedSize)
             throw new InvalidDataException($"SoundFile consumed 0x{cursor.Offset - start:X} bytes instead of 0x{SoundFile.SerializedSize:X}.");
@@ -313,7 +313,7 @@ public sealed class SoundAliasListLoader
             type,
             exists,
             padding,
-            unionData,
+            unionBytes,
             unionRaw0,
             unionRaw1,
             unionRaw2,
@@ -327,24 +327,27 @@ public sealed class SoundAliasListLoader
         SoundFileRoot root,
         FastFileLoadContext context)
     {
-        XPointer<LoadedSound>? loadedSoundPointer = null;
-        LoadedSound? loadedSound = null;
-        StreamedSound? streamedSound = null;
+        SoundFilePayload? payload = null;
 
         context.Blocks.Push(XFileBlockType.LARGE);
         try
         {
             if (root.Type == SndAliasType.Loaded)
             {
-                loadedSoundPointer = context.PointerReader.FromRaw<LoadedSound>(
+                XPointer<LoadedSound> loadedSoundPointer = context.PointerReader.FromRaw<LoadedSound>(
                     root.UnionRaw0,
                     XPointerResolutionMode.AliasCell,
                     root.UnionCellAddress);
-                loadedSound = ReadLoadedSoundPointer(cursor, loadedSoundPointer.Value.Untyped, context);
+                LoadedSound? loadedSound = ReadLoadedSoundPointer(cursor, loadedSoundPointer.Untyped, context);
+                payload = new LoadedSoundFile
+                {
+                    LoadedSoundPointer = loadedSoundPointer,
+                    LoadedSound = loadedSound
+                };
             }
             else
             {
-                streamedSound = ReadStreamedSound(cursor, root, context);
+                payload = ReadStreamedSound(cursor, root, context);
             }
         }
         finally
@@ -352,19 +355,18 @@ public sealed class SoundAliasListLoader
             context.Blocks.Pop();
         }
 
+        context.Diagnostics.Trace(
+            $"      SoundFile offset=0x{root.Offset:X} type={(byte)root.Type}({root.Type}) exists={root.Exists} " +
+            $"union={root.UnionRaw0:X8}/{root.UnionRaw1:X8}/{root.UnionRaw2:X8} " +
+            $"blocks={context.Blocks.DescribePositions()}");
+
         return new SoundFile
         {
             Offset = root.Offset,
             Type = root.Type,
             Exists = root.Exists,
             Padding = root.Padding,
-            UnionData = root.UnionData,
-            UnionRaw0 = root.UnionRaw0,
-            UnionRaw1 = root.UnionRaw1,
-            UnionRaw2 = root.UnionRaw2,
-            LoadedSoundPointer = loadedSoundPointer,
-            LoadedSound = loadedSound,
-            StreamedSound = streamedSound
+            Payload = payload
         };
     }
 
@@ -374,34 +376,41 @@ public sealed class SoundAliasListLoader
         FastFileLoadContext context)
     {
         uint fileIndex = unchecked((uint)root.UnionRaw0);
-        XString? directoryPointer = null;
-        XString? filenamePointer = null;
-        string? directory = null;
-        string? filename = null;
+        StreamedSoundSource source;
 
         if (fileIndex == 0)
         {
-            directoryPointer = new XString(
+            XString directoryPointer = new(
                 root.UnionRaw1,
                 XPointerResolutionMode.Direct,
                 root.StreamedDirectoryCellAddress);
-            filenamePointer = new XString(
+            XString filenamePointer = new(
                 root.UnionRaw2,
                 XPointerResolutionMode.Direct,
                 root.StreamedFilenameCellAddress);
-            directory = LoadSoundXString(cursor, directoryPointer.Value, context);
-            filename = LoadSoundXString(cursor, filenamePointer.Value, context);
+            string? directory = LoadSoundXString(cursor, directoryPointer, context);
+            string? filename = LoadSoundXString(cursor, filenamePointer, context);
+            source = new ExternalStreamedSoundSource
+            {
+                DirectoryPointer = directoryPointer,
+                Directory = directory,
+                FilenamePointer = filenamePointer,
+                Filename = filename
+            };
+        }
+        else
+        {
+            source = new StreamedSoundFileSource
+            {
+                StreamFileOffset = root.UnionRaw1,
+                StreamFileLength = root.UnionRaw2
+            };
         }
 
         return new StreamedSound
         {
             FileIndex = fileIndex,
-            RawOffsetOrDirectoryPointer = root.UnionRaw1,
-            RawLengthOrFilenamePointer = root.UnionRaw2,
-            DirectoryPointer = directoryPointer,
-            Directory = directory,
-            FilenamePointer = filenamePointer,
-            Filename = filename
+            Source = source
         };
     }
 
@@ -452,7 +461,11 @@ public sealed class SoundAliasListLoader
 
         XString namePointer = ReadXStringPointer(rootCursor, context);
         int physicalDataByteCount = rootCursor.ReadInt32();
-        byte[] soundInfoBytes = rootCursor.ReadBytes(10);
+        ushort frameCount = rootCursor.ReadUInt16();
+        ushort channelCount = rootCursor.ReadUInt16();
+        ushort sampleRate = rootCursor.ReadUInt16();
+        ushort pad0E = rootCursor.ReadUInt16();
+        ushort pad10 = rootCursor.ReadUInt16();
         ushort seekTableCount = rootCursor.ReadUInt16();
         XPointer<byte[]> seekTablePointer = ReadPointer<byte[]>(rootCursor, context, XPointerResolutionMode.Direct);
         XPointer<byte[]> physicalDataPointer = ReadPointer<byte[]>(rootCursor, context, XPointerResolutionMode.Direct);
@@ -486,6 +499,7 @@ public sealed class SoundAliasListLoader
 
         context.Diagnostics.Trace(
             $"      LoadedSound source=0x{sourceOffset:X} name=0x{namePointer.Raw:X8} physicalBytes={physicalDataByteCount} " +
+            $"frames={frameCount} channels={channelCount} sampleRate={sampleRate} pad0E=0x{pad0E:X4} pad10=0x{pad10:X4} " +
             $"seekCount={seekTableCount} blocks={context.Blocks.DescribePositions()}");
 
         return new LoadedSound
@@ -494,7 +508,11 @@ public sealed class SoundAliasListLoader
             NamePointer = namePointer,
             Name = name,
             PhysicalDataByteCount = physicalDataByteCount,
-            SoundInfoBytes = soundInfoBytes,
+            FrameCount = frameCount,
+            ChannelCount = channelCount,
+            SampleRate = sampleRate,
+            Pad0E = pad0E,
+            Pad10 = pad10,
             SeekTableCount = seekTableCount,
             SeekTablePointer = seekTablePointer,
             SeekTable = seekTable,
@@ -551,7 +569,9 @@ public sealed class SoundAliasListLoader
         XString filenamePointer = ReadXStringPointer(rootCursor, context);
         ushort knotCount = rootCursor.ReadUInt16();
         ushort padding = rootCursor.ReadUInt16();
-        byte[] knotBytes = rootCursor.ReadBytes(SndCurve.KnotBytesSize);
+        var knots = new SndCurveKnot[SndCurve.MaxKnotCount];
+        for (int i = 0; i < knots.Length; i++)
+            knots[i] = new SndCurveKnot(ReadSingle(rootCursor), ReadSingle(rootCursor));
 
         if (rootCursor.Offset != SndCurve.SerializedSize)
             throw new InvalidDataException($"SndCurve consumed 0x{rootCursor.Offset:X} bytes instead of 0x{SndCurve.SerializedSize:X}.");
@@ -574,7 +594,7 @@ public sealed class SoundAliasListLoader
             Filename = filename,
             KnotCount = knotCount,
             Padding = padding,
-            KnotBytes = knotBytes
+            Knots = knots
         };
     }
 
@@ -591,7 +611,7 @@ public sealed class SoundAliasListLoader
             if (pointer.PackedAddress == context.Blocks.CurrentAddress)
                 return ReadSpeakerMap(cursor, context.Blocks.CurrentAddress, context);
 
-            context.PointerReader.ValidateOffsetPointerRange(pointer, SpeakerMap.SerializedSize, "SpeakerMap");
+            context.PointerReader.ValidateOffsetPointerRange<SpeakerMap>(pointer, SpeakerMap.SerializedSize, "SpeakerMap");
             return null;
         }
 
@@ -701,7 +721,7 @@ public sealed class SoundAliasListLoader
                 return context.Blocks.Load(cursor, byteCount);
 
             if (byteCount > 0)
-                context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, targetName);
+                context.PointerReader.ValidateOffsetPointerRange<byte[]>(pointer, byteCount, targetName);
             return null;
         }
 
@@ -820,7 +840,7 @@ public sealed class SoundAliasListLoader
         SndAliasType Type,
         byte Exists,
         ushort Padding,
-        byte[] UnionData,
+        byte[] UnionBytes,
         int UnionRaw0,
         int UnionRaw1,
         int UnionRaw2,

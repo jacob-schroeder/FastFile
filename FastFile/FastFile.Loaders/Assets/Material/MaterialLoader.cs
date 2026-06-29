@@ -1,6 +1,10 @@
+using FastFile.Models.Assets.Image;
+using FastFile.Models.Assets.Material;
+using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Pointers;
 using FastFile.Models.Pointers.Enums;
 using FastFile.Models.Zone;
+using FastFile.Loaders.Assets.TechniqueSet;
 using FastFile.Runtime;
 using FastFile.Runtime.IO;
 using MaterialAssetModel = FastFile.Models.Assets.Material.MaterialAsset;
@@ -45,7 +49,7 @@ public sealed class MaterialLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, MaterialSize, "Material");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialAssetModel>(pointer, MaterialSize, "Material");
             return null;
         }
 
@@ -78,13 +82,24 @@ public sealed class MaterialLoader
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
             XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
-            rootCursor.Skip(0x3d - rootCursor.Offset);
-            int textureCount = rootCursor.ReadByte();
-            int constantCount = rootCursor.ReadByte();
-            int stateBitsCount = rootCursor.ReadByte();
-            rootCursor.Skip(0x42 - rootCursor.Offset);
-            int xstringCount = rootCursor.ReadByte();
-            rootCursor.Skip(0x90 - rootCursor.Offset);
+            byte gameFlags = rootCursor.ReadByte();
+            byte sortKey = rootCursor.ReadByte();
+            byte textureAtlasRowCount = rootCursor.ReadByte();
+            byte textureAtlasColumnCount = rootCursor.ReadByte();
+            ulong drawSurfPacked = rootCursor.ReadUInt64();
+            uint surfaceTypeBits = rootCursor.ReadUInt32();
+            ushort hashIndex = rootCursor.ReadUInt16();
+            ushort materialInfoPad16 = rootCursor.ReadUInt16();
+            MaterialStateBitsEntry[] stateBitsEntries = ReadStateBitsEntries(rootCursor, TechniqueSlotCount);
+            byte textureCount = rootCursor.ReadByte();
+            byte constantCount = rootCursor.ReadByte();
+            byte stateBitsCount = rootCursor.ReadByte();
+            byte stateFlags = rootCursor.ReadByte();
+            byte cameraRegion = rootCursor.ReadByte();
+            byte xstringCount = rootCursor.ReadByte();
+            byte pad43 = rootCursor.ReadByte();
+            ushort[] inlineTechniqueSlotStateBits = ReadUshorts(rootCursor, TechniqueSlotCount);
+            ushort pad8E = rootCursor.ReadUInt16();
             XPointerReference runtimeUshortPayload = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
             XPointerReference techniqueSetPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.AliasCell);
             XPointerReference textureTablePointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
@@ -104,22 +119,57 @@ public sealed class MaterialLoader
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
-                ReadXString(cursor, namePointer, context);
-                ReadRuntimeUshortPayload(cursor, runtimeUshortPayload, context);
-                ReadTechniqueSetPointer(cursor, techniqueSetPointer, context);
-                ReadTextureDefArray(cursor, textureTablePointer, textureCount, context);
-                ReadFixedArray(cursor, constantTablePointer, constantCount, ConstantDefSize, 16, context);
-                ReadGfxStateBitsArray(cursor, stateBitsPointer, stateBitsCount, context);
-                ReadXStringPointerArray(cursor, xstringTablePointer, xstringCount, context);
+                string? name = ReadXString(cursor, namePointer, context);
+                IReadOnlyList<ushort> runtimeTechniqueSlotStateBits = ReadRuntimeUshortPayload(cursor, runtimeUshortPayload, context);
+                MaterialTechniqueSetAsset? techniqueSet = ReadTechniqueSetPointer(cursor, techniqueSetPointer, context);
+                IReadOnlyList<MaterialTextureDef> textures = ReadTextureDefArray(cursor, textureTablePointer, textureCount, context);
+                IReadOnlyList<MaterialConstantDef> constants = ReadMaterialConstantArray(cursor, constantTablePointer, constantCount, context);
+                IReadOnlyList<GfxStateBits> stateBits = ReadGfxStateBitsArray(cursor, stateBitsPointer, stateBitsCount, context);
+                IReadOnlyList<MaterialXStringEntry> xstrings = ReadXStringPointerArray(cursor, xstringTablePointer, xstringCount, context);
 
                 context.Diagnostics.Trace(
                     $"  Material end source=0x{cursor.Offset:X} rootSource=0x{offset:X} blocks={context.Blocks.DescribePositions()}");
 
                 return new MaterialAssetModel
-            {
-                Offset = offset
-            };
-        }
+                {
+                    Offset = offset,
+                    Info = new MaterialInfo
+                    {
+                        NamePointer = namePointer,
+                        Name = name,
+                        GameFlags = gameFlags,
+                        SortKey = sortKey,
+                        TextureAtlasRowCount = textureAtlasRowCount,
+                        TextureAtlasColumnCount = textureAtlasColumnCount,
+                        DrawSurf = new GfxDrawSurf(drawSurfPacked),
+                        SurfaceTypeBits = surfaceTypeBits,
+                        HashIndex = hashIndex,
+                        Pad16 = materialInfoPad16
+                    },
+                    StateBitsEntries = stateBitsEntries,
+                    TextureCount = textureCount,
+                    ConstantCount = constantCount,
+                    StateBitsCount = stateBitsCount,
+                    StateFlags = stateFlags,
+                    CameraRegion = cameraRegion,
+                    XStringCount = xstringCount,
+                    Pad43 = pad43,
+                    InlineTechniqueSlotStateBits = inlineTechniqueSlotStateBits,
+                    Pad8E = pad8E,
+                    RuntimeTechniqueSlotStateBitsPointer = runtimeUshortPayload,
+                    RuntimeTechniqueSlotStateBits = runtimeTechniqueSlotStateBits,
+                    TechniqueSetPointer = techniqueSetPointer.AsPointer<MaterialTechniqueSetAsset>(),
+                    TechniqueSet = techniqueSet,
+                    TextureTablePointer = textureTablePointer,
+                    Textures = textures,
+                    ConstantTablePointer = constantTablePointer,
+                    Constants = constants,
+                    StateBitsPointer = stateBitsPointer,
+                    StateBits = stateBits,
+                    XStringTablePointer = xstringTablePointer,
+                    XStrings = xstrings
+                };
+            }
             finally
             {
                 context.Blocks.Pop();
@@ -139,14 +189,23 @@ public sealed class MaterialLoader
         return LoadInlineMaterial(cursor, pointer, context, out _);
     }
 
-    private static void ReadRuntimeUshortPayload(
+    private static MaterialStateBitsEntry[] ReadStateBitsEntries(FastFileCursor cursor, int count)
+    {
+        var entries = new MaterialStateBitsEntry[count];
+        for (int i = 0; i < entries.Length; i++)
+            entries[i] = new MaterialStateBitsEntry(i, cursor.ReadByte());
+
+        return entries;
+    }
+
+    private static IReadOnlyList<ushort> ReadRuntimeUshortPayload(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
         int byteCount = TechniqueSlotCount * sizeof(ushort);
         if (pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         if (pointer.CellAddress is not { } cellAddress)
             throw new InvalidDataException($"Material runtime ushort payload cell 0x{pointer.Raw:X8} has no destination cell address.");
@@ -157,7 +216,9 @@ public sealed class MaterialLoader
             context.Blocks.AlignCurrent(2);
             XBlockAddress payloadAddress = context.Blocks.CurrentAddress;
             context.Blocks.WriteInt32(cellAddress, XPointerCodec.Encode(payloadAddress));
-            context.Blocks.Load(cursor, byteCount);
+            byte[] payloadBytes = context.Blocks.Load(cursor, byteCount, out XBlockAddress loadedAddress);
+            var payloadCursor = new FastFileCursor(payloadBytes, loadedAddress);
+            return ReadUshorts(payloadCursor, TechniqueSlotCount);
         }
         finally
         {
@@ -165,53 +226,18 @@ public sealed class MaterialLoader
         }
     }
 
-    private static void ReadTechniqueSetPointer(
+    private static MaterialTechniqueSetAsset? ReadTechniqueSetPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, TechniqueSetSize, "MaterialTechniqueSet");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<MaterialTechniqueSetAsset>(pointer, TechniqueSetSize, "MaterialTechniqueSet");
+            return null;
         }
 
-        context.Blocks.Push(XFileBlockType.TEMP);
-        try
-        {
-            context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
-            byte[] rootBytes = context.Blocks.Load(cursor, TechniqueSetSize, out XBlockAddress rootAddress);
-            var rootCursor = new FastFileCursor(rootBytes, rootAddress);
-
-            XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
-            rootCursor.Skip(4);
-            var techniquePointers = new XPointerReference[TechniqueSlotCount];
-            for (int i = 0; i < techniquePointers.Length; i++)
-                techniquePointers[i] = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
-
-            if (rootCursor.Offset != TechniqueSetSize)
-                throw new InvalidDataException($"MaterialTechniqueSet consumed 0x{rootCursor.Offset:X} bytes instead of 0x{TechniqueSetSize:X}.");
-
-            context.Diagnostics.Trace(
-                $"    Material.inlineTechset root name=0x{namePointer.Raw:X8} techniques.nonNull={techniquePointers.Count(x => x.Raw != 0)} " +
-                $"techniques.inline={techniquePointers.Count(x => x.Raw == -1)} blocks={context.Blocks.DescribePositions()}");
-
-            context.Blocks.Push(XFileBlockType.LARGE);
-            try
-            {
-                ReadXString(cursor, namePointer, context);
-                foreach (XPointerReference techniquePointer in techniquePointers)
-                    ReadTechniquePointer(cursor, techniquePointer, context);
-            }
-            finally
-            {
-                context.Blocks.Pop();
-            }
-        }
-        finally
-        {
-            context.Blocks.Pop();
-        }
+        return new MaterialTechniqueSetLoader().LoadFromAssetPointer(cursor, pointer, context);
     }
 
     private static void ReadTechniquePointer(
@@ -221,7 +247,7 @@ public sealed class MaterialLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, TechniqueSize, "MaterialTechnique");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialTechniqueAsset>(pointer, TechniqueSize, "MaterialTechnique");
             return;
         }
 
@@ -304,7 +330,7 @@ public sealed class MaterialLoader
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, rootSize, "MaterialShader");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialShaderAsset>(pointer, rootSize, "MaterialShader");
             return;
         }
 
@@ -331,7 +357,7 @@ public sealed class MaterialLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * ShaderArgSize), "MaterialShaderArgument[]");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialShaderArgumentAsset[]>(pointer, checked(count * ShaderArgSize), "MaterialShaderArgument[]");
             return;
         }
 
@@ -358,7 +384,7 @@ public sealed class MaterialLoader
         }
     }
 
-    private static void ReadTextureDefArray(
+    private static IReadOnlyList<MaterialTextureDef> ReadTextureDefArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
@@ -370,7 +396,7 @@ public sealed class MaterialLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * TextureDefSize), "MaterialTextureDef[]");
-            return;
+            return [];
         }
 
         context.Diagnostics.Trace(
@@ -378,42 +404,72 @@ public sealed class MaterialLoader
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] textureBytes = context.Blocks.Load(cursor, checked(count * TextureDefSize), out XBlockAddress textureAddress);
         var textureCursor = new FastFileCursor(textureBytes, textureAddress);
-        var textures = new (byte Semantic, XPointerReference DataPointer)[count];
+        var textures = new MaterialTextureDef[count];
 
         for (int i = 0; i < textures.Length; i++)
         {
-            textureCursor.ReadInt32();
-            textureCursor.ReadByte();
-            textureCursor.ReadByte();
-            textureCursor.ReadByte();
+            uint nameHash = textureCursor.ReadUInt32();
+            byte nameStart = textureCursor.ReadByte();
+            byte nameEnd = textureCursor.ReadByte();
+            byte samplerState = textureCursor.ReadByte();
             byte semantic = textureCursor.ReadByte();
             XPointerReference dataPointer = context.PointerReader.ReadCell(textureCursor, XPointerOffsetMode.AliasCell);
-            textures[i] = (semantic, dataPointer);
+            textures[i] = new MaterialTextureDef
+            {
+                NameHash = nameHash,
+                NameStart = nameStart,
+                NameEnd = nameEnd,
+                SamplerState = samplerState,
+                Semantic = semantic,
+                DataPointer = dataPointer
+            };
         }
 
-        foreach ((byte semantic, XPointerReference dataPointer) in textures)
+        for (int i = 0; i < textures.Length; i++)
         {
+            MaterialTextureDef texture = textures[i];
             context.Diagnostics.Trace(
-                $"      Material.texture semantic=0x{semantic:X2} data=0x{dataPointer.Raw:X8} mode={dataPointer.ResolutionMode} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
+                $"      Material.texture semantic=0x{texture.Semantic:X2} data=0x{texture.DataPointer.Raw:X8} mode={texture.DataPointer.ResolutionMode} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
 
-            if (semantic == 0x0b)
-                ReadWaterPointer(cursor, dataPointer, context);
+            if (texture.Semantic == 0x0b)
+                textures[i] = CopyTexture(texture, water: ReadWaterPointer(cursor, texture.DataPointer, context));
             else
-                ReadGfxImagePointer(cursor, dataPointer, context);
+                textures[i] = CopyTexture(texture, image: ReadGfxImagePointer(cursor, texture.DataPointer, context));
         }
+
+        return textures;
     }
 
-    private static void ReadGfxImagePointer(
+    private static MaterialTextureDef CopyTexture(
+        MaterialTextureDef texture,
+        GfxImageAsset? image = null,
+        MaterialWater? water = null)
+    {
+        return new MaterialTextureDef
+        {
+            NameHash = texture.NameHash,
+            NameStart = texture.NameStart,
+            NameEnd = texture.NameEnd,
+            SamplerState = texture.SamplerState,
+            Semantic = texture.Semantic,
+            DataPointer = texture.DataPointer,
+            Image = image,
+            Water = water
+        };
+    }
+
+    private static GfxImageAsset? ReadGfxImagePointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, GfxImageSize, "GfxImage");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<GfxImageAsset>(pointer, GfxImageSize, "GfxImage");
+            return null;
         }
 
+        int sourceOffset = cursor.Offset;
         context.Blocks.Push(XFileBlockType.TEMP);
         try
         {
@@ -423,18 +479,28 @@ public sealed class MaterialLoader
 
             byte formatByte = rootCursor.ReadByte();
             byte levelCount = rootCursor.ReadByte();
-            byte unknown02 = rootCursor.ReadByte();
+            byte dimensionCount = rootCursor.ReadByte();
             byte multiFaceControl = rootCursor.ReadByte();
             uint textureFlags = rootCursor.ReadUInt32();
             ushort width = rootCursor.ReadUInt16();
             ushort height = rootCursor.ReadUInt16();
             ushort depth = rootCursor.ReadUInt16();
-            rootCursor.Skip(0x18 - rootCursor.Offset);
+            byte pixelDataBlock = rootCursor.ReadByte();
+            byte pad0F = rootCursor.ReadByte();
+            uint renderTargetPitch = rootCursor.ReadUInt32();
+            uint pixelsOffset = rootCursor.ReadUInt32();
             byte mapType = rootCursor.ReadByte();
             byte textureSemantic = rootCursor.ReadByte();
-            rootCursor.Skip(0x28 - rootCursor.Offset);
+            byte category = rootCursor.ReadByte();
+            byte pad1B = rootCursor.ReadByte();
+            uint cardMemory = rootCursor.ReadUInt32();
+            ushort baseWidth = rootCursor.ReadUInt16();
+            ushort baseHeight = rootCursor.ReadUInt16();
+            ushort baseDepth = rootCursor.ReadUInt16();
+            byte baseLevelCount = rootCursor.ReadByte();
+            byte pad27 = rootCursor.ReadByte();
             XPointerReference payloadPointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
-            rootCursor.Skip(0x4c - rootCursor.Offset);
+            byte[] streamData = rootCursor.ReadBytes(0x20);
             XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
 
             if (rootCursor.Offset != GfxImageSize)
@@ -442,19 +508,26 @@ public sealed class MaterialLoader
 
             context.Diagnostics.Trace(
                 $"      GfxImage root.pre source=0x{cursor.Offset:X} root={rootAddress} format=0x{formatByte:X2} flags=0x{textureFlags:X8} " +
-                $"dims={width}x{height}x{depth} levels={levelCount} map=0x{mapType:X2} semantic=0x{textureSemantic:X2} " +
+                $"dims={width}x{height}x{depth} levels={levelCount} dimension=0x{dimensionCount:X2} map=0x{mapType:X2} semantic=0x{textureSemantic:X2} " +
+                $"category=0x{category:X2} " +
+                $"baseDims={baseWidth}x{baseHeight}x{baseDepth} baseLevels={baseLevelCount} cardMemory=0x{cardMemory:X8} " +
+                $"pixelBlock=0x{pixelDataBlock:X2} pitch=0x{renderTargetPitch:X8} pixelsOffset=0x{pixelsOffset:X8} " +
+                $"pad1B=0x{pad1B:X2} streamData={Convert.ToHexString(streamData)} " +
                 $"payload=0x{payloadPointer.Raw:X8} name=0x{namePointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
             context.Diagnostics.Trace(
                 $"      GfxImage root format=0x{formatByte:X2} flags=0x{textureFlags:X8} dims={width}x{height}x{depth} " +
-                $"levels={levelCount} map=0x{mapType:X2} semantic=0x{textureSemantic:X2} payload=0x{payloadPointer.Raw:X8} " +
+                $"levels={levelCount} dimension=0x{dimensionCount:X2} map=0x{mapType:X2} semantic=0x{textureSemantic:X2} " +
+                $"category=0x{category:X2} " +
+                $"baseDims={baseWidth}x{baseHeight}x{baseDepth} baseLevels={baseLevelCount} cardMemory=0x{cardMemory:X8} " +
+                $"pad1B=0x{pad1B:X2} streamData={Convert.ToHexString(streamData)} payload=0x{payloadPointer.Raw:X8} " +
                 $"name=0x{namePointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
 
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
-                ReadXString(cursor, namePointer, context);
-                ReadGfxImagePayload(
+                string? name = ReadXString(cursor, namePointer, context);
+                int payloadByteCount = ReadGfxImagePayload(
                     cursor,
                     payloadPointer,
                     formatByte,
@@ -466,6 +539,38 @@ public sealed class MaterialLoader
                     depth,
                     textureSemantic,
                     context);
+
+                return new GfxImageAsset
+                {
+                    Offset = sourceOffset,
+                    Format = formatByte,
+                    LevelCount = levelCount,
+                    DimensionCount = dimensionCount,
+                    MultiFaceControl = multiFaceControl,
+                    TextureFlags = textureFlags,
+                    Width = width,
+                    Height = height,
+                    Depth = depth,
+                    PixelDataBlock = pixelDataBlock,
+                    Pad0F = pad0F,
+                    RenderTargetPitch = renderTargetPitch,
+                    PixelsOffset = pixelsOffset,
+                    MapType = mapType,
+                    TextureSemantic = textureSemantic,
+                    Category = category,
+                    Pad1B = pad1B,
+                    CardMemory = cardMemory,
+                    BaseWidth = baseWidth,
+                    BaseHeight = baseHeight,
+                    BaseDepth = baseDepth,
+                    BaseLevelCount = baseLevelCount,
+                    Pad27 = pad27,
+                    PayloadPointer = payloadPointer,
+                    StreamData = ReadGfxImageStreamData(streamData),
+                    PayloadByteCount = payloadByteCount,
+                    NamePointer = namePointer,
+                    Name = name
+                };
             }
             finally
             {
@@ -478,7 +583,7 @@ public sealed class MaterialLoader
         }
     }
 
-    private static void ReadGfxImagePayload(
+    private static int ReadGfxImagePayload(
         FastFileCursor cursor,
         XPointerReference pointer,
         byte formatByte,
@@ -492,7 +597,7 @@ public sealed class MaterialLoader
         FastFileLoadContext context)
     {
         if (pointer.Type == PointerType.Null)
-            return;
+            return 0;
 
         int byteCount = ComputeGfxImagePayloadByteCount(
             formatByte,
@@ -524,6 +629,8 @@ public sealed class MaterialLoader
         {
             context.Blocks.Pop();
         }
+
+        return byteCount;
     }
 
     private static int ComputeGfxImagePayloadByteCount(
@@ -591,7 +698,7 @@ public sealed class MaterialLoader
         return checked((value + alignment - 1) / alignment * alignment);
     }
 
-    private static void ReadWaterPointer(
+    private static MaterialWater? ReadWaterPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
@@ -599,30 +706,62 @@ public sealed class MaterialLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange(pointer, WaterSize, "water_t");
-            return;
+            return null;
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] rootBytes = context.Blocks.Load(cursor, WaterSize, out XBlockAddress rootAddress);
         var rootCursor = new FastFileCursor(rootBytes, rootAddress);
 
-        rootCursor.ReadInt32();
-        XPointerReference firstSpectrum = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
-        XPointerReference secondSpectrum = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
-        XPointerReference thirdSpectrum = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+        var writable = new MaterialWaterWritable(rootCursor.ReadUInt32());
+        XPointerReference h0xPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+        XPointerReference h0yPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
+        XPointerReference wTermPointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.Direct);
         int m = rootCursor.ReadInt32();
         int n = rootCursor.ReadInt32();
-        rootCursor.Skip(0x44 - rootCursor.Offset);
+        float lx = ReadSingle(rootCursor);
+        float lz = ReadSingle(rootCursor);
+        float gravity = ReadSingle(rootCursor);
+        float windVelocity = ReadSingle(rootCursor);
+        var windDirection = new MaterialVec2(ReadSingle(rootCursor), ReadSingle(rootCursor));
+        float amplitude = ReadSingle(rootCursor);
+        var codeConstant = new MaterialVec4(
+            ReadSingle(rootCursor),
+            ReadSingle(rootCursor),
+            ReadSingle(rootCursor),
+            ReadSingle(rootCursor));
         XPointerReference imagePointer = context.PointerReader.ReadCell(rootCursor, XPointerOffsetMode.AliasCell);
 
         int elementCount = checked(m * n);
-        ReadWaterSpectrum(cursor, firstSpectrum, elementCount, context);
-        ReadWaterSpectrum(cursor, secondSpectrum, elementCount, context);
-        ReadWaterSpectrum(cursor, thirdSpectrum, elementCount, context);
-        ReadGfxImagePointer(cursor, imagePointer, context);
+        IReadOnlyList<float> h0x = ReadWaterSpectrum(cursor, h0xPointer, elementCount, context);
+        IReadOnlyList<float> h0y = ReadWaterSpectrum(cursor, h0yPointer, elementCount, context);
+        IReadOnlyList<float> wTerm = ReadWaterSpectrum(cursor, wTermPointer, elementCount, context);
+        GfxImageAsset? image = ReadGfxImagePointer(cursor, imagePointer, context);
+
+        return new MaterialWater
+        {
+            Writable = writable,
+            H0XPointer = h0xPointer,
+            H0YPointer = h0yPointer,
+            WTermPointer = wTermPointer,
+            M = m,
+            N = n,
+            Lx = lx,
+            Lz = lz,
+            Gravity = gravity,
+            WindVelocity = windVelocity,
+            WindDirection = windDirection,
+            Amplitude = amplitude,
+            CodeConstant = codeConstant,
+            ImagePointer = imagePointer.AsPointer<GfxImageAsset>(),
+            H0X = h0x,
+            H0Y = h0y,
+            WTerm = wTerm,
+            Image = image
+        };
     }
 
-    private static void ReadWaterSpectrum(
+    private static IReadOnlyList<float> ReadWaterSpectrum(
         FastFileCursor cursor,
         XPointerReference pointer,
         int elementCount,
@@ -631,15 +770,21 @@ public sealed class MaterialLoader
         int byteCount = checked(elementCount * sizeof(float));
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "water spectrum float[]");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<float[]>(pointer, byteCount, "water spectrum float[]");
+            return [];
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
-        context.Blocks.Load(cursor, byteCount);
+        byte[] bytes = context.Blocks.Load(cursor, byteCount, out XBlockAddress address);
+        var spectrumCursor = new FastFileCursor(bytes, address);
+        var values = new float[elementCount];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = ReadSingle(spectrumCursor);
+
+        return values;
     }
 
-    private static void ReadGfxStateBitsArray(
+    private static IReadOnlyList<GfxStateBits> ReadGfxStateBitsArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
@@ -651,7 +796,7 @@ public sealed class MaterialLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * GfxStateBitsSize), "GfxStateBits[]");
-            return;
+            return [];
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
@@ -659,23 +804,78 @@ public sealed class MaterialLoader
         context.Diagnostics.Trace(
             $"      GfxStateBits table source=0x{cursor.Offset:X} count={count} root={stateAddress} ptr=0x{pointer.Raw:X8} blocks={context.Blocks.DescribePositions()}");
         var stateCursor = new FastFileCursor(stateBytes, stateAddress);
-        var loadBits = new XPointerReference[count];
+        var stateBits = new GfxStateBits[count];
 
-        for (int i = 0; i < loadBits.Length; i++)
+        for (int i = 0; i < stateBits.Length; i++)
         {
             int loadBitsCellOffset = stateCursor.Offset;
-            loadBits[i] = XPointerReference.FromRaw(
+            XPointerReference loadBits = XPointerReference.FromRaw(
                 stateCursor.ReadInt32(),
                 XPointerResolutionMode.AliasCell,
                 stateCursor.AddressAt(loadBitsCellOffset));
-            stateCursor.ReadInt32();
+            uint tail = stateCursor.ReadUInt32();
+            stateBits[i] = new GfxStateBits
+            {
+                LoadBitsPointer = loadBits,
+                Tail = tail
+            };
         }
 
-        foreach (XPointerReference loadBitsPointer in loadBits)
-            ReadGfxStateBitsLoadBits(cursor, loadBitsPointer, context);
+        for (int i = 0; i < stateBits.Length; i++)
+        {
+            GfxStateBits state = stateBits[i];
+            stateBits[i] = new GfxStateBits
+            {
+                LoadBitsPointer = state.LoadBitsPointer,
+                LoadBits = ReadGfxStateBitsLoadBits(cursor, state.LoadBitsPointer, context),
+                Tail = state.Tail
+            };
+        }
+
+        return stateBits;
     }
 
-    private static void ReadGfxStateBitsLoadBits(
+    private static IReadOnlyList<MaterialConstantDef> ReadMaterialConstantArray(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        if (count < 0)
+            throw new InvalidDataException($"Invalid negative MaterialConstantDef count {count}.");
+
+        int byteCount = checked(count * ConstantDefSize);
+        if (!context.PointerReader.HasInlinePayload(pointer))
+        {
+            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "MaterialConstantDef[]");
+            return [];
+        }
+
+        context.PointerReader.PatchInlinePointerCell(pointer, alignment: 16);
+        byte[] bytes = context.Blocks.Load(cursor, byteCount, out XBlockAddress address);
+        var constantCursor = new FastFileCursor(bytes, address);
+        var constants = new MaterialConstantDef[count];
+
+        for (int i = 0; i < constants.Length; i++)
+        {
+            uint nameHash = constantCursor.ReadUInt32();
+            byte[] nameBytes = constantCursor.ReadBytes(0x0c);
+            constants[i] = new MaterialConstantDef
+            {
+                NameHash = nameHash,
+                NameBytes = nameBytes,
+                Literal = new MaterialVec4(
+                    ReadSingle(constantCursor),
+                    ReadSingle(constantCursor),
+                    ReadSingle(constantCursor),
+                    ReadSingle(constantCursor))
+            };
+        }
+
+        return constants;
+    }
+
+    private static IReadOnlyList<uint> ReadGfxStateBitsLoadBits(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
@@ -686,13 +886,13 @@ public sealed class MaterialLoader
             $"        GfxStateBits.LoadBits raw=0x{pointer.Raw:X8} mode={pointer.ResolutionMode} source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
 
         if (pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         if (pointer.Type == PointerType.Offset)
         {
             try
             {
-                context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "GfxStateBits.LoadBits");
+                context.PointerReader.ValidateOffsetPointerRange<byte[]>(pointer, byteCount, "GfxStateBits.LoadBits");
             }
             catch (InvalidDataException)
             {
@@ -700,11 +900,11 @@ public sealed class MaterialLoader
                     $"      GfxStateBits raw loadBits=0x{pointer.Raw:X8} at {pointer.CellAddress} is not a materialized alias pointer.");
             }
 
-            return;
+            return [];
         }
 
         if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
-            return;
+            return [];
 
         XBlockAddress? insertCell = pointer.Type == PointerType.Insert
             ? context.Blocks.AllocateInsertPointerCell()
@@ -714,9 +914,12 @@ public sealed class MaterialLoader
         try
         {
             XBlockAddress loadBitsAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
-            context.Blocks.Load(cursor, byteCount);
+            byte[] bytes = context.Blocks.Load(cursor, byteCount);
             if (insertCell is { } cell)
                 context.Blocks.WriteInt32(cell, XPointerCodec.Encode(loadBitsAddress));
+
+            var loadBitsCursor = new FastFileCursor(bytes, loadBitsAddress);
+            return [loadBitsCursor.ReadUInt32(), loadBitsCursor.ReadUInt32()];
         }
         finally
         {
@@ -724,7 +927,7 @@ public sealed class MaterialLoader
         }
     }
 
-    private static void ReadXStringPointerArray(
+    private static IReadOnlyList<MaterialXStringEntry> ReadXStringPointerArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
@@ -734,7 +937,7 @@ public sealed class MaterialLoader
             throw new InvalidDataException($"Invalid negative Material XString count {count}.");
 
         if (pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         if (pointer.CellAddress is not { } cellAddress)
             throw new InvalidDataException($"Material XString[] cell 0x{pointer.Raw:X8} has no destination cell address.");
@@ -752,8 +955,11 @@ public sealed class MaterialLoader
         for (int i = 0; i < pointers.Length; i++)
             pointers[i] = context.PointerReader.ReadPointer<string>(pointerCursor, XPointerResolutionMode.Direct);
 
-        foreach (XPointer<string> xstring in pointers)
-            ReadXString(cursor, xstring, context);
+        var entries = new MaterialXStringEntry[count];
+        for (int i = 0; i < pointers.Length; i++)
+            entries[i] = new MaterialXStringEntry(i, pointers[i], ReadXString(cursor, pointers[i], context));
+
+        return entries;
     }
 
     private static void ReadFixedArray(
@@ -776,6 +982,35 @@ public sealed class MaterialLoader
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment);
         context.Blocks.Load(cursor, byteCount);
+    }
+
+    private static ushort[] ReadUshorts(FastFileCursor cursor, int count)
+    {
+        var values = new ushort[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = cursor.ReadUInt16();
+
+        return values;
+    }
+
+    private static IReadOnlyList<GfxImageStreamData> ReadGfxImageStreamData(byte[] bytes)
+    {
+        var cursor = new FastFileCursor(bytes);
+        var entries = new GfxImageStreamData[GfxImageStreamData.EntryCount];
+        for (int i = 0; i < entries.Length; i++)
+        {
+            entries[i] = new GfxImageStreamData(
+                cursor.ReadUInt16(),
+                cursor.ReadUInt16(),
+                cursor.ReadUInt32());
+        }
+
+        return entries;
+    }
+
+    private static float ReadSingle(FastFileCursor cursor)
+    {
+        return BitConverter.Int32BitsToSingle(cursor.ReadInt32());
     }
 
     private static void ReadFixedObject(

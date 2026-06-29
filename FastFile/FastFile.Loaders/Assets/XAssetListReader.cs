@@ -140,7 +140,7 @@ public sealed class XAssetListReader
         if (count < 0)
             throw new InvalidDataException($"Invalid negative script string count {count}.");
 
-        context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * sizeof(int)), "XAssetList.scriptStrings");
+        context.PointerReader.ValidateOffsetPointerRange<XPointer<string>[]>(pointer, checked(count * sizeof(int)), "XAssetList.scriptStrings");
         return [];
     }
 
@@ -152,7 +152,7 @@ public sealed class XAssetListReader
         if (count < 0)
             throw new InvalidDataException($"Invalid negative asset count {count}.");
 
-        context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * XAssetSize), "XAsset[]");
+        context.PointerReader.ValidateOffsetPointerRange<XAssetEntry[]>(pointer, checked(count * XAssetSize), "XAsset[]");
         return [];
     }
 }

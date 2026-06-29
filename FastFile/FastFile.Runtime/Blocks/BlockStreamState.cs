@@ -1,6 +1,8 @@
 using FastFile.Models.Zone;
+using FastFile.Runtime.Coverage;
 using FastFile.Runtime.IO;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -13,6 +15,7 @@ public sealed class BlockStreamState
     private int[] _materializedLengths = [];
     private MemoryStream[] _streams = [];
 
+    public SourceCoverageRecorder? SourceCoverage { get; set; }
     public XFileBlockType CurrentBlock { get; private set; } = XFileBlockType.TEMP;
     public int[] BlockSizes { get; private set; } = [];
     public XBlockAddress CurrentAddress => GetAddress(CurrentBlock);
@@ -100,21 +103,44 @@ public sealed class BlockStreamState
         EnsureLength(index, _positions[index]);
     }
 
-    public byte[] Load(FastFileCursor cursor, int byteCount)
+    public byte[] Load(
+        FastFileCursor cursor,
+        int byteCount,
+        string? memberName = null,
+        [CallerMemberName] string callerName = "")
     {
+        int sourceStart = cursor.Offset;
+        XBlockAddress destinationAddress = CurrentAddress;
         byte[] bytes = cursor.ReadBytes(byteCount);
         Write(bytes);
+        SourceCoverage?.RecordLoadStream(
+            sourceStart,
+            byteCount,
+            destinationAddress.BlockType,
+            destinationAddress.Offset,
+            memberName ?? callerName,
+            callerName);
         return bytes;
     }
 
-    public byte[] Load(FastFileCursor cursor, int byteCount, out XBlockAddress address)
+    public byte[] Load(
+        FastFileCursor cursor,
+        int byteCount,
+        out XBlockAddress address,
+        string? memberName = null,
+        [CallerMemberName] string callerName = "")
     {
         address = CurrentAddress;
-        return Load(cursor, byteCount);
+        return Load(cursor, byteCount, memberName, callerName);
     }
 
-    public string LoadCString(FastFileCursor cursor)
+    public string LoadCString(
+        FastFileCursor cursor,
+        string? memberName = null,
+        [CallerMemberName] string callerName = "")
     {
+        int sourceStart = cursor.Offset;
+        XBlockAddress destinationAddress = CurrentAddress;
         var bytes = new List<byte>();
         byte value;
 
@@ -126,7 +152,27 @@ public sealed class BlockStreamState
         while (value != 0);
 
         Write(CollectionsMarshal.AsSpan(bytes));
+        SourceCoverage?.RecordCString(
+            sourceStart,
+            bytes.Count,
+            destinationAddress.BlockType,
+            destinationAddress.Offset,
+            memberName ?? callerName,
+            callerName);
         return Encoding.Latin1.GetString(CollectionsMarshal.AsSpan(bytes)[..^1]);
+    }
+
+    public void RecordSourcePadding(
+        FastFileCursor cursor,
+        int byteCount,
+        string? memberName = null,
+        [CallerMemberName] string callerName = "")
+    {
+        SourceCoverage?.RecordSourcePadding(
+            cursor.Offset,
+            byteCount,
+            memberName ?? callerName,
+            callerName);
     }
 
     public void Write(ReadOnlySpan<byte> bytes)
@@ -154,6 +200,54 @@ public sealed class BlockStreamState
             throw new InvalidOperationException($"Unable to inspect block {address.BlockType} bytes.");
 
         return BinaryPrimitives.ReadInt32BigEndian(segment.AsSpan(offset, sizeof(int)));
+    }
+
+    public byte ReadByte(XBlockAddress address)
+    {
+        int index = GetBlockIndex(address.BlockType);
+        int offset = address.Offset;
+        int writtenLength = _materializedLengths[index];
+        if (offset < 0 || offset >= writtenLength)
+            throw new InvalidDataException($"Cannot read byte at {address}; block {address.BlockType} has 0x{writtenLength:X} materialized byte(s).");
+
+        MemoryStream stream = _streams[index];
+        if (!stream.TryGetBuffer(out ArraySegment<byte> segment))
+            throw new InvalidOperationException($"Unable to inspect block {address.BlockType} bytes.");
+
+        return segment[offset];
+    }
+
+    public string FormatByteWindow(XBlockAddress address, int bytesBefore, int bytesAfter)
+    {
+        if (bytesBefore < 0)
+            throw new ArgumentOutOfRangeException(nameof(bytesBefore));
+        if (bytesAfter < 0)
+            throw new ArgumentOutOfRangeException(nameof(bytesAfter));
+
+        int index = GetBlockIndex(address.BlockType);
+        int writtenLength = _materializedLengths[index];
+        int offset = address.Offset;
+        if (offset < 0 || offset >= writtenLength)
+            return $"{address} outside materialized length 0x{writtenLength:X}";
+
+        MemoryStream stream = _streams[index];
+        if (!stream.TryGetBuffer(out ArraySegment<byte> segment))
+            throw new InvalidOperationException($"Unable to inspect block {address.BlockType} bytes.");
+
+        int start = Math.Max(0, offset - bytesBefore);
+        int end = Math.Min(writtenLength, offset + bytesAfter);
+        ReadOnlySpan<byte> bytes = segment.AsSpan(start, end - start);
+
+        var parts = new List<string>();
+        for (int i = 0; i < bytes.Length; i += sizeof(int))
+        {
+            int currentOffset = start + i;
+            int count = Math.Min(sizeof(int), bytes.Length - i);
+            string marker = currentOffset <= offset && offset < currentOffset + count ? "*" : string.Empty;
+            parts.Add($"{marker}{currentOffset:X8}:{Convert.ToHexString(bytes.Slice(i, count))}");
+        }
+
+        return $"{address.BlockType}:0x{offset:X} len=0x{writtenLength:X} {string.Join(' ', parts)}";
     }
 
     public void WriteInt32(XBlockAddress address, int value)

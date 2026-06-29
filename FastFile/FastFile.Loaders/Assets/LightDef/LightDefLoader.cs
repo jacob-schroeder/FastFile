@@ -54,8 +54,9 @@ public sealed class LightDefLoader
         var rootCursor = new FastFileCursor(rootBytes, rootAddress);
         XPointer<string> namePointer = context.PointerReader.ReadPointer<string>(rootCursor, XPointerResolutionMode.Direct);
         XPointer<GfxImageAsset> imagePointer = context.PointerReader.ReadPointer<GfxImageAsset>(rootCursor, XPointerResolutionMode.AliasCell);
-        uint unknown08 = rootCursor.ReadUInt32();
-        uint unknown0C = rootCursor.ReadUInt32();
+        byte samplerState = rootCursor.ReadByte();
+        byte[] pad09To0B = rootCursor.ReadBytes(3);
+        uint lmapLookupStart = rootCursor.ReadUInt32();
 
         if (rootCursor.Offset != LightDefAsset.SerializedSize)
             throw new InvalidDataException($"LightDef consumed 0x{rootCursor.Offset:X} bytes instead of 0x{LightDefAsset.SerializedSize:X}.");
@@ -75,18 +76,19 @@ public sealed class LightDefLoader
 
         context.Diagnostics.Trace(
             $"  LightDef root source=0x{sourceOffset:X} name={name ?? "<null>"} image=0x{imagePointer.Raw:X8} " +
-            $"unknown08=0x{unknown08:X8} unknown0C=0x{unknown0C:X8} imageName={image?.Name ?? "<null>"} blocks={context.Blocks.DescribePositions()}");
+            $"samplerState=0x{samplerState:X2} lmapLookupStart=0x{lmapLookupStart:X8} " +
+            $"imageName={image?.Name ?? "<null>"} blocks={context.Blocks.DescribePositions()}");
 
         return new LightDefAsset
         {
             Offset = sourceOffset,
-            RootBytes = rootBytes,
             NamePointer = namePointer,
             Name = name,
             ImagePointer = imagePointer,
             Image = image,
-            Unknown08 = unknown08,
-            Unknown0C = unknown0C
+            SamplerState = samplerState,
+            Pad09To0B = pad09To0B,
+            LmapLookupStart = lmapLookupStart
         };
     }
 }

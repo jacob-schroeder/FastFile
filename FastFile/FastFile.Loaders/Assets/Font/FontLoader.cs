@@ -109,7 +109,7 @@ public sealed class FontLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, MaterialAsset.SerializedSize, "Font Material");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialAsset>(pointer, MaterialAsset.SerializedSize, "Font Material");
             return null;
         }
 
@@ -131,7 +131,7 @@ public sealed class FontLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "FontGlyph[]");
+            context.PointerReader.ValidateOffsetPointerRange<FontGlyph[]>(pointer, byteCount, "FontGlyph[]");
             return [];
         }
 

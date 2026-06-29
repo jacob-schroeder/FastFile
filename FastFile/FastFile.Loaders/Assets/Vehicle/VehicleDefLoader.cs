@@ -17,29 +17,6 @@ public sealed class VehicleDefLoader
 {
     private const int MaterialSize = 0xA8;
     private const int PhysPresetSize = 0x2C;
-    private static readonly int[] PreMaterialSoundAliasOffsets =
-    [
-        0x1B4,
-        0x1B8
-    ];
-
-    private static readonly int[] PostMaterialSoundAliasOffsets =
-    [
-        0x1E8,
-        0x1EC,
-        0x1F0,
-        0x1F4,
-        0x1FC,
-        0x204,
-        0x208,
-        0x20C,
-        0x210,
-        0x218,
-        0x220,
-        0x228,
-        0x230,
-        0x238
-    ];
 
     private readonly MaterialLoader _materialLoader = new();
     private readonly WeaponLoader _weaponLoader = new();
@@ -82,30 +59,95 @@ public sealed class VehicleDefLoader
         if (rootAddress != expectedRootAddress)
             throw new InvalidDataException($"Vehicle pointer patched to {expectedRootAddress}, but root loaded at {rootAddress}.");
 
-        XString namePointer = ReadXStringPointerAt(rootBytes, rootAddress, 0x000);
-        XString useHintPointer = ReadXStringPointerAt(rootBytes, rootAddress, 0x008);
-        VehiclePhysDef phys = ReadVehiclePhysDefRoot(rootBytes, rootAddress);
-        XString turretWeaponNamePointer = ReadXStringPointerAt(rootBytes, rootAddress, 0x198);
-        XPointer<WeaponVariantDef> turretWeaponPointer = ReadPointerAt<WeaponVariantDef>(rootBytes, rootAddress, 0x19C, XPointerResolutionMode.AliasCell);
-        IReadOnlyList<VehicleSoundAliasField> preMaterialSoundRoots = ReadSoundAliasRoots(rootBytes, rootAddress, PreMaterialSoundAliasOffsets);
-        IReadOnlyList<VehicleSoundAliasField> postMaterialSoundRoots = ReadSoundAliasRoots(rootBytes, rootAddress, PostMaterialSoundAliasOffsets);
+        var rootCursor = new FastFileCursor(rootBytes, rootAddress);
+        XString namePointer = ReadXStringPointer(rootCursor);
+        VehicleType type = (VehicleType)rootCursor.ReadInt32();
+        XString useHintPointer = ReadXStringPointer(rootCursor);
+        int health = rootCursor.ReadInt32();
+        int quadBarrel = rootCursor.ReadInt32();
+        float texScrollScale = ReadSingle(rootCursor);
+        float topSpeed = ReadSingle(rootCursor);
+        float accel = ReadSingle(rootCursor);
+        float rotRate = ReadSingle(rootCursor);
+        float rotAccel = ReadSingle(rootCursor);
+        float maxBodyPitch = ReadSingle(rootCursor);
+        float maxBodyRoll = ReadSingle(rootCursor);
+        VehicleFakeBodyTuning fakeBody = ReadVehicleFakeBodyTuning(rootCursor);
+        float collisionDamage = ReadSingle(rootCursor);
+        float collisionSpeed = ReadSingle(rootCursor);
+        VehicleVec3 killcamOffset = ReadVec3(rootCursor);
+        int playerProtected = rootCursor.ReadInt32();
+        int bulletDamage = rootCursor.ReadInt32();
+        int armorPiercingDamage = rootCursor.ReadInt32();
+        int grenadeDamage = rootCursor.ReadInt32();
+        int projectileDamage = rootCursor.ReadInt32();
+        int projectileSplashDamage = rootCursor.ReadInt32();
+        int heavyExplosiveDamage = rootCursor.ReadInt32();
+        VehiclePhysDef phys = ReadVehiclePhysDefRoot(rootCursor);
+        float boostDuration = ReadSingle(rootCursor);
+        float boostRechargeTime = ReadSingle(rootCursor);
+        float boostAcceleration = ReadSingle(rootCursor);
+        float suspensionTravel = ReadSingle(rootCursor);
+        float maxSteeringAngle = ReadSingle(rootCursor);
+        float steeringLerp = ReadSingle(rootCursor);
+        float minSteeringScale = ReadSingle(rootCursor);
+        float minSteeringSpeed = ReadSingle(rootCursor);
+        int camLookEnabled = rootCursor.ReadInt32();
+        float camLerp = ReadSingle(rootCursor);
+        float camPitchInfluence = ReadSingle(rootCursor);
+        float camRollInfluence = ReadSingle(rootCursor);
+        float camFovIncrease = ReadSingle(rootCursor);
+        float camFovOffset = ReadSingle(rootCursor);
+        float camFovSpeed = ReadSingle(rootCursor);
+        XString turretWeaponNamePointer = ReadXStringPointer(rootCursor);
+        XPointer<WeaponVariantDef> turretWeaponPointer = ReadPointer<WeaponVariantDef>(rootCursor, XPointerResolutionMode.AliasCell);
+        float turretHorizSpanLeft = ReadSingle(rootCursor);
+        float turretHorizSpanRight = ReadSingle(rootCursor);
+        float turretVertSpanUp = ReadSingle(rootCursor);
+        float turretVertSpanDown = ReadSingle(rootCursor);
+        float turretRotRate = ReadSingle(rootCursor);
+        VehicleSoundAliasField turretSpinSoundRoot = ReadSoundAliasRoot(rootCursor, 0x1B4);
+        VehicleSoundAliasField turretStopSoundRoot = ReadSoundAliasRoot(rootCursor, 0x1B8);
+        int trophyEnabled = rootCursor.ReadInt32();
+        float trophyRadius = ReadSingle(rootCursor);
+        float trophyInactiveRadius = ReadSingle(rootCursor);
+        int trophyAmmoCount = rootCursor.ReadInt32();
+        float trophyReloadTime = ReadSingle(rootCursor);
+        rootCursor.Skip(VehicleDefAsset.ScriptStringCount * sizeof(ushort));
         XBlockAddress scriptStringsAddress = rootAddress.Add(VehicleDefAsset.ScriptStringOffset);
-        XPointer<MaterialAsset> compassFriendlyIconPointer = ReadPointerAt<MaterialAsset>(rootBytes, rootAddress, 0x1D8, XPointerResolutionMode.AliasCell);
-        XPointer<MaterialAsset> compassEnemyIconPointer = ReadPointerAt<MaterialAsset>(rootBytes, rootAddress, 0x1DC, XPointerResolutionMode.AliasCell);
-        XString surfaceSoundPrefixPointer = ReadXStringPointerAt(rootBytes, rootAddress, 0x240);
-        IReadOnlyList<XString> surfaceSoundAliasPointers = ReadEmbeddedSoundAliasRoots(rootBytes, rootAddress, VehicleDefAsset.SurfaceSoundOffset, VehicleDefAsset.SurfaceSoundCount);
+        XPointer<MaterialAsset> compassFriendlyIconPointer = ReadPointer<MaterialAsset>(rootCursor, XPointerResolutionMode.AliasCell);
+        XPointer<MaterialAsset> compassEnemyIconPointer = ReadPointer<MaterialAsset>(rootCursor, XPointerResolutionMode.AliasCell);
+        float compassIconWidth = ReadSingle(rootCursor);
+        float compassIconHeight = ReadSingle(rootCursor);
+        VehicleEngineSoundFields engineSoundRoots = ReadEngineSoundRoots(rootCursor);
+        VehicleSuspensionSoundFields suspensionSoundRoots = ReadSuspensionSoundRoots(rootCursor);
+        VehicleSoundAliasField collisionSoundRoot = ReadSoundAliasRoot(rootCursor, 0x230);
+        float collisionBlendSpeed = ReadSingle(rootCursor);
+        VehicleSoundAliasField speedSoundRoot = ReadSoundAliasRoot(rootCursor, 0x238);
+        float speedSoundBlendSpeed = ReadSingle(rootCursor);
+        XString surfaceSoundPrefixPointer = ReadXStringPointer(rootCursor);
+        IReadOnlyList<XString> surfaceSoundAliasPointers = ReadEmbeddedSoundAliasRoots(rootCursor, VehicleDefAsset.SurfaceSoundOffset, VehicleDefAsset.SurfaceSoundCount);
+        float surfaceSoundBlendSpeed = ReadSingle(rootCursor);
+        float slideVolume = ReadSingle(rootCursor);
+        float slideBlendSpeed = ReadSingle(rootCursor);
+        float inAirPitch = ReadSingle(rootCursor);
+        if (rootCursor.Offset != VehicleDefAsset.SerializedSize)
+            throw new InvalidDataException($"VehicleDef root parser stopped at 0x{rootCursor.Offset:X}, expected 0x{VehicleDefAsset.SerializedSize:X}.");
 
         string? name;
         string? useHintString;
         VehiclePhysDef resolvedPhys;
         string? turretWeaponName;
         WeaponVariantDef? turretWeapon;
-        IReadOnlyList<VehicleSoundAliasField> preMaterialSoundAliases;
-        IReadOnlyList<VehicleSoundAliasField> postMaterialSoundAliases;
-        IReadOnlyList<VehicleSoundAliasField> directSoundAliases;
-        IReadOnlyList<ushort> scriptStrings;
+        VehicleSoundAliasField turretSpinSound;
+        VehicleSoundAliasField turretStopSound;
+        IReadOnlyList<ushort> trophyTags;
         MaterialAsset? compassFriendlyIcon;
         MaterialAsset? compassEnemyIcon;
+        VehicleEngineSoundFields engineSounds;
+        VehicleSuspensionSoundFields suspensionSounds;
+        VehicleSoundAliasField collisionSound;
+        VehicleSoundAliasField speedSound;
         string? surfaceSoundPrefix;
         IReadOnlyList<string?> surfaceSoundAliases;
 
@@ -117,12 +159,15 @@ public sealed class VehicleDefLoader
             resolvedPhys = ReadVehiclePhysDefChildren(cursor, phys, context);
             turretWeaponName = context.PointerReader.LoadXString(cursor, turretWeaponNamePointer);
             turretWeapon = _weaponLoader.LoadVariantFromPointer(cursor, turretWeaponPointer.Untyped, context);
-            preMaterialSoundAliases = ReadSoundAliasFields(cursor, preMaterialSoundRoots, context);
-            scriptStrings = ReadScriptStringArray(rootBytes, VehicleDefAsset.ScriptStringOffset, VehicleDefAsset.ScriptStringCount);
+            turretSpinSound = ResolveSoundAliasField(cursor, turretSpinSoundRoot, context);
+            turretStopSound = ResolveSoundAliasField(cursor, turretStopSoundRoot, context);
+            trophyTags = ReadScriptStringArray(rootBytes, VehicleDefAsset.ScriptStringOffset, VehicleDefAsset.ScriptStringCount);
             compassFriendlyIcon = ReadMaterialPointer(cursor, compassFriendlyIconPointer.Untyped, context);
             compassEnemyIcon = ReadMaterialPointer(cursor, compassEnemyIconPointer.Untyped, context);
-            postMaterialSoundAliases = ReadSoundAliasFields(cursor, postMaterialSoundRoots, context);
-            directSoundAliases = preMaterialSoundAliases.Concat(postMaterialSoundAliases).ToArray();
+            engineSounds = ResolveEngineSoundFields(cursor, engineSoundRoots, context);
+            suspensionSounds = ResolveSuspensionSoundFields(cursor, suspensionSoundRoots, context);
+            collisionSound = ResolveSoundAliasField(cursor, collisionSoundRoot, context);
+            speedSound = ResolveSoundAliasField(cursor, speedSoundRoot, context);
             surfaceSoundPrefix = context.PointerReader.LoadXString(cursor, surfaceSoundPrefixPointer);
             surfaceSoundAliases = ReadSoundAliasCellArray(cursor, surfaceSoundAliasPointers, context);
         }
@@ -139,37 +184,93 @@ public sealed class VehicleDefLoader
         return new VehicleDefAsset
         {
             Offset = sourceOffset,
-            RootBytes = rootBytes,
             NamePointer = namePointer,
             Name = name,
+            Type = type,
             UseHintStringPointer = useHintPointer,
             UseHintString = useHintString,
+            Health = health,
+            QuadBarrel = quadBarrel,
+            TexScrollScale = texScrollScale,
+            TopSpeed = topSpeed,
+            Accel = accel,
+            RotRate = rotRate,
+            RotAccel = rotAccel,
+            MaxBodyPitch = maxBodyPitch,
+            MaxBodyRoll = maxBodyRoll,
+            FakeBody = fakeBody,
+            CollisionDamage = collisionDamage,
+            CollisionSpeed = collisionSpeed,
+            KillcamOffset = killcamOffset,
+            PlayerProtected = playerProtected,
+            BulletDamage = bulletDamage,
+            ArmorPiercingDamage = armorPiercingDamage,
+            GrenadeDamage = grenadeDamage,
+            ProjectileDamage = projectileDamage,
+            ProjectileSplashDamage = projectileSplashDamage,
+            HeavyExplosiveDamage = heavyExplosiveDamage,
             Phys = resolvedPhys,
+            BoostDuration = boostDuration,
+            BoostRechargeTime = boostRechargeTime,
+            BoostAcceleration = boostAcceleration,
+            SuspensionTravel = suspensionTravel,
+            MaxSteeringAngle = maxSteeringAngle,
+            SteeringLerp = steeringLerp,
+            MinSteeringScale = minSteeringScale,
+            MinSteeringSpeed = minSteeringSpeed,
+            CamLookEnabled = camLookEnabled,
+            CamLerp = camLerp,
+            CamPitchInfluence = camPitchInfluence,
+            CamRollInfluence = camRollInfluence,
+            CamFovIncrease = camFovIncrease,
+            CamFovOffset = camFovOffset,
+            CamFovSpeed = camFovSpeed,
             TurretWeaponNamePointer = turretWeaponNamePointer,
             TurretWeaponName = turretWeaponName,
             TurretWeaponPointer = turretWeaponPointer,
             TurretWeapon = turretWeapon,
-            DirectSoundAliases = directSoundAliases,
+            TurretHorizSpanLeft = turretHorizSpanLeft,
+            TurretHorizSpanRight = turretHorizSpanRight,
+            TurretVertSpanUp = turretVertSpanUp,
+            TurretVertSpanDown = turretVertSpanDown,
+            TurretRotRate = turretRotRate,
+            TurretSpinSound = turretSpinSound,
+            TurretStopSound = turretStopSound,
+            TrophyEnabled = trophyEnabled,
+            TrophyRadius = trophyRadius,
+            TrophyInactiveRadius = trophyInactiveRadius,
+            TrophyAmmoCount = trophyAmmoCount,
+            TrophyReloadTime = trophyReloadTime,
             ScriptStringsAddress = scriptStringsAddress,
-            ScriptStrings = scriptStrings,
+            TrophyTags = trophyTags,
             CompassFriendlyIconPointer = compassFriendlyIconPointer,
             CompassFriendlyIcon = compassFriendlyIcon,
             CompassEnemyIconPointer = compassEnemyIconPointer,
             CompassEnemyIcon = compassEnemyIcon,
+            CompassIconWidth = compassIconWidth,
+            CompassIconHeight = compassIconHeight,
+            EngineSounds = engineSounds,
+            SuspensionSounds = suspensionSounds,
+            CollisionSound = collisionSound,
+            CollisionBlendSpeed = collisionBlendSpeed,
+            SpeedSound = speedSound,
+            SpeedSoundBlendSpeed = speedSoundBlendSpeed,
             SurfaceSoundPrefixPointer = surfaceSoundPrefixPointer,
             SurfaceSoundPrefix = surfaceSoundPrefix,
             SurfaceSoundAliasPointers = surfaceSoundAliasPointers,
-            SurfaceSoundAliases = surfaceSoundAliases
+            SurfaceSoundAliases = surfaceSoundAliases,
+            SurfaceSoundBlendSpeed = surfaceSoundBlendSpeed,
+            SlideVolume = slideVolume,
+            SlideBlendSpeed = slideBlendSpeed,
+            InAirPitch = inAirPitch
         };
     }
 
     private static VehiclePhysDef ReadVehiclePhysDefRoot(
-        byte[] vehicleRootBytes,
-        XBlockAddress vehicleRootAddress)
+        FastFileCursor cursor)
     {
-        var cursor = new FastFileCursor(
-            vehicleRootBytes.AsSpan(VehiclePhysDef.OffsetInVehicleDef, VehiclePhysDef.SerializedSize).ToArray(),
-            vehicleRootAddress.Add(VehiclePhysDef.OffsetInVehicleDef));
+        if (cursor.Offset != VehiclePhysDef.OffsetInVehicleDef)
+            throw new InvalidDataException($"VehiclePhysDef root parser started at 0x{cursor.Offset:X}, expected 0x{VehiclePhysDef.OffsetInVehicleDef:X}.");
 
         int physicsEnabled = cursor.ReadInt32();
         XString physPresetNamePointer = ReadXStringPointer(cursor);
@@ -181,7 +282,48 @@ public sealed class VehicleDefLoader
             PhysicsEnabled = physicsEnabled,
             PhysPresetNamePointer = physPresetNamePointer,
             PhysPresetPointer = physPresetPointer,
-            AccelGraphNamePointer = accelGraphNamePointer
+            AccelGraphNamePointer = accelGraphNamePointer,
+            SteeringAxle = (VehicleAxleType)cursor.ReadInt32(),
+            PowerAxle = (VehicleAxleType)cursor.ReadInt32(),
+            BrakingAxle = (VehicleAxleType)cursor.ReadInt32(),
+            TopSpeed = ReadSingle(cursor),
+            ReverseSpeed = ReadSingle(cursor),
+            MaxVelocity = ReadSingle(cursor),
+            MaxPitch = ReadSingle(cursor),
+            MaxRoll = ReadSingle(cursor),
+            SuspensionTravelFront = ReadSingle(cursor),
+            SuspensionTravelRear = ReadSingle(cursor),
+            SuspensionStrengthFront = ReadSingle(cursor),
+            SuspensionDampingFront = ReadSingle(cursor),
+            SuspensionStrengthRear = ReadSingle(cursor),
+            SuspensionDampingRear = ReadSingle(cursor),
+            FrictionBraking = ReadSingle(cursor),
+            FrictionCoasting = ReadSingle(cursor),
+            FrictionTopSpeed = ReadSingle(cursor),
+            FrictionSide = ReadSingle(cursor),
+            FrictionSideRear = ReadSingle(cursor),
+            VelocityDependentSlip = ReadSingle(cursor),
+            RollStability = ReadSingle(cursor),
+            RollResistance = ReadSingle(cursor),
+            PitchResistance = ReadSingle(cursor),
+            YawResistance = ReadSingle(cursor),
+            UprightStrengthPitch = ReadSingle(cursor),
+            UprightStrengthRoll = ReadSingle(cursor),
+            TargetAirPitch = ReadSingle(cursor),
+            AirYawTorque = ReadSingle(cursor),
+            AirPitchTorque = ReadSingle(cursor),
+            MinimumMomentumForCollision = ReadSingle(cursor),
+            CollisionLaunchForceScale = ReadSingle(cursor),
+            WreckedMassScale = ReadSingle(cursor),
+            WreckedBodyFriction = ReadSingle(cursor),
+            MinimumJoltForNotify = ReadSingle(cursor),
+            SlipThresholdFront = ReadSingle(cursor),
+            SlipThresholdRear = ReadSingle(cursor),
+            SlipFricScaleFront = ReadSingle(cursor),
+            SlipFricScaleRear = ReadSingle(cursor),
+            SlipFricRateFront = ReadSingle(cursor),
+            SlipFricRateRear = ReadSingle(cursor),
+            SlipYawTorque = ReadSingle(cursor)
         };
     }
 
@@ -202,7 +344,48 @@ public sealed class VehicleDefLoader
             PhysPresetPointer = phys.PhysPresetPointer,
             PhysPreset = physPreset,
             AccelGraphNamePointer = phys.AccelGraphNamePointer,
-            AccelGraphName = accelGraphName
+            AccelGraphName = accelGraphName,
+            SteeringAxle = phys.SteeringAxle,
+            PowerAxle = phys.PowerAxle,
+            BrakingAxle = phys.BrakingAxle,
+            TopSpeed = phys.TopSpeed,
+            ReverseSpeed = phys.ReverseSpeed,
+            MaxVelocity = phys.MaxVelocity,
+            MaxPitch = phys.MaxPitch,
+            MaxRoll = phys.MaxRoll,
+            SuspensionTravelFront = phys.SuspensionTravelFront,
+            SuspensionTravelRear = phys.SuspensionTravelRear,
+            SuspensionStrengthFront = phys.SuspensionStrengthFront,
+            SuspensionDampingFront = phys.SuspensionDampingFront,
+            SuspensionStrengthRear = phys.SuspensionStrengthRear,
+            SuspensionDampingRear = phys.SuspensionDampingRear,
+            FrictionBraking = phys.FrictionBraking,
+            FrictionCoasting = phys.FrictionCoasting,
+            FrictionTopSpeed = phys.FrictionTopSpeed,
+            FrictionSide = phys.FrictionSide,
+            FrictionSideRear = phys.FrictionSideRear,
+            VelocityDependentSlip = phys.VelocityDependentSlip,
+            RollStability = phys.RollStability,
+            RollResistance = phys.RollResistance,
+            PitchResistance = phys.PitchResistance,
+            YawResistance = phys.YawResistance,
+            UprightStrengthPitch = phys.UprightStrengthPitch,
+            UprightStrengthRoll = phys.UprightStrengthRoll,
+            TargetAirPitch = phys.TargetAirPitch,
+            AirYawTorque = phys.AirYawTorque,
+            AirPitchTorque = phys.AirPitchTorque,
+            MinimumMomentumForCollision = phys.MinimumMomentumForCollision,
+            CollisionLaunchForceScale = phys.CollisionLaunchForceScale,
+            WreckedMassScale = phys.WreckedMassScale,
+            WreckedBodyFriction = phys.WreckedBodyFriction,
+            MinimumJoltForNotify = phys.MinimumJoltForNotify,
+            SlipThresholdFront = phys.SlipThresholdFront,
+            SlipThresholdRear = phys.SlipThresholdRear,
+            SlipFricScaleFront = phys.SlipFricScaleFront,
+            SlipFricScaleRear = phys.SlipFricScaleRear,
+            SlipFricRateFront = phys.SlipFricRateFront,
+            SlipFricRateRear = phys.SlipFricRateRear,
+            SlipYawTorque = phys.SlipYawTorque
         };
     }
 
@@ -241,8 +424,20 @@ public sealed class VehicleDefLoader
 
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
             XString namePointer = ReadXStringPointer(rootCursor);
-            rootCursor.Skip(0x1C - rootCursor.Offset);
+            int type = rootCursor.ReadInt32();
+            float mass = ReadSingle(rootCursor);
+            float bounce = ReadSingle(rootCursor);
+            float friction = ReadSingle(rootCursor);
+            float bulletForceScale = ReadSingle(rootCursor);
+            float explosiveForceScale = ReadSingle(rootCursor);
             XString sndAliasPrefixPointer = ReadXStringPointer(rootCursor);
+            float piecesSpreadFraction = ReadSingle(rootCursor);
+            float piecesUpwardVelocity = ReadSingle(rootCursor);
+            byte tempDefaultToCylinder = rootCursor.ReadByte();
+            byte perSurfaceSndAlias = rootCursor.ReadByte();
+            ushort pad2A = rootCursor.ReadUInt16();
+            if (rootCursor.Offset != PhysPresetSize)
+                throw new InvalidDataException($"PhysPreset root parser stopped at 0x{rootCursor.Offset:X}, expected 0x{PhysPresetSize:X}.");
 
             string? name;
             string? sndAliasPrefix;
@@ -263,11 +458,21 @@ public sealed class VehicleDefLoader
             return new PhysPresetAsset
             {
                 Offset = sourceOffset,
-                RootBytes = rootBytes,
                 NamePointer = namePointer,
                 Name = name,
+                Type = type,
+                Mass = mass,
+                Bounce = bounce,
+                Friction = friction,
+                BulletForceScale = bulletForceScale,
+                ExplosiveForceScale = explosiveForceScale,
                 SndAliasPrefixPointer = sndAliasPrefixPointer,
-                SndAliasPrefix = sndAliasPrefix
+                SndAliasPrefix = sndAliasPrefix,
+                PiecesSpreadFraction = piecesSpreadFraction,
+                PiecesUpwardVelocity = piecesUpwardVelocity,
+                TempDefaultToCylinder = tempDefaultToCylinder,
+                PerSurfaceSndAlias = perSurfaceSndAlias,
+                Pad2A = pad2A
             };
         }
         finally
@@ -296,31 +501,115 @@ public sealed class VehicleDefLoader
         return _materialLoader.LoadFromPointer(cursor, pointer, context);
     }
 
-    private static IReadOnlyList<VehicleSoundAliasField> ReadSoundAliasRoots(
-        byte[] rootBytes,
-        XBlockAddress rootAddress,
-        IReadOnlyList<int> offsets)
+    private static VehicleFakeBodyTuning ReadVehicleFakeBodyTuning(FastFileCursor cursor)
     {
-        var fields = new VehicleSoundAliasField[offsets.Count];
-        for (int i = 0; i < fields.Length; i++)
+        return new VehicleFakeBodyTuning
         {
-            int offset = offsets[i];
-            fields[i] = new VehicleSoundAliasField(offset, ReadXStringPointerAt(rootBytes, rootAddress, offset), null);
-        }
-
-        return fields;
+            AccelPitch = ReadSingle(cursor),
+            AccelRoll = ReadSingle(cursor),
+            VelPitch = ReadSingle(cursor),
+            VelRoll = ReadSingle(cursor),
+            SideVelPitch = ReadSingle(cursor),
+            PitchStrength = ReadSingle(cursor),
+            RollStrength = ReadSingle(cursor),
+            PitchDampening = ReadSingle(cursor),
+            RollDampening = ReadSingle(cursor),
+            BoatRockingAmplitude = ReadSingle(cursor),
+            BoatRockingPeriod = ReadSingle(cursor),
+            BoatRockingRotationPeriod = ReadSingle(cursor),
+            BoatRockingFadeoutSpeed = ReadSingle(cursor),
+            BoatBouncingMinForce = ReadSingle(cursor),
+            BoatBouncingMaxForce = ReadSingle(cursor),
+            BoatBouncingRate = ReadSingle(cursor),
+            BoatBouncingFadeinSpeed = ReadSingle(cursor),
+            BoatBouncingFadeoutSteeringAngle = ReadSingle(cursor)
+        };
     }
 
-    private static IReadOnlyList<VehicleSoundAliasField> ReadSoundAliasFields(
+    private static VehicleEngineSoundFields ReadEngineSoundRoots(FastFileCursor cursor)
+    {
+        return new VehicleEngineSoundFields
+        {
+            IdleLowSound = ReadSoundAliasRoot(cursor, 0x1E8),
+            IdleHighSound = ReadSoundAliasRoot(cursor, 0x1EC),
+            EngineLowSound = ReadSoundAliasRoot(cursor, 0x1F0),
+            EngineHighSound = ReadSoundAliasRoot(cursor, 0x1F4),
+            EngineSoundSpeed = ReadSingle(cursor),
+            EngineStartUpSound = ReadSoundAliasRoot(cursor, 0x1FC),
+            EngineStartUpLength = ReadSingle(cursor),
+            EngineShutdownSound = ReadSoundAliasRoot(cursor, 0x204),
+            EngineIdleSound = ReadSoundAliasRoot(cursor, 0x208),
+            EngineSustainSound = ReadSoundAliasRoot(cursor, 0x20C),
+            EngineRampUpSound = ReadSoundAliasRoot(cursor, 0x210),
+            EngineRampUpLength = ReadSingle(cursor),
+            EngineRampDownSound = ReadSoundAliasRoot(cursor, 0x218),
+            EngineRampDownLength = ReadSingle(cursor)
+        };
+    }
+
+    private static VehicleEngineSoundFields ResolveEngineSoundFields(
         FastFileCursor cursor,
-        IReadOnlyList<VehicleSoundAliasField> fields,
+        VehicleEngineSoundFields fields,
         FastFileLoadContext context)
     {
-        var resolved = new VehicleSoundAliasField[fields.Count];
-        for (int i = 0; i < fields.Count; i++)
-            resolved[i] = fields[i] with { Value = ReadSoundAliasCell(cursor, fields[i].Pointer, context) };
+        return new VehicleEngineSoundFields
+        {
+            IdleLowSound = ResolveSoundAliasField(cursor, fields.IdleLowSound, context),
+            IdleHighSound = ResolveSoundAliasField(cursor, fields.IdleHighSound, context),
+            EngineLowSound = ResolveSoundAliasField(cursor, fields.EngineLowSound, context),
+            EngineHighSound = ResolveSoundAliasField(cursor, fields.EngineHighSound, context),
+            EngineSoundSpeed = fields.EngineSoundSpeed,
+            EngineStartUpSound = ResolveSoundAliasField(cursor, fields.EngineStartUpSound, context),
+            EngineStartUpLength = fields.EngineStartUpLength,
+            EngineShutdownSound = ResolveSoundAliasField(cursor, fields.EngineShutdownSound, context),
+            EngineIdleSound = ResolveSoundAliasField(cursor, fields.EngineIdleSound, context),
+            EngineSustainSound = ResolveSoundAliasField(cursor, fields.EngineSustainSound, context),
+            EngineRampUpSound = ResolveSoundAliasField(cursor, fields.EngineRampUpSound, context),
+            EngineRampUpLength = fields.EngineRampUpLength,
+            EngineRampDownSound = ResolveSoundAliasField(cursor, fields.EngineRampDownSound, context),
+            EngineRampDownLength = fields.EngineRampDownLength
+        };
+    }
 
-        return resolved;
+    private static VehicleSuspensionSoundFields ReadSuspensionSoundRoots(FastFileCursor cursor)
+    {
+        return new VehicleSuspensionSoundFields
+        {
+            SuspensionSoftSound = ReadSoundAliasRoot(cursor, 0x220),
+            SuspensionSoftCompression = ReadSingle(cursor),
+            SuspensionHardSound = ReadSoundAliasRoot(cursor, 0x228),
+            SuspensionHardCompression = ReadSingle(cursor)
+        };
+    }
+
+    private static VehicleSuspensionSoundFields ResolveSuspensionSoundFields(
+        FastFileCursor cursor,
+        VehicleSuspensionSoundFields fields,
+        FastFileLoadContext context)
+    {
+        return new VehicleSuspensionSoundFields
+        {
+            SuspensionSoftSound = ResolveSoundAliasField(cursor, fields.SuspensionSoftSound, context),
+            SuspensionSoftCompression = fields.SuspensionSoftCompression,
+            SuspensionHardSound = ResolveSoundAliasField(cursor, fields.SuspensionHardSound, context),
+            SuspensionHardCompression = fields.SuspensionHardCompression
+        };
+    }
+
+    private static VehicleSoundAliasField ReadSoundAliasRoot(FastFileCursor cursor, int offset)
+    {
+        if (cursor.Offset != offset)
+            throw new InvalidDataException($"Vehicle sound alias parser at 0x{cursor.Offset:X}, expected 0x{offset:X}.");
+
+        return new VehicleSoundAliasField(offset, ReadXStringPointer(cursor), null);
+    }
+
+    private static VehicleSoundAliasField ResolveSoundAliasField(
+        FastFileCursor cursor,
+        VehicleSoundAliasField field,
+        FastFileLoadContext context)
+    {
+        return field with { Value = ReadSoundAliasCell(cursor, field.Pointer, context) };
     }
 
     private static string? ReadSoundAliasCell(
@@ -349,14 +638,16 @@ public sealed class VehicleDefLoader
     }
 
     private static IReadOnlyList<XString> ReadEmbeddedSoundAliasRoots(
-        byte[] rootBytes,
-        XBlockAddress rootAddress,
+        FastFileCursor cursor,
         int offset,
         int count)
     {
+        if (cursor.Offset != offset)
+            throw new InvalidDataException($"Vehicle surface sound parser at 0x{cursor.Offset:X}, expected 0x{offset:X}.");
+
         var pointers = new XString[count];
         for (int i = 0; i < pointers.Length; i++)
-            pointers[i] = ReadXStringPointerAt(rootBytes, rootAddress, offset + (i * sizeof(int)));
+            pointers[i] = ReadXStringPointer(cursor);
 
         return pointers;
     }
@@ -385,12 +676,9 @@ public sealed class VehicleDefLoader
         return values;
     }
 
-    private static XString ReadXStringPointerAt(
-        byte[] bytes,
-        XBlockAddress baseAddress,
-        int offset)
+    private static VehicleVec3 ReadVec3(FastFileCursor cursor)
     {
-        return ReadPointerAt<string>(bytes, baseAddress, offset, XPointerResolutionMode.Direct);
+        return new VehicleVec3(ReadSingle(cursor), ReadSingle(cursor), ReadSingle(cursor));
     }
 
     private static XString ReadXStringPointer(FastFileCursor cursor)
@@ -398,14 +686,9 @@ public sealed class VehicleDefLoader
         return ReadPointer<string>(cursor, XPointerResolutionMode.Direct);
     }
 
-    private static XPointer<T> ReadPointerAt<T>(
-        byte[] bytes,
-        XBlockAddress baseAddress,
-        int offset,
-        XPointerResolutionMode mode)
+    private static float ReadSingle(FastFileCursor cursor)
     {
-        int raw = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(offset, sizeof(int)));
-        return new XPointer<T>(raw, mode, baseAddress.Add(offset));
+        return BitConverter.Int32BitsToSingle(cursor.ReadInt32());
     }
 
     private static XPointer<T> ReadPointer<T>(

@@ -6,11 +6,39 @@ public sealed class EventData
 {
     public const int SerializedSize = 0x04;
 
-    public XPointerReference Data { get; init; }
-    public int Raw => Data.Raw;
+    public EventDataValue Value { get; init; } = new IgnoredEventData { Reserved = 0 };
 
-    public XString UnconditionalScript => Data.AsPointer<string>();
-    public XPointer<ConditionalScript> ConditionalScript => Data.AsPointer<ConditionalScript>();
-    public XPointer<MenuEventHandlerSet> ElseScript => Data.AsPointer<MenuEventHandlerSet>();
-    public XPointer<SetLocalVarData> SetLocalVarData => Data.AsPointer<SetLocalVarData>();
+    public UnconditionalScriptEventData? UnconditionalScript => Value as UnconditionalScriptEventData;
+    public ConditionalScriptEventData? ConditionalScript => Value as ConditionalScriptEventData;
+    public ElseScriptEventData? ElseScript => Value as ElseScriptEventData;
+    public SetLocalVarEventData? SetLocalVarData => Value as SetLocalVarEventData;
+}
+
+public abstract class EventDataValue
+{
+}
+
+public sealed class UnconditionalScriptEventData : EventDataValue
+{
+    public XString Script { get; init; }
+}
+
+public sealed class ConditionalScriptEventData : EventDataValue
+{
+    public XPointer<ConditionalScript> ConditionalScriptPointer { get; init; }
+}
+
+public sealed class ElseScriptEventData : EventDataValue
+{
+    public XPointer<MenuEventHandlerSet> EventHandlerSetPointer { get; init; }
+}
+
+public sealed class SetLocalVarEventData : EventDataValue
+{
+    public XPointer<SetLocalVarData> SetLocalVarDataPointer { get; init; }
+}
+
+public sealed class IgnoredEventData : EventDataValue
+{
+    public int Reserved { get; init; }
 }

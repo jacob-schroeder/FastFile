@@ -71,25 +71,45 @@ public sealed class SoundFile
     public SndAliasType Type { get; init; }
     public byte Exists { get; init; }
     public ushort Padding { get; init; }
-    public byte[] UnionData { get; init; } = [];
-    public int UnionRaw0 { get; init; }
-    public int UnionRaw1 { get; init; }
-    public int UnionRaw2 { get; init; }
-    public XPointer<LoadedSound>? LoadedSoundPointer { get; init; }
-    public LoadedSound? LoadedSound { get; init; }
-    public StreamedSound? StreamedSound { get; init; }
+    public SoundFilePayload? Payload { get; init; }
+    public LoadedSoundFile? Loaded => Payload as LoadedSoundFile;
+    public StreamedSound? Streamed => Payload as StreamedSound;
 }
 
-public sealed class StreamedSound
+public abstract class SoundFilePayload
+{
+}
+
+public sealed class LoadedSoundFile : SoundFilePayload
+{
+    public XPointer<LoadedSound> LoadedSoundPointer { get; init; }
+    public LoadedSound? LoadedSound { get; init; }
+}
+
+public sealed class StreamedSound : SoundFilePayload
 {
     public uint FileIndex { get; init; }
-    public int RawOffsetOrDirectoryPointer { get; init; }
-    public int RawLengthOrFilenamePointer { get; init; }
+    public StreamedSoundSource? Source { get; init; }
+    public StreamedSoundFileSource? StreamFile => Source as StreamedSoundFileSource;
+    public ExternalStreamedSoundSource? ExternalFile => Source as ExternalStreamedSoundSource;
+}
+
+public abstract class StreamedSoundSource
+{
+}
+
+public sealed class StreamedSoundFileSource : StreamedSoundSource
+{
+    public int StreamFileOffset { get; init; }
+    public int StreamFileLength { get; init; }
+}
+
+public sealed class ExternalStreamedSoundSource : StreamedSoundSource
+{
     public XPointer<string>? DirectoryPointer { get; init; }
     public string? Directory { get; init; }
     public XPointer<string>? FilenamePointer { get; init; }
     public string? Filename { get; init; }
-    public bool UsesPackedInfo => FileIndex != 0;
 }
 
 public sealed class LoadedSound : BaseAsset
@@ -99,7 +119,11 @@ public sealed class LoadedSound : BaseAsset
     public XPointer<string> NamePointer { get; init; }
     public string? Name { get; init; }
     public int PhysicalDataByteCount { get; init; }
-    public byte[] SoundInfoBytes { get; init; } = [];
+    public ushort FrameCount { get; init; }
+    public ushort ChannelCount { get; init; }
+    public ushort SampleRate { get; init; }
+    public ushort Pad0E { get; init; }
+    public ushort Pad10 { get; init; }
     public ushort SeekTableCount { get; init; }
     public int SeekTableByteCount => checked(SeekTableCount * sizeof(uint));
     public XPointer<byte[]> SeekTablePointer { get; init; }
@@ -111,14 +135,18 @@ public sealed class LoadedSound : BaseAsset
 public sealed class SndCurve : BaseAsset
 {
     public const int SerializedSize = 0x88;
-    public const int KnotBytesSize = 16 * 2 * sizeof(float);
+    public const int MaxKnotCount = 16;
+    public const int KnotSerializedSize = 2 * sizeof(float);
+    public const int KnotsByteCount = MaxKnotCount * KnotSerializedSize;
 
     public XPointer<string> FilenamePointer { get; init; }
     public string? Filename { get; init; }
     public ushort KnotCount { get; init; }
     public ushort Padding { get; init; }
-    public byte[] KnotBytes { get; init; } = [];
+    public IReadOnlyList<SndCurveKnot> Knots { get; init; } = [];
 }
+
+public readonly record struct SndCurveKnot(float X, float Y);
 
 public sealed class SpeakerMap
 {

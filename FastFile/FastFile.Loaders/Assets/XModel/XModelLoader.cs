@@ -1,6 +1,9 @@
 using FastFile.Loaders.Assets.Material;
 using FastFile.Loaders.Assets.Physics;
 using FastFile.Models.Assets.Material;
+using FastFile.Models.Assets.XModel;
+using ModelBounds = FastFile.Models.Math.Bounds;
+using ModelVec3 = FastFile.Models.Math.Vec3;
 using FastFile.Models.Pointers;
 using FastFile.Models.Pointers.Enums;
 using FastFile.Models.Zone;
@@ -46,7 +49,7 @@ public sealed class XModelLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, XModelSize, "XModel"))
+        if (ResolveAliasCellOffset<XModelAssetModel>(pointer, context, XModelSize, "XModel"))
             return null;
 
         if (pointer.Type == PointerType.Null)
@@ -54,7 +57,7 @@ public sealed class XModelLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, XModelSize, "XModel");
+            context.PointerReader.ValidateOffsetPointerRange<XModelAssetModel>(pointer, XModelSize, "XModel");
             return null;
         }
 
@@ -98,8 +101,9 @@ public sealed class XModelLoader
             byte numBones = rootCursor.ReadByte();
             byte numRootBones = rootCursor.ReadByte();
             byte numSurfs = rootCursor.ReadByte();
-            rootCursor.Skip(1);
-            rootCursor.Skip(0x24 - rootCursor.Offset);
+            byte pad07 = rootCursor.ReadByte();
+            float scale = ReadSingle(rootCursor);
+            IReadOnlyList<uint> noScalePartBits = ReadUInt32Values(rootCursor, 6);
             XPointer<ushort[]> boneNamesPointer = ReadPointer<ushort[]>(rootCursor, XPointerResolutionMode.Direct);
             XPointer<byte[]> parentListPointer = ReadPointer<byte[]>(rootCursor, XPointerResolutionMode.Direct);
             XPointer<short[]> quatsPointer = ReadPointer<short[]>(rootCursor, XPointerResolutionMode.Direct);
@@ -108,14 +112,19 @@ public sealed class XModelLoader
             XPointer<byte[]> baseMatPointer = ReadPointer<byte[]>(rootCursor, XPointerResolutionMode.Direct);
             XPointer<XPointer<MaterialAsset>[]> materialHandlesPointer = ReadPointer<XPointer<MaterialAsset>[]>(rootCursor, XPointerResolutionMode.Direct);
 
-            rootCursor.Skip(0xe4 - rootCursor.Offset);
+            rootCursor.Skip(0xe0 - rootCursor.Offset);
+            byte maxLoadedLod = rootCursor.ReadByte();
+            byte numLods = rootCursor.ReadByte();
+            byte collLod = rootCursor.ReadByte();
+            byte flags = rootCursor.ReadByte();
             XPointer<byte[]> collSurfsPointer = ReadPointer<byte[]>(rootCursor, XPointerResolutionMode.Direct);
             int numCollSurfs = rootCursor.ReadInt32();
-            rootCursor.Skip(0xf0 - rootCursor.Offset);
+            int contents = rootCursor.ReadInt32();
             XPointer<byte[]> boneInfoPointer = ReadPointer<byte[]>(rootCursor, XPointerResolutionMode.Direct);
-            rootCursor.Skip(0x110 - rootCursor.Offset);
+            float radius = ReadSingle(rootCursor);
+            ModelBounds bounds = ReadBounds(rootCursor);
             XPointer<ushort[]> invHighMipRadiusPointer = ReadPointer<ushort[]>(rootCursor, XPointerResolutionMode.Direct);
-            rootCursor.Skip(0x118 - rootCursor.Offset);
+            int memUsage = rootCursor.ReadInt32();
             XPointerReference physPresetPointer = ReadPointer<PhysPresetAssetModel>(rootCursor, XPointerResolutionMode.AliasCell).Untyped;
             XPointerReference physCollmapPointer = ReadPointer<PhysCollmapAssetModel>(rootCursor, XPointerResolutionMode.AliasCell).Untyped;
 
@@ -129,52 +138,105 @@ public sealed class XModelLoader
             try
             {
                 name = ReadXString(cursor, namePointer, context);
-                ReadUInt16Array(cursor, boneNamesPointer.Untyped, numBones, context);
-                ReadByteArray(cursor, parentListPointer.Untyped, partCount, context);
-                ReadInt16Array(cursor, quatsPointer.Untyped, partCount * 4, context);
-                ReadFloatArray(cursor, transPointer.Untyped, partCount * 3, context);
-                ReadByteArray(cursor, partClassificationPointer.Untyped, numBones, context);
-                ReadRawBytes(cursor, baseMatPointer.Untyped, numBones * 0x20, alignment: 4, context);
+                IReadOnlyList<ushort> boneNames = ReadUInt16Array(cursor, boneNamesPointer.Untyped, numBones, context);
+                IReadOnlyList<byte> parentList = ReadByteArray(cursor, parentListPointer.Untyped, partCount, context);
+                IReadOnlyList<short> quats = ReadInt16Array(cursor, quatsPointer.Untyped, partCount * 4, context);
+                IReadOnlyList<float> trans = ReadFloatArray(cursor, transPointer.Untyped, partCount * 3, context);
+                IReadOnlyList<byte> partClassification = ReadByteArray(cursor, partClassificationPointer.Untyped, numBones, context);
+                IReadOnlyList<DObjAnimMat> baseMat = ReadDObjAnimMatArray(cursor, baseMatPointer.Untyped, numBones, context);
                 IReadOnlyList<XPointer<MaterialAsset>> materialPointers =
                     ReadAliasPointerArrayPayload<MaterialAsset>(cursor, materialHandlesPointer.Untyped, numSurfs, context);
-                ReadMaterialPointers(cursor, materialPointers, context);
+                IReadOnlyList<MaterialAsset?> materials = ReadMaterialPointers(cursor, materialPointers, context);
 
+                var lods = new XModelLodInfo[4];
                 for (int i = 0; i < 4; i++)
                 {
                     int lodOffset = 0x40 + (i * XModelLodInfoSize);
                     var lodCursor = new FastFileCursor(rootBytes.AsSpan(lodOffset, XModelLodInfoSize).ToArray(), rootAddress with { Offset = rootAddress.Offset + lodOffset });
-                    lodCursor.Skip(0x04);
+                    float dist = ReadSingle(lodCursor);
                     ushort lodNumSurfs = lodCursor.ReadUInt16();
-                    lodCursor.Skip(0x08 - lodCursor.Offset);
+                    ushort surfIndex = lodCursor.ReadUInt16();
                     XPointerReference modelSurfsPointer = ReadPointer<XModelSurfsAssetModel>(lodCursor, XPointerResolutionMode.AliasCell).Untyped;
-                    ReadXModelSurfsPointer(cursor, modelSurfsPointer, lodNumSurfs, context);
+                    var partBits = new uint[6];
+                    for (int partBitIndex = 0; partBitIndex < partBits.Length; partBitIndex++)
+                        partBits[partBitIndex] = lodCursor.ReadUInt32();
+                    XPointer<byte[]> surfsRuntimePointer = ReadPointer<byte[]>(lodCursor, XPointerResolutionMode.Direct);
+                    XModelSurfsAssetModel? modelSurfs = ReadXModelSurfsPointer(cursor, modelSurfsPointer, lodNumSurfs, context);
+                    lods[i] = new XModelLodInfo
+                    {
+                        Dist = dist,
+                        NumSurfs = lodNumSurfs,
+                        SurfIndex = surfIndex,
+                        ModelSurfsPointer = modelSurfsPointer.AsPointer<XModelSurfsAssetModel>(),
+                        PartBits = partBits,
+                        SurfsRuntimePointer = surfsRuntimePointer,
+                        ModelSurfs = modelSurfs
+                    };
                 }
 
-                ReadRawBytes(cursor, collSurfsPointer.Untyped, checked(numCollSurfs * 0x24), alignment: 4, context);
-                ReadRawBytes(cursor, boneInfoPointer.Untyped, checked(numBones * 0x1c), alignment: 4, context);
-                ReadUInt16Array(cursor, invHighMipRadiusPointer.Untyped, numSurfs, context);
-                ReadPhysPresetPointer(cursor, physPresetPointer, context);
-                _physCollmapLoader.LoadFromPointer(cursor, physCollmapPointer, context);
+                IReadOnlyList<XModelCollSurf> collSurfs = ReadXModelCollSurfArray(cursor, collSurfsPointer.Untyped, numCollSurfs, context);
+                IReadOnlyList<XBoneInfo> boneInfo = ReadXBoneInfoArray(cursor, boneInfoPointer.Untyped, numBones, context);
+                IReadOnlyList<ushort> invHighMipRadius = ReadUInt16Array(cursor, invHighMipRadiusPointer.Untyped, numSurfs, context);
+                PhysPresetAssetModel? physPreset = ReadPhysPresetPointer(cursor, physPresetPointer, context);
+                PhysCollmapAssetModel? physCollmap = _physCollmapLoader.LoadFromPointer(cursor, physCollmapPointer, context);
+
+                context.Diagnostics.Trace(
+                    $"      XModel root source=0x{sourceOffset:X} name=0x{namePointer.Raw:X8} bones={numBones}/{numRootBones} " +
+                    $"surfs={numSurfs} physPreset=0x{physPresetPointer.Raw:X8} physCollmap=0x{physCollmapPointer.Raw:X8} " +
+                    $"blocks={context.Blocks.DescribePositions()}");
+
+                return new XModelAssetModel
+                {
+                    Offset = sourceOffset,
+                    NamePointer = namePointer,
+                    Name = name,
+                    NumBones = numBones,
+                    NumRootBones = numRootBones,
+                    NumSurfs = numSurfs,
+                    Pad07 = pad07,
+                    Scale = scale,
+                    NoScalePartBits = noScalePartBits,
+                    BoneNamesPointer = boneNamesPointer,
+                    BoneNames = boneNames,
+                    ParentListPointer = parentListPointer,
+                    ParentList = parentList,
+                    QuatsPointer = quatsPointer,
+                    Quats = quats,
+                    TransPointer = transPointer,
+                    Trans = trans,
+                    PartClassificationPointer = partClassificationPointer,
+                    PartClassification = partClassification,
+                    BaseMatPointer = baseMatPointer,
+                    BaseMat = baseMat,
+                    MaterialHandlesPointer = materialHandlesPointer,
+                    MaterialPointers = materialPointers,
+                    Materials = materials,
+                    Lods = lods,
+                    MaxLoadedLod = maxLoadedLod,
+                    NumLods = numLods,
+                    CollLod = collLod,
+                    Flags = flags,
+                    CollSurfsPointer = collSurfsPointer,
+                    NumCollSurfs = numCollSurfs,
+                    Contents = contents,
+                    CollSurfs = collSurfs,
+                    BoneInfoPointer = boneInfoPointer,
+                    BoneInfo = boneInfo,
+                    Radius = radius,
+                    Bounds = bounds,
+                    InvHighMipRadiusPointer = invHighMipRadiusPointer,
+                    InvHighMipRadius = invHighMipRadius,
+                    MemUsage = memUsage,
+                    PhysPresetPointer = physPresetPointer.AsPointer<PhysPresetAssetModel>(),
+                    PhysPreset = physPreset,
+                    PhysCollmapPointer = physCollmapPointer.AsPointer<PhysCollmapAssetModel>(),
+                    PhysCollmap = physCollmap
+                };
             }
             finally
             {
                 context.Blocks.Pop();
             }
-
-            context.Diagnostics.Trace(
-                $"      XModel root source=0x{sourceOffset:X} name=0x{namePointer.Raw:X8} bones={numBones}/{numRootBones} " +
-                $"surfs={numSurfs} physPreset=0x{physPresetPointer.Raw:X8} physCollmap=0x{physCollmapPointer.Raw:X8} " +
-                $"blocks={context.Blocks.DescribePositions()}");
-
-            return new XModelAssetModel
-            {
-                Offset = sourceOffset,
-                NamePointer = namePointer,
-                Name = name,
-                NumBones = numBones,
-                NumRootBones = numRootBones,
-                NumSurfs = numSurfs
-            };
         }
         finally
         {
@@ -182,28 +244,29 @@ public sealed class XModelLoader
         }
     }
 
-    private void ReadXModelSurfsPointer(
+    private XModelSurfsAssetModel? ReadXModelSurfsPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         ushort lodNumSurfs,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, XModelSurfsSize, "XModelSurfs"))
-            return;
+        if (ResolveAliasCellOffset<XModelSurfsAssetModel>(pointer, context, XModelSurfsSize, "XModelSurfs"))
+            return null;
 
         if (pointer.Type == PointerType.Null)
-            return;
+            return null;
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, XModelSurfsSize, "XModelSurfs");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<XModelSurfsAssetModel>(pointer, XModelSurfsSize, "XModelSurfs");
+            return null;
         }
 
         XBlockAddress? insertCell = pointer.Type == PointerType.Insert
             ? context.Blocks.AllocateInsertPointerCell()
             : null;
 
+        int sourceOffset = cursor.Offset;
         context.Blocks.Push(XFileBlockType.TEMP);
         try
         {
@@ -216,21 +279,36 @@ public sealed class XModelLoader
             XString namePointer = ReadXStringPointer(rootCursor);
             XPointer<byte[]> surfsPointer = ReadPointer<byte[]>(rootCursor, XPointerResolutionMode.Direct);
             ushort numSurfs = rootCursor.ReadUInt16();
-            rootCursor.Skip(XModelSurfsSize - rootCursor.Offset);
+            ushort pad0A = rootCursor.ReadUInt16();
+            var partBits = new uint[6];
+            for (int i = 0; i < partBits.Length; i++)
+                partBits[i] = rootCursor.ReadUInt32();
 
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
-                ReadXString(cursor, namePointer, context);
-                ReadXSurfaceArray(cursor, surfsPointer.Untyped, numSurfs == 0 ? lodNumSurfs : numSurfs, context);
+                string? name = ReadXString(cursor, namePointer, context);
+                IReadOnlyList<XSurface> surfaces = ReadXSurfaceArray(cursor, surfsPointer.Untyped, numSurfs == 0 ? lodNumSurfs : numSurfs, context);
+
+                if (insertCell is { } cell)
+                    context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
+
+                return new XModelSurfsAssetModel
+                {
+                    Offset = sourceOffset,
+                    NamePointer = namePointer,
+                    Name = name,
+                    SurfsPointer = surfsPointer,
+                    NumSurfs = numSurfs,
+                    Pad0A = pad0A,
+                    PartBits = partBits,
+                    Surfaces = surfaces
+                };
             }
             finally
             {
                 context.Blocks.Pop();
             }
-
-            if (insertCell is { } cell)
-                context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
         }
         finally
         {
@@ -238,40 +316,43 @@ public sealed class XModelLoader
         }
     }
 
-    private void ReadXSurfaceArray(
+    private IReadOnlyList<XSurface> ReadXSurfaceArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
         if (count <= 0 || pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * XSurfaceSize), "XSurface[]");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<XSurface[]>(pointer, checked(count * XSurfaceSize), "XSurface[]");
+            return [];
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] surfaceBytes = context.Blocks.Load(cursor, checked(count * XSurfaceSize), out XBlockAddress arrayAddress);
+        var surfaces = new XSurface[count];
 
         for (int i = 0; i < count; i++)
         {
             int offset = i * XSurfaceSize;
             var surfaceCursor = new FastFileCursor(surfaceBytes.AsSpan(offset, XSurfaceSize).ToArray(), arrayAddress with { Offset = arrayAddress.Offset + offset });
-            ReadXSurfaceChildren(cursor, surfaceCursor, context);
+            surfaces[i] = ReadXSurfaceChildren(cursor, surfaceCursor, context);
         }
+
+        return surfaces;
     }
 
-    private void ReadXSurfaceChildren(
+    private XSurface ReadXSurfaceChildren(
         FastFileCursor cursor,
         FastFileCursor surfaceCursor,
         FastFileLoadContext context)
     {
-        surfaceCursor.Skip(0x02);
+        ushort flagsOrPad00 = surfaceCursor.ReadUInt16();
         byte streamFlags = surfaceCursor.ReadByte();
-        surfaceCursor.Skip(0x04 - surfaceCursor.Offset);
+        byte pad03 = surfaceCursor.ReadByte();
         ushort vertCount = surfaceCursor.ReadUInt16();
         ushort triCount = surfaceCursor.ReadUInt16();
         XPointer<ushort[]> triIndicesPointer = ReadPointer<ushort[]>(surfaceCursor, XPointerResolutionMode.Direct);
@@ -281,91 +362,166 @@ public sealed class XModelLoader
         ushort blend3 = surfaceCursor.ReadUInt16();
         XPointer<ushort[]> vertsBlendPointer = ReadPointer<ushort[]>(surfaceCursor, XPointerResolutionMode.Direct);
         XPointer<byte[]> verts0Pointer = ReadPointer<byte[]>(surfaceCursor, XPointerResolutionMode.Direct);
-        surfaceCursor.Skip(0x24 - surfaceCursor.Offset);
+        GfxVertexBuffer vb0 = ReadGfxVertexBuffer(surfaceCursor);
         XPointer<byte[]> verts1Pointer = ReadPointer<byte[]>(surfaceCursor, XPointerResolutionMode.Direct);
-        surfaceCursor.Skip(0x30 - surfaceCursor.Offset);
+        GfxVertexBuffer vb1 = ReadGfxVertexBuffer(surfaceCursor);
         int vertListCount = surfaceCursor.ReadInt32();
-        XPointer<byte[]> vertListPointer = ReadPointer<byte[]>(surfaceCursor, XPointerResolutionMode.Direct);
-        surfaceCursor.Skip(XSurfaceSize - surfaceCursor.Offset);
+        XPointer<XRigidVertList[]> vertListPointer = ReadPointer<XRigidVertList[]>(surfaceCursor, XPointerResolutionMode.Direct);
+        GfxIndexBuffer indexBuffer = ReadGfxIndexBuffer(surfaceCursor);
+        var partBits = new uint[6];
+        for (int i = 0; i < partBits.Length; i++)
+            partBits[i] = surfaceCursor.ReadUInt32();
 
         int blendCount = blend0 + (blend1 * 3) + (blend2 * 5) + (blend3 * 7);
 
-        ReadRawBytes(cursor, vertsBlendPointer.Untyped, checked(blendCount * sizeof(ushort)), alignment: 2, context);
-        ReadSurfaceStreamBytes(cursor, verts0Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushPhysical: (streamFlags & 0x01) == 0, context);
-        ReadSurfaceStreamBytes(cursor, verts1Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushPhysical: (streamFlags & 0x02) == 0, context);
-        ReadRigidVertListArray(cursor, vertListPointer.Untyped, vertListCount, context);
-        ReadSurfaceStreamBytes(cursor, triIndicesPointer.Untyped, checked(triCount * 3 * sizeof(ushort)), alignment: 16, pushPhysical: (streamFlags & 0x04) == 0, context);
+        IReadOnlyList<ushort> vertsBlend = ReadUInt16Array(cursor, vertsBlendPointer.Untyped, blendCount, context);
+        IReadOnlyList<byte> verts0 = ReadSurfaceStreamBytes(cursor, verts0Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushPhysical: (streamFlags & 0x01) == 0, context);
+        IReadOnlyList<byte> verts1 = ReadSurfaceStreamBytes(cursor, verts1Pointer.Untyped, checked(vertCount * 0x10), alignment: 16, pushPhysical: (streamFlags & 0x02) == 0, context);
+        IReadOnlyList<XRigidVertList> vertList = ReadRigidVertListArray(cursor, vertListPointer.Untyped, vertListCount, context);
+        IReadOnlyList<ushort> triIndices = ReadSurfaceStreamUshorts(cursor, triIndicesPointer.Untyped, checked(triCount * 3), alignment: 16, pushPhysical: (streamFlags & 0x04) == 0, context);
+
+        return new XSurface
+        {
+            FlagsOrPad00 = flagsOrPad00,
+            StreamFlags = streamFlags,
+            Pad03 = pad03,
+            VertCount = vertCount,
+            TriCount = triCount,
+            TriIndicesPointer = triIndicesPointer,
+            TriIndices = triIndices,
+            VertexInfo = new XSurfaceVertexInfo
+            {
+                Blend0 = blend0,
+                Blend1 = blend1,
+                Blend2 = blend2,
+                Blend3 = blend3,
+                VertsBlendPointer = vertsBlendPointer,
+                VertsBlend = vertsBlend
+            },
+            Verts0Pointer = verts0Pointer,
+            Verts0 = verts0,
+            Vb0 = vb0,
+            Verts1Pointer = verts1Pointer,
+            Verts1 = verts1,
+            Vb1 = vb1,
+            VertListCount = vertListCount,
+            VertListPointer = vertListPointer,
+            VertList = vertList,
+            IndexBuffer = indexBuffer,
+            PartBits = partBits
+        };
     }
 
-    private void ReadRigidVertListArray(
+    private static GfxVertexBuffer ReadGfxVertexBuffer(FastFileCursor cursor)
+    {
+        return new GfxVertexBuffer
+        {
+            StreamSource = cursor.ReadInt32(),
+            DataOffset = cursor.ReadInt32()
+        };
+    }
+
+    private static GfxIndexBuffer ReadGfxIndexBuffer(FastFileCursor cursor)
+    {
+        return new GfxIndexBuffer
+        {
+            DataOffset = cursor.ReadInt32()
+        };
+    }
+
+    private IReadOnlyList<XRigidVertList> ReadRigidVertListArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
         if (count <= 0 || pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * XRigidVertListSize), "XRigidVertList[]");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<XRigidVertList[]>(pointer, checked(count * XRigidVertListSize), "XRigidVertList[]");
+            return [];
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] listBytes = context.Blocks.Load(cursor, checked(count * XRigidVertListSize), out XBlockAddress listAddress);
+        var lists = new XRigidVertList[count];
         for (int i = 0; i < count; i++)
         {
             int offset = i * XRigidVertListSize;
             var listCursor = new FastFileCursor(listBytes.AsSpan(offset, XRigidVertListSize).ToArray(), listAddress with { Offset = listAddress.Offset + offset });
-            listCursor.Skip(0x08);
-            XPointer<byte[]> collisionTreePointer = ReadPointer<byte[]>(listCursor, XPointerResolutionMode.Direct);
-            ReadXSurfaceCollisionTree(cursor, collisionTreePointer.Untyped, context);
+            ushort boneOffset = listCursor.ReadUInt16();
+            ushort vertCount = listCursor.ReadUInt16();
+            ushort triOffset = listCursor.ReadUInt16();
+            ushort triCount = listCursor.ReadUInt16();
+            XPointer<XSurfaceCollisionTree> collisionTreePointer = ReadPointer<XSurfaceCollisionTree>(listCursor, XPointerResolutionMode.Direct);
+            lists[i] = new XRigidVertList
+            {
+                BoneOffset = boneOffset,
+                VertCount = vertCount,
+                TriOffset = triOffset,
+                TriCount = triCount,
+                CollisionTreePointer = collisionTreePointer,
+                CollisionTree = ReadXSurfaceCollisionTree(cursor, collisionTreePointer.Untyped, context)
+            };
         }
+
+        return lists;
     }
 
-    private void ReadXSurfaceCollisionTree(
+    private XSurfaceCollisionTree? ReadXSurfaceCollisionTree(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
         if (pointer.Type == PointerType.Null)
-            return;
+            return null;
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, XSurfaceCollisionTreeSize, "XSurfaceCollisionTree");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<XSurfaceCollisionTree>(pointer, XSurfaceCollisionTreeSize, "XSurfaceCollisionTree");
+            return null;
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
         byte[] treeBytes = context.Blocks.Load(cursor, XSurfaceCollisionTreeSize, out XBlockAddress treeAddress);
         var treeCursor = new FastFileCursor(treeBytes, treeAddress);
-        treeCursor.Skip(0x18);
+        ModelVec3 trans = ReadVec3(treeCursor);
+        ModelVec3 scale = ReadVec3(treeCursor);
         int nodeCount = treeCursor.ReadInt32();
-        XPointer<byte[]> nodesPointer = ReadPointer<byte[]>(treeCursor, XPointerResolutionMode.Direct);
+        XPointer<XSurfaceCollisionNode[]> nodesPointer = ReadPointer<XSurfaceCollisionNode[]>(treeCursor, XPointerResolutionMode.Direct);
         int leafCount = treeCursor.ReadInt32();
-        XPointer<byte[]> leafsPointer = ReadPointer<byte[]>(treeCursor, XPointerResolutionMode.Direct);
+        XPointer<XSurfaceCollisionLeaf[]> leafsPointer = ReadPointer<XSurfaceCollisionLeaf[]>(treeCursor, XPointerResolutionMode.Direct);
 
-        ReadRawBytes(cursor, nodesPointer.Untyped, checked(nodeCount * XSurfaceCollisionNodeSize), alignment: 16, context);
-        ReadRawBytes(cursor, leafsPointer.Untyped, checked(leafCount * XSurfaceCollisionLeafSize), alignment: 2, context);
+        return new XSurfaceCollisionTree
+        {
+            Trans = trans,
+            Scale = scale,
+            NodeCount = nodeCount,
+            NodesPointer = nodesPointer,
+            Nodes = ReadCollisionNodeArray(cursor, nodesPointer.Untyped, nodeCount, context),
+            LeafCount = leafCount,
+            LeafsPointer = leafsPointer,
+            Leafs = ReadCollisionLeafArray(cursor, leafsPointer.Untyped, leafCount, context)
+        };
     }
 
-    private void ReadPhysPresetPointer(
+    private PhysPresetAssetModel? ReadPhysPresetPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, PhysPresetSize, "PhysPreset"))
-            return;
+        if (ResolveAliasCellOffset<PhysPresetAssetModel>(pointer, context, PhysPresetSize, "PhysPreset"))
+            return null;
 
         if (pointer.Type == PointerType.Null)
-            return;
+            return null;
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, PhysPresetSize, "PhysPreset");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<PhysPresetAssetModel>(pointer, PhysPresetSize, "PhysPreset");
+            return null;
         }
 
         XBlockAddress? insertCell = pointer.Type == PointerType.Insert
@@ -376,17 +532,20 @@ public sealed class XModelLoader
         try
         {
             XBlockAddress rootAddress = context.PointerReader.PatchInlinePointerCell(pointer, alignment: 4);
+            int sourceOffset = cursor.Offset;
             byte[] rootBytes = context.Blocks.Load(cursor, PhysPresetSize);
             var rootCursor = new FastFileCursor(rootBytes, rootAddress);
             XString namePointer = ReadXStringPointer(rootCursor);
             rootCursor.Skip(0x1c - rootCursor.Offset);
             XString sndAliasPrefixPointer = ReadXStringPointer(rootCursor);
 
+            string? name;
+            string? sndAliasPrefix;
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
-                ReadXString(cursor, namePointer, context);
-                ReadXString(cursor, sndAliasPrefixPointer, context);
+                name = ReadXString(cursor, namePointer, context);
+                sndAliasPrefix = ReadXString(cursor, sndAliasPrefixPointer, context);
             }
             finally
             {
@@ -395,6 +554,15 @@ public sealed class XModelLoader
 
             if (insertCell is { } cell)
                 context.Blocks.WriteInt32(cell, XPointerCodec.Encode(rootAddress));
+
+            return new PhysPresetAssetModel
+            {
+                Offset = sourceOffset,
+                NamePointer = namePointer,
+                Name = name,
+                SndAliasPrefixPointer = sndAliasPrefixPointer,
+                SndAliasPrefix = sndAliasPrefix
+            };
         }
         finally
         {
@@ -402,27 +570,30 @@ public sealed class XModelLoader
         }
     }
 
-    private void ReadMaterialPointers(
+    private IReadOnlyList<MaterialAsset?> ReadMaterialPointers(
         FastFileCursor cursor,
         IReadOnlyList<XPointer<MaterialAsset>> pointers,
         FastFileLoadContext context)
     {
-        foreach (XPointer<MaterialAsset> pointer in pointers)
-            ReadMaterialPointer(cursor, pointer.Untyped, context);
+        var materials = new MaterialAsset?[pointers.Count];
+        for (int i = 0; i < pointers.Count; i++)
+            materials[i] = ReadMaterialPointer(cursor, pointers[i].Untyped, context);
+
+        return materials;
     }
 
-    private void ReadMaterialPointer(
+    private MaterialAsset? ReadMaterialPointer(
         FastFileCursor cursor,
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, MaterialAsset.SerializedSize, "Material"))
-            return;
+        if (ResolveAliasCellOffset<MaterialAsset>(pointer, context, MaterialAsset.SerializedSize, "Material"))
+            return null;
 
-        _materialLoader.LoadFromPointer(cursor, pointer, context);
+        return _materialLoader.LoadFromPointer(cursor, pointer, context);
     }
 
-    private void ReadSurfaceStreamBytes(
+    private IReadOnlyList<byte> ReadSurfaceStreamBytes(
         FastFileCursor cursor,
         XPointerReference pointer,
         int byteCount,
@@ -432,19 +603,37 @@ public sealed class XModelLoader
     {
         if (!pushPhysical)
         {
-            ReadRawBytes(cursor, pointer, byteCount, alignment, context);
-            return;
+            return ReadRawBytes(cursor, pointer, byteCount, alignment, context);
         }
 
         context.Blocks.Push(XFileBlockType.PHYSICAL);
         try
         {
-            ReadRawBytes(cursor, pointer, byteCount, alignment, context);
+            return ReadRawBytes(cursor, pointer, byteCount, alignment, context);
         }
         finally
         {
             context.Blocks.Pop();
         }
+    }
+
+    private IReadOnlyList<ushort> ReadSurfaceStreamUshorts(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        int alignment,
+        bool pushPhysical,
+        FastFileLoadContext context)
+    {
+        IReadOnlyList<byte> bytes = ReadSurfaceStreamBytes(
+            cursor,
+            pointer,
+            checked(count * sizeof(ushort)),
+            alignment,
+            pushPhysical,
+            context);
+
+        return ReadUInt16Values(bytes);
     }
 
     private static IReadOnlyList<XPointer<T>> ReadAliasPointerArrayPayload<T>(
@@ -462,7 +651,7 @@ public sealed class XModelLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, $"{typeof(T).Name}*[]");
+            context.PointerReader.ValidateOffsetPointerRange<XPointer<T>[]>(pointer, byteCount, $"{typeof(T).Name}*[]");
             return [];
         }
 
@@ -477,43 +666,165 @@ public sealed class XModelLoader
         return pointers;
     }
 
-    private static void ReadByteArray(
+    private static IReadOnlyList<byte> ReadByteArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
-        ReadRawBytes(cursor, pointer, count, alignment: 1, context);
+        return ReadRawBytes(cursor, pointer, count, alignment: 1, context);
     }
 
-    private static void ReadInt16Array(
+    private static IReadOnlyList<short> ReadInt16Array(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
-        ReadRawBytes(cursor, pointer, checked(count * sizeof(short)), alignment: 2, context);
+        return ReadInt16Values(ReadRawBytes(cursor, pointer, checked(count * sizeof(short)), alignment: 2, context));
     }
 
-    private static void ReadUInt16Array(
+    private static IReadOnlyList<ushort> ReadUInt16Array(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
-        ReadRawBytes(cursor, pointer, checked(count * sizeof(ushort)), alignment: 2, context);
+        return ReadUInt16Values(ReadRawBytes(cursor, pointer, checked(count * sizeof(ushort)), alignment: 2, context));
     }
 
-    private static void ReadFloatArray(
+    private static IReadOnlyList<float> ReadFloatArray(
         FastFileCursor cursor,
         XPointerReference pointer,
         int count,
         FastFileLoadContext context)
     {
-        ReadRawBytes(cursor, pointer, checked(count * sizeof(float)), alignment: 4, context);
+        return ReadFloatValues(ReadRawBytes(cursor, pointer, checked(count * sizeof(float)), alignment: 4, context));
     }
 
-    private static void ReadRawBytes(
+    private static IReadOnlyList<DObjAnimMat> ReadDObjAnimMatArray(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        IReadOnlyList<byte> bytes = ReadRawBytes(cursor, pointer, checked(count * DObjAnimMat.SerializedSize), alignment: 4, context);
+        if (bytes.Count == 0)
+            return [];
+
+        RequireExactByteCount(bytes, count, DObjAnimMat.SerializedSize, nameof(DObjAnimMat));
+        var values = new DObjAnimMat[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = ReadDObjAnimMat(bytes, i * DObjAnimMat.SerializedSize);
+
+        return values;
+    }
+
+    private static DObjAnimMat ReadDObjAnimMat(IReadOnlyList<byte> bytes, int offset)
+    {
+        var cursor = new FastFileCursor(bytes.Skip(offset).Take(DObjAnimMat.SerializedSize).ToArray());
+        return new DObjAnimMat(
+            new DObjQuat(ReadSingle(cursor), ReadSingle(cursor), ReadSingle(cursor), ReadSingle(cursor)),
+            ReadVec3(cursor),
+            ReadSingle(cursor));
+    }
+
+    private static IReadOnlyList<XModelCollSurf> ReadXModelCollSurfArray(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        IReadOnlyList<byte> bytes = ReadRawBytes(cursor, pointer, checked(count * XModelCollSurf.SerializedSize), alignment: 4, context);
+        if (bytes.Count == 0)
+            return [];
+
+        RequireExactByteCount(bytes, count, XModelCollSurf.SerializedSize, nameof(XModelCollSurf));
+        var values = new XModelCollSurf[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = ReadXModelCollSurf(bytes, i * XModelCollSurf.SerializedSize);
+
+        return values;
+    }
+
+    private static XModelCollSurf ReadXModelCollSurf(IReadOnlyList<byte> bytes, int offset)
+    {
+        var cursor = new FastFileCursor(bytes.Skip(offset).Take(XModelCollSurf.SerializedSize).ToArray());
+        return new XModelCollSurf(
+            ReadBounds(cursor),
+            cursor.ReadInt32(),
+            cursor.ReadInt32(),
+            cursor.ReadInt32());
+    }
+
+    private static IReadOnlyList<XBoneInfo> ReadXBoneInfoArray(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        IReadOnlyList<byte> bytes = ReadRawBytes(cursor, pointer, checked(count * XBoneInfo.SerializedSize), alignment: 4, context);
+        if (bytes.Count == 0)
+            return [];
+
+        RequireExactByteCount(bytes, count, XBoneInfo.SerializedSize, nameof(XBoneInfo));
+        var values = new XBoneInfo[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = ReadXBoneInfo(bytes, i * XBoneInfo.SerializedSize);
+
+        return values;
+    }
+
+    private static XBoneInfo ReadXBoneInfo(IReadOnlyList<byte> bytes, int offset)
+    {
+        var cursor = new FastFileCursor(bytes.Skip(offset).Take(XBoneInfo.SerializedSize).ToArray());
+        return new XBoneInfo(ReadBounds(cursor), ReadSingle(cursor));
+    }
+
+    private static IReadOnlyList<XSurfaceCollisionNode> ReadCollisionNodeArray(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        IReadOnlyList<byte> bytes = ReadRawBytes(cursor, pointer, checked(count * XSurfaceCollisionNode.SerializedSize), alignment: 16, context);
+        if (bytes.Count == 0)
+            return [];
+
+        RequireExactByteCount(bytes, count, XSurfaceCollisionNode.SerializedSize, nameof(XSurfaceCollisionNode));
+        var values = new XSurfaceCollisionNode[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = ReadXSurfaceCollisionNode(bytes, i * XSurfaceCollisionNode.SerializedSize);
+
+        return values;
+    }
+
+    private static XSurfaceCollisionNode ReadXSurfaceCollisionNode(IReadOnlyList<byte> bytes, int offset)
+    {
+        var cursor = new FastFileCursor(bytes.Skip(offset).Take(XSurfaceCollisionNode.SerializedSize).ToArray());
+        var aabb = new XSurfaceCollisionAabb(
+            cursor.ReadUInt16(),
+            cursor.ReadUInt16(),
+            cursor.ReadUInt16(),
+            cursor.ReadUInt16(),
+            cursor.ReadUInt16(),
+            cursor.ReadUInt16());
+
+        return new XSurfaceCollisionNode(aabb, cursor.ReadUInt16(), cursor.ReadUInt16());
+    }
+
+    private static IReadOnlyList<XSurfaceCollisionLeaf> ReadCollisionLeafArray(
+        FastFileCursor cursor,
+        XPointerReference pointer,
+        int count,
+        FastFileLoadContext context)
+    {
+        return ReadUInt16Array(cursor, pointer, count, context)
+            .Select(value => new XSurfaceCollisionLeaf(value))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<byte> ReadRawBytes(
         FastFileCursor cursor,
         XPointerReference pointer,
         int byteCount,
@@ -524,19 +835,85 @@ public sealed class XModelLoader
             throw new InvalidDataException($"Invalid negative byte count {byteCount}.");
 
         if (pointer.Type == PointerType.Null)
-            return;
+            return [];
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, "byte[]");
-            return;
+            context.PointerReader.ValidateOffsetPointerRange<byte[]>(pointer, byteCount, "byte[]");
+            return [];
         }
 
         context.PointerReader.PatchInlinePointerCell(pointer, alignment);
-        context.Blocks.Load(cursor, byteCount);
+        return context.Blocks.Load(cursor, byteCount);
     }
 
-    private static bool ResolveAliasCellOffset(
+    private static void RequireExactByteCount(IReadOnlyList<byte> bytes, int count, int stride, string rowName)
+    {
+        int expected = checked(count * stride);
+        if (bytes.Count != expected)
+            throw new InvalidDataException($"{rowName} array expected 0x{expected:X} byte(s), got 0x{bytes.Count:X}.");
+    }
+
+    private static IReadOnlyList<ushort> ReadUInt16Values(IReadOnlyList<byte> bytes)
+    {
+        var cursor = new FastFileCursor(bytes.ToArray());
+        var values = new ushort[bytes.Count / sizeof(ushort)];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = cursor.ReadUInt16();
+
+        return values;
+    }
+
+    private static IReadOnlyList<short> ReadInt16Values(IReadOnlyList<byte> bytes)
+    {
+        var values = ReadUInt16Values(bytes);
+        return values.Select(value => unchecked((short)value)).ToArray();
+    }
+
+    private static IReadOnlyList<float> ReadFloatValues(IReadOnlyList<byte> bytes)
+    {
+        var cursor = new FastFileCursor(bytes.ToArray());
+        var values = new float[bytes.Count / sizeof(float)];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = BitConverter.Int32BitsToSingle(cursor.ReadInt32());
+
+        return values;
+    }
+
+    private static IReadOnlyList<uint> ReadUInt32Values(FastFileCursor cursor, int count)
+    {
+        var values = new uint[count];
+        for (int i = 0; i < values.Length; i++)
+            values[i] = cursor.ReadUInt32();
+
+        return values;
+    }
+
+    private static float ReadSingle(FastFileCursor cursor)
+    {
+        return BitConverter.Int32BitsToSingle(cursor.ReadInt32());
+    }
+
+    private static ModelBounds ReadBounds(FastFileCursor cursor)
+    {
+        return new ModelBounds
+        {
+            MidPoint = ReadVec3(cursor),
+            HalfSize = ReadVec3(cursor)
+        };
+    }
+
+    private static ModelVec3 ReadVec3(FastFileCursor cursor)
+    {
+        return new ModelVec3
+        {
+            X = ReadSingle(cursor),
+            Y = ReadSingle(cursor),
+            Z = ReadSingle(cursor)
+        };
+    }
+
+    private static bool ResolveAliasCellOffset<T>(
         XPointerReference pointer,
         FastFileLoadContext context,
         int targetByteCount,
@@ -554,7 +931,7 @@ public sealed class XModelLoader
             if (XPointerCodec.GetType(aliasedRaw) != PointerType.Offset)
                 throw new InvalidDataException($"Alias-cell pointer 0x{pointer.Raw:X8} resolved to unresolved sentinel 0x{aliasedRaw:X8} for {targetName}.");
 
-            context.PointerReader.ValidateOffsetPointerRange(
+            context.PointerReader.ValidateOffsetPointerRange<T>(
                 XPointerReference.FromRaw(aliasedRaw, XPointerResolutionMode.Direct, pointer.PackedAddress),
                 targetByteCount,
                 targetName);

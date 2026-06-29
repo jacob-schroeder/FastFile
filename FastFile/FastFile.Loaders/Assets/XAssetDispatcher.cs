@@ -53,6 +53,7 @@ public sealed class XAssetDispatcher
 
         foreach (XAssetEntry asset in assetList.Assets)
         {
+            using IDisposable assetCoverageScope = context.SourceCoverage.PushOwner($"asset[{asset.Index}] {asset.Type}");
             context.Diagnostics.Trace(
                 $"asset[{asset.Index}] table=0x{asset.SerializedOffset:X} type={asset.Type} ptr={asset.AssetPointer} begin source=0x{cursor.Offset:X} blocks={context.Blocks.DescribePositions()}");
 

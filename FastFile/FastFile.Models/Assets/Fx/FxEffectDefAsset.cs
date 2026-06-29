@@ -54,7 +54,9 @@ public sealed class FxElemDef
     public XPointer<FxElemVisStateSample[]> VisSamplesPointer { get; init; }
     public IReadOnlyList<FxElemVisStateSample> VisSamples { get; init; } = [];
     public FxElemDefVisuals Visuals { get; init; } = new();
+    public XPointer<FxElemDefVisuals[]>? VisualArrayPointer { get; init; }
     public IReadOnlyList<FxElemDefVisuals> VisualArray { get; init; } = [];
+    public XPointer<FxElemMarkVisuals[]>? MarkVisualArrayPointer { get; init; }
     public IReadOnlyList<FxElemMarkVisuals> MarkVisualArray { get; init; } = [];
     public Bounds CollBounds { get; init; }
     public FxEffectDefRef EffectOnImpact { get; init; } = new();
@@ -120,14 +122,44 @@ public sealed class FxElemDefVisuals
     public const int SerializedSize = 0x04;
 
     public int Offset { get; init; }
-    public XPointer<object> Raw { get; init; }
-    public XPointer<MaterialAsset>? MaterialPointer { get; init; }
+    public FxElemVisual? Visual { get; init; }
+    public FxMaterialVisual? Material => Visual as FxMaterialVisual;
+    public FxModelVisual? Model => Visual as FxModelVisual;
+    public FxEffectVisual? Effect => Visual as FxEffectVisual;
+    public FxSoundVisual? Sound => Visual as FxSoundVisual;
+    public FxNoChildVisual? NoChild => Visual as FxNoChildVisual;
+}
+
+public abstract class FxElemVisual
+{
+}
+
+public sealed class FxMaterialVisual : FxElemVisual
+{
+    public XPointer<MaterialAsset> MaterialPointer { get; init; }
     public MaterialAsset? Material { get; init; }
-    public XPointer<XModelAsset>? ModelPointer { get; init; }
+}
+
+public sealed class FxModelVisual : FxElemVisual
+{
+    public XPointer<XModelAsset> ModelPointer { get; init; }
     public XModelAsset? Model { get; init; }
-    public FxEffectDefRef? EffectDef { get; init; }
-    public XPointer<string>? SoundNamePointer { get; init; }
+}
+
+public sealed class FxEffectVisual : FxElemVisual
+{
+    public FxEffectDefRef EffectDef { get; init; } = new();
+}
+
+public sealed class FxSoundVisual : FxElemVisual
+{
+    public XPointer<string> SoundNamePointer { get; init; }
     public string? SoundName { get; init; }
+}
+
+public sealed class FxNoChildVisual : FxElemVisual
+{
+    public int Reserved { get; init; }
 }
 
 public sealed class FxElemMarkVisuals
@@ -184,7 +216,7 @@ public sealed class FxElemExtendedDef
     public FxElemExtendedDefKind Kind { get; init; }
     public FxTrailDef? TrailDef { get; init; }
     public FxSparkFountainDef? SparkFountainDef { get; init; }
-    public byte? UnknownValue { get; init; }
+    public byte? DefaultBytePayload { get; init; }
 }
 
 public enum FxElemExtendedDefKind
@@ -192,5 +224,5 @@ public enum FxElemExtendedDefKind
     None,
     Trail,
     SparkFountain,
-    Unknown
+    DefaultBytePayload
 }

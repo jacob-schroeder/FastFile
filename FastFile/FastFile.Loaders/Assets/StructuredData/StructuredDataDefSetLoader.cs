@@ -81,7 +81,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataDef.SerializedSize), "StructuredDataDef[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataDef[]>(pointer, checked(count * StructuredDataDef.SerializedSize), "StructuredDataDef[]");
             return [];
         }
 
@@ -138,7 +138,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataEnum.SerializedSize), "StructuredDataEnum[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataEnum[]>(pointer, checked(count * StructuredDataEnum.SerializedSize), "StructuredDataEnum[]");
             return [];
         }
 
@@ -179,7 +179,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataEnumEntry.SerializedSize), "StructuredDataEnumEntry[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataEnumEntry[]>(pointer, checked(count * StructuredDataEnumEntry.SerializedSize), "StructuredDataEnumEntry[]");
             return [];
         }
 
@@ -229,7 +229,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataStruct.SerializedSize), "StructuredDataStruct[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataStruct[]>(pointer, checked(count * StructuredDataStruct.SerializedSize), "StructuredDataStruct[]");
             return [];
         }
 
@@ -271,7 +271,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataStructProperty.SerializedSize), "StructuredDataStructProperty[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataStructProperty[]>(pointer, checked(count * StructuredDataStructProperty.SerializedSize), "StructuredDataStructProperty[]");
             return [];
         }
 
@@ -321,7 +321,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataIndexedArray.SerializedSize), "StructuredDataIndexedArray[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataIndexedArray[]>(pointer, checked(count * StructuredDataIndexedArray.SerializedSize), "StructuredDataIndexedArray[]");
             return [];
         }
 
@@ -355,7 +355,7 @@ public sealed class StructuredDataDefSetLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * StructuredDataEnumedArray.SerializedSize), "StructuredDataEnumedArray[]");
+            context.PointerReader.ValidateOffsetPointerRange<StructuredDataEnumedArray[]>(pointer, checked(count * StructuredDataEnumedArray.SerializedSize), "StructuredDataEnumedArray[]");
             return [];
         }
 

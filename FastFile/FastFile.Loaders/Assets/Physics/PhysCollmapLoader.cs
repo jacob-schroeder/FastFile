@@ -27,7 +27,7 @@ public sealed class PhysCollmapLoader
         XPointerReference pointer,
         FastFileLoadContext context)
     {
-        if (ResolveAliasCellOffset(pointer, context, PhysCollmapAsset.SerializedSize, "PhysCollmap"))
+        if (ResolveAliasCellOffset<PhysCollmapAsset>(pointer, context, PhysCollmapAsset.SerializedSize, "PhysCollmap"))
             return null;
 
         if (pointer.Type == PointerType.Null)
@@ -35,7 +35,7 @@ public sealed class PhysCollmapLoader
 
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, PhysCollmapAsset.SerializedSize, "PhysCollmap");
+            context.PointerReader.ValidateOffsetPointerRange<PhysCollmapAsset>(pointer, PhysCollmapAsset.SerializedSize, "PhysCollmap");
             return null;
         }
 
@@ -132,7 +132,7 @@ public sealed class PhysCollmapLoader
         if (pointer.Type == PointerType.Null)
             return [];
 
-        XBlockAddress address = PatchCurrentPointerCell(pointer, alignment: 4, checked(count * PhysGeomInfo.SerializedSize), "PhysGeomInfo[]", context);
+        XBlockAddress address = PatchCurrentPointerCell<PhysGeomInfo[]>(pointer, alignment: 4, checked(count * PhysGeomInfo.SerializedSize), "PhysGeomInfo[]", context);
         if (pointer.Type == PointerType.Offset || count == 0)
             return [];
 
@@ -185,7 +185,7 @@ public sealed class PhysCollmapLoader
         if (pointer.Type == PointerType.Null)
             return null;
 
-        XBlockAddress address = PatchCurrentPointerCell(pointer, alignment: 4, BrushWrapper.SerializedSize, "BrushWrapper", context);
+        XBlockAddress address = PatchCurrentPointerCell<BrushWrapper>(pointer, alignment: 4, BrushWrapper.SerializedSize, "BrushWrapper", context);
         if (pointer.Type == PointerType.Offset)
             return null;
 
@@ -260,7 +260,7 @@ public sealed class PhysCollmapLoader
         if (pointer.Type == PointerType.Null)
             return [];
 
-        XBlockAddress address = PatchCurrentPointerCell(pointer, alignment: 4, checked(count * CBrushSide.SerializedSize), "CBrushSide[]", context);
+        XBlockAddress address = PatchCurrentPointerCell<CBrushSide[]>(pointer, alignment: 4, checked(count * CBrushSide.SerializedSize), "CBrushSide[]", context);
         if (pointer.Type == PointerType.Offset || count == 0)
             return [];
 
@@ -296,7 +296,7 @@ public sealed class PhysCollmapLoader
         if (pointer.Type == PointerType.Null)
             return [];
 
-        XBlockAddress address = PatchCurrentPointerCell(pointer, alignment: 4, checked(count * CPlane.SerializedSize), "CPlane[]", context);
+        XBlockAddress address = PatchCurrentPointerCell<CPlane[]>(pointer, alignment: 4, checked(count * CPlane.SerializedSize), "CPlane[]", context);
         if (pointer.Type == PointerType.Offset || count == 0)
             return [];
 
@@ -322,7 +322,7 @@ public sealed class PhysCollmapLoader
         if (pointer.Type == PointerType.Null)
             return null;
 
-        XBlockAddress address = PatchCurrentPointerCell(pointer, alignment: 4, CPlane.SerializedSize, "CPlane", context);
+        XBlockAddress address = PatchCurrentPointerCell<CPlane>(pointer, alignment: 4, CPlane.SerializedSize, "CPlane", context);
         if (pointer.Type == PointerType.Offset)
             return null;
 
@@ -359,14 +359,14 @@ public sealed class PhysCollmapLoader
         if (pointer.Type == PointerType.Null)
             return [];
 
-        PatchCurrentPointerCell(pointer, alignment: 1, count, "byte[]", context);
+        PatchCurrentPointerCell<byte[]>(pointer, alignment: 1, count, "byte[]", context);
         if (pointer.Type == PointerType.Offset || count == 0)
             return [];
 
         return context.Blocks.Load(cursor, count);
     }
 
-    private static XBlockAddress PatchCurrentPointerCell(
+    private static XBlockAddress PatchCurrentPointerCell<T>(
         XPointerReference pointer,
         int alignment,
         int byteCount,
@@ -375,7 +375,7 @@ public sealed class PhysCollmapLoader
     {
         if (pointer.Type == PointerType.Offset)
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, byteCount, targetName);
+            context.PointerReader.ValidateOffsetPointerRange<T>(pointer, byteCount, targetName);
             return pointer.PackedAddress ?? throw new InvalidDataException($"Offset pointer 0x{pointer.Raw:X8} has no packed address for {targetName}.");
         }
 
@@ -385,7 +385,7 @@ public sealed class PhysCollmapLoader
         return context.PointerReader.PatchInlinePointerCell(pointer, alignment);
     }
 
-    private static bool ResolveAliasCellOffset(
+    private static bool ResolveAliasCellOffset<T>(
         XPointerReference pointer,
         FastFileLoadContext context,
         int targetByteCount,
@@ -403,7 +403,7 @@ public sealed class PhysCollmapLoader
             if (XPointerCodec.GetType(aliasedRaw) != PointerType.Offset)
                 throw new InvalidDataException($"Alias-cell pointer 0x{pointer.Raw:X8} resolved to unresolved sentinel 0x{aliasedRaw:X8} for {targetName}.");
 
-            context.PointerReader.ValidateOffsetPointerRange(
+            context.PointerReader.ValidateOffsetPointerRange<T>(
                 XPointerReference.FromRaw(aliasedRaw, XPointerResolutionMode.Direct, pointer.PackedAddress),
                 targetByteCount,
                 targetName);

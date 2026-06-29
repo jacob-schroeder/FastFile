@@ -44,7 +44,7 @@ public sealed class MaterialPassAsset
     public byte CustomSamplerFlags { get; init; }
     public byte PrecompiledIndex { get; init; }
     public XPointer<MaterialShaderArgumentAsset[]> ArgsPointer { get; init; }
-    public byte[]? VertexDeclBytes { get; set; }
+    public MaterialVertexDeclarationAsset? VertexDeclaration { get; set; }
     public MaterialShaderAsset? VertexShader { get; set; }
     public MaterialShaderAsset? PixelShader { get; set; }
     public IReadOnlyList<MaterialShaderArgumentAsset> Args { get; set; } = [];
@@ -73,8 +73,20 @@ public sealed record MaterialShaderArgumentAsset(
     ushort Type,
     ushort Dest,
     int ArgumentRaw,
-    byte[]? LiteralFloat4Bytes);
+    MaterialShaderLiteralConstant? LiteralConstant);
 
-public sealed class MaterialVertexDeclarationAsset;
+public readonly record struct MaterialShaderLiteralConstant(float X, float Y, float Z, float W);
+
+public sealed class MaterialVertexDeclarationAsset
+{
+    public const int SerializedSize = 0x1c;
+    public const int RoutingCount = 13;
+
+    public byte StreamCount { get; init; }
+    public byte HasOptionalSource { get; init; }
+    public IReadOnlyList<MaterialVertexStreamRouting> Routing { get; init; } = [];
+}
+
+public readonly record struct MaterialVertexStreamRouting(byte Source, byte Dest);
 
 public sealed class MaterialShaderBytecode;
