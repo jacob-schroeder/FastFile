@@ -7,6 +7,7 @@ namespace FastFile.Loaders.DbFileLoad;
 public sealed class XBlockReader
 {
     private const ushort ZoneBlockTerminator = 1;
+    private const int FullBlockSize = 0x10000;
 
     public byte[] ReadZone(FastFileCursor cursor, uint fileSize, LoadDiagnostics diagnostics)
     {
@@ -26,23 +27,17 @@ public sealed class XBlockReader
                 break;
             }
 
+            int compressedSize = blockSize == 0 ? FullBlockSize : blockSize;
+            byte[] compressed = cursor.ReadBytes(compressedSize);
+
             if (blockSize == 0)
             {
-                diagnostics.Warn($"Encountered invalid compressed block size 0 at 0x{cursor.Offset - 2:X}.");
-                cursor.Skip(sizeof(ushort));
+                output.Write(compressed);
                 continue;
             }
 
-            int compressedSize = blockSize - sizeof(uint);
-            byte[] compressed = cursor.ReadBytes(compressedSize);
-            uint expectedAdler32 = cursor.ReadUInt32();
-
             byte[] decompressed = Deflate.Decompress(compressed);
             output.Write(decompressed);
-
-            uint actualAdler32 = Adler32.HashToUInt32(decompressed);
-            if (actualAdler32 != expectedAdler32)
-                diagnostics.Warn($"Checksum mismatch at compressed block ending 0x{cursor.Offset:X}. Expected {expectedAdler32:X8}, got {actualAdler32:X8}.");
         }
 
         return output.ToArray();
