@@ -1,9 +1,11 @@
 using FastFile.Loaders.Assets.ComWorld;
+using FastFile.Loaders.Assets.ColMap;
 using FastFile.Loaders.Assets.Material;
 using FastFile.Loaders.Assets.Menu;
 using FastFile.Loaders.Assets.Font;
 using FastFile.Loaders.Assets.Fx;
 using FastFile.Loaders.Assets.FxMap;
+using FastFile.Loaders.Assets.GameMap;
 using FastFile.Loaders.Assets.GfxMap;
 using FastFile.Loaders.Assets.ImpactFx;
 using FastFile.Loaders.Assets.LightDef;
@@ -47,8 +49,10 @@ public sealed class XAssetDispatcher
     private readonly VehicleDefLoader _vehicleLoader = new();
     private readonly LightDefLoader _lightDefLoader = new();
     private readonly ComWorldLoader _comWorldLoader = new();
+    private readonly ClipMapLoader _clipMapLoader = new();
     private readonly FxWorldLoader _fxWorldLoader = new();
     private readonly GfxWorldLoader _gfxWorldLoader = new();
+    private readonly GameWorldMpLoader _gameWorldMpLoader = new();
 
     public IReadOnlyList<XAssetLoadResult> LoadSupportedPrefix(
         FastFileCursor cursor,
@@ -94,9 +98,11 @@ public sealed class XAssetDispatcher
                 asset.Type != XAssetType.Font &&
                 asset.Type != XAssetType.Vehicle &&
                 asset.Type != XAssetType.LightDef &&
+                asset.Type != XAssetType.ColMapMp &&
                 asset.Type != XAssetType.ComMap &&
                 asset.Type != XAssetType.FxMap &&
                 asset.Type != XAssetType.GfxMap &&
+                asset.Type != XAssetType.GameMapMp &&
                 asset.Type != XAssetType.Weapon)
             {
                 context.Diagnostics.Trace(
@@ -188,6 +194,10 @@ public sealed class XAssetDispatcher
                 {
                     loadedAsset = _comWorldLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
                 }
+                else if (asset.Type == XAssetType.ColMapMp)
+                {
+                    loadedAsset = _clipMapLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
                 else if (asset.Type == XAssetType.FxMap)
                 {
                     loadedAsset = _fxWorldLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
@@ -195,6 +205,10 @@ public sealed class XAssetDispatcher
                 else if (asset.Type == XAssetType.GfxMap)
                 {
                     loadedAsset = _gfxWorldLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.GameMapMp)
+                {
+                    loadedAsset = _gameWorldMpLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
                 }
                 else
                 {

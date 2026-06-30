@@ -300,6 +300,18 @@ public sealed class XFilePointerReader
         ValidateOffsetPointer(pointer, typeof(T), byteCount, targetName);
     }
 
+    public void ValidateOffsetPointerRange(
+        XPointerReference pointer,
+        Type targetType,
+        int byteCount,
+        string? targetName = null)
+    {
+        if (byteCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(byteCount));
+
+        ValidateOffsetPointer(pointer, targetType, byteCount, targetName);
+    }
+
     public int ReadAliasCellRaw(XPointerReference pointer)
     {
         if (pointer.Type != PointerType.Offset || pointer.ResolutionMode != XPointerResolutionMode.AliasCell)

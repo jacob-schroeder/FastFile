@@ -1264,7 +1264,7 @@ public sealed class GfxWorldLoader
         IReadOnlyList<GfxSurface> surfaces = ReadSurfaces(cursor, header.SurfacesPointer.Untyped, surfaceCount, context);
         IReadOnlyList<GfxCullGroup> cullGroups = ReadCullGroups(cursor, header.CullGroupsPointer.Untyped, surfaceCount, context);
         IReadOnlyList<GfxStaticModelDrawInst> smodelDrawInsts = ReadStaticModelDrawInsts(cursor, header.SModelDrawInstsPointer.Untyped, smodelCount, context);
-        IReadOnlyList<GfxMapDrawSurf> surfaceMaterials = ReadDrawSurfArray(cursor, header.SurfaceMaterialsPointer.Untyped, surfaceCount, context, "GfxWorld.dpvs.surfaceMaterials");
+        IReadOnlyList<GfxMapDrawSurf> surfaceMaterials = ReadPushed(context, XFileBlockType.RUNTIME, () => ReadDrawSurfArray(cursor, header.SurfaceMaterialsPointer.Untyped, surfaceCount, context, "GfxWorld.dpvs.surfaceMaterials"));
         IReadOnlyList<uint> surfaceCastsSunShadow = ReadPushed(context, XFileBlockType.RUNTIME, () => ReadUInt32Array(cursor, header.SurfaceCastsSunShadowPointer.Untyped, surfaceVisCount, 4, context, "GfxWorld.dpvs.surfaceCastsSunShadow"));
 
         return new GfxWorldDpvsStatic
