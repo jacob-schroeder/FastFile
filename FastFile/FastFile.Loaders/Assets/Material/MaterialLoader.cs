@@ -467,7 +467,7 @@ public sealed class MaterialLoader
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
             context.PointerReader.ValidateOffsetPointerRange<GfxImageAsset>(pointer, GfxImageSize, "GfxImage");
-            return null;
+            return context.ResolveGfxImage(pointer);
         }
 
         int sourceOffset = cursor.Offset;
@@ -543,7 +543,7 @@ public sealed class MaterialLoader
                     textureSemantic,
                     context);
 
-                return new GfxImageAsset
+                var image = new GfxImageAsset
                 {
                     Offset = sourceOffset,
                     RuntimeAddress = rootAddress,
@@ -577,6 +577,8 @@ public sealed class MaterialLoader
                     NamePointer = namePointer,
                     Name = name
                 };
+                context.RegisterGfxImage(image, pointer.CellAddress);
+                return image;
             }
             finally
             {

@@ -15,7 +15,7 @@ public sealed class GfxImageLoader
         FastFileLoadContext context)
     {
         if (ResolveAliasCellOffset<GfxImageAsset>(pointer, context, GfxImageAsset.SerializedSize, "GfxImage"))
-            return null;
+            return context.ResolveGfxImage(pointer);
 
         if (pointer.Type == PointerType.Null)
             return null;
@@ -23,7 +23,7 @@ public sealed class GfxImageLoader
         if (pointer.Type == PointerType.Offset)
         {
             context.PointerReader.ValidateOffsetPointerRange<GfxImageAsset>(pointer, GfxImageAsset.SerializedSize, "GfxImage");
-            return null;
+            return context.ResolveGfxImage(pointer);
         }
 
         if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
@@ -109,7 +109,7 @@ public sealed class GfxImageLoader
                 $"pad1B=0x{pad1B:X2} streamData={FormatStreamData(streamData)} " +
                 $"payload=0x{payloadPointer.Raw:X8} payloadBytes=0x{payloadBytes.Length:X} name={name ?? "<null>"} blocks={context.Blocks.DescribePositions()}");
 
-            return new GfxImageAsset
+            var image = new GfxImageAsset
             {
                 Offset = sourceOffset,
                 RuntimeAddress = rootAddress,
@@ -143,6 +143,8 @@ public sealed class GfxImageLoader
                 NamePointer = namePointer,
                 Name = name
             };
+            context.RegisterGfxImage(image, pointer.CellAddress);
+            return image;
         }
         finally
         {

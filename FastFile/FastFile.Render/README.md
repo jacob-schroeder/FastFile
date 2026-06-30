@@ -11,8 +11,12 @@ dotnet run --project FastFile/FastFile.Render/FastFile.Render.csproj -- \
 Outputs:
 
 - `<map>.gfx.glb`: `GfxMap` render-world mesh, grouped by material pointer/name.
+- `<map>.surface-debug.json`: source `GfxSurface` rows keyed to the GLB
+  material primitive and triangle span for viewer picking.
 - `<map>.collision-debug.glb`: `ColMapMp` collision triangles plus static-model
   placement markers and trigger debug boxes.
+- `viewer.html`: local Three.js viewer. Click visible `GfxMap` geometry to copy
+  the source surface id and material/UV debug payload; double-click to focus.
 - `<map>.static-xmodels.csv`: `ColMapMp` static model placement rows.
 - `<map>.mapents.txt`: raw `MapEnts` entity string.
 - `<map>.stages.csv`: `MapEnts` stage rows.

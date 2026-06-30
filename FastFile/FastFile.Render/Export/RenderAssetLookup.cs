@@ -17,10 +17,19 @@ internal sealed class RenderAssetLookup
     private readonly Dictionary<XBlockAddress, MaterialAsset> _materialsByAddress = new();
     private readonly Dictionary<XBlockAddress, GfxImageAsset> _imagesByAddress = new();
     private readonly Dictionary<XBlockAddress, MaterialTechniqueSetAsset> _techsetsByAddress = new();
+    private readonly Dictionary<XBlockAddress, MaterialVertexDeclarationAsset> _vertexDeclsByAddress = new();
 
-    public RenderAssetLookup(BlockStreamState blocks, FastFileLoad load)
+    public RenderAssetLookup(
+        BlockStreamState blocks,
+        FastFileLoad load,
+        IReadOnlyDictionary<XBlockAddress, GfxImageAsset>? runtimeImages = null)
     {
         _blocks = blocks;
+        if (runtimeImages is not null)
+        {
+            foreach ((XBlockAddress address, GfxImageAsset image) in runtimeImages)
+                _imagesByAddress[address] = image;
+        }
 
         Dictionary<int, XAssetEntry> entriesByIndex = load.XAssetList.Assets.ToDictionary(x => x.Index);
         foreach (XAssetLoadResult result in load.LoadedAssets)
@@ -40,6 +49,12 @@ internal sealed class RenderAssetLookup
                 if (entriesByIndex.TryGetValue(result.Index, out XAssetEntry? entry) && entry is not null)
                     AddMaterial(material, entry.AssetPointerCellAddress);
                 CollectMaterialImages(material);
+            }
+            else if (asset is GfxImageAsset image)
+            {
+                AddImage(image);
+                if (entriesByIndex.TryGetValue(result.Index, out XAssetEntry? entry) && entry is not null)
+                    AddImage(image, entry.AssetPointerCellAddress);
             }
             else if (asset is LightDefAsset lightDef)
             {
@@ -86,6 +101,19 @@ internal sealed class RenderAssetLookup
         return ResolveAddress(pointer.Untyped) is { } address && _techsetsByAddress.TryGetValue(address, out MaterialTechniqueSetAsset? techset)
             ? techset
             : null;
+    }
+
+    public MaterialVertexDeclarationAsset? ResolveVertexDeclaration(XPointer<MaterialVertexDeclarationAsset> pointer)
+    {
+        if (ResolveAddress(pointer.Untyped) is not { } address)
+            return null;
+
+        if (_vertexDeclsByAddress.TryGetValue(address, out MaterialVertexDeclarationAsset? declaration))
+            return declaration;
+
+        declaration = ReadVertexDeclaration(address);
+        _vertexDeclsByAddress[address] = declaration;
+        return declaration;
     }
 
     private void AddMaterial(MaterialAsset? material)
@@ -139,6 +167,27 @@ internal sealed class RenderAssetLookup
             AddImage(texture.Image, texture.DataPointer.CellAddress);
             AddImage(texture.Water?.Image, texture.Water?.ImagePointer.CellAddress);
         }
+    }
+
+    private MaterialVertexDeclarationAsset ReadVertexDeclaration(XBlockAddress address)
+    {
+        byte streamCount = _blocks.ReadByte(address);
+        byte hasOptionalSource = _blocks.ReadByte(address.Add(1));
+        var routing = new MaterialVertexStreamRouting[MaterialVertexDeclarationAsset.RoutingCount];
+        for (int i = 0; i < routing.Length; i++)
+        {
+            XBlockAddress routeAddress = address.Add(2 + i * 2);
+            routing[i] = new MaterialVertexStreamRouting(
+                _blocks.ReadByte(routeAddress),
+                _blocks.ReadByte(routeAddress.Add(1)));
+        }
+
+        return new MaterialVertexDeclarationAsset
+        {
+            StreamCount = streamCount,
+            HasOptionalSource = hasOptionalSource,
+            Routing = routing
+        };
     }
 
     private void CollectGfxWorldMaterials(GfxWorldAsset gfxWorld)

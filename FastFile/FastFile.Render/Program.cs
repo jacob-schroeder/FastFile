@@ -28,7 +28,7 @@ internal static class Program
                 .SingleOrDefault();
 
             Directory.CreateDirectory(options.OutputDirectory);
-            var assetLookup = new RenderAssetLookup(context.Blocks, session);
+            var assetLookup = new RenderAssetLookup(context.Blocks, session, context.GfxImagesByAddress);
             var imageStreams = new GfxImageStreamResolver(session.Header, options.InputPath);
             var exporter = new MapRenderExporter(options, assetLookup, imageStreams);
             MapRenderSummary summary = exporter.Export(options.InputPath, gfxMap, colMap);
@@ -133,7 +133,9 @@ internal static class RenderOptionsParser
         Console.WriteLine();
         Console.WriteLine("Outputs:");
         Console.WriteLine("  <map>.gfx.glb                 GfxMap render-world mesh");
+        Console.WriteLine("  <map>.surface-debug.json      GfxSurface ids keyed to GLB material triangle spans");
         Console.WriteLine("  <map>.collision-debug.glb     ColMap collision mesh and debug boxes");
+        Console.WriteLine("  viewer.html                   Local viewer with click-to-copy surface picking");
         Console.WriteLine("  <map>.static-xmodels.csv      ColMap static xmodel placement table");
         Console.WriteLine("  <map>.mapents.txt             MapEnts entity string");
         Console.WriteLine("  <map>.stages.csv              MapEnts stage table");
