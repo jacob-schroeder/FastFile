@@ -57,6 +57,8 @@ internal static class Program
         Console.WriteLine($"Materials/images: materials={summary.RuntimeMaterialCount} images={summary.RuntimeImageCount} decodedTextures={summary.DecodedTextureCount} skippedTextures={summary.TextureDecodeSkippedCount}");
         if (!string.IsNullOrWhiteSpace(summary.TexCoordStatus))
             Console.WriteLine($"Texcoords: {summary.TexCoordStatus}");
+        if (!string.IsNullOrWhiteSpace(summary.SurfaceIndexStatus))
+            Console.WriteLine($"Surface indices: {summary.SurfaceIndexStatus}");
         if (!string.IsNullOrWhiteSpace(summary.TextureOutputDirectory))
             Console.WriteLine($"Texture PNGs: {summary.TextureOutputDirectory}");
         Console.WriteLine($"ColMap: verts={summary.CollisionVertexCount} triIndices={summary.CollisionIndexCount} staticModels={summary.StaticModelCount}");

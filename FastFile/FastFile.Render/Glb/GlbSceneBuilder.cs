@@ -29,7 +29,7 @@ internal sealed class GlbSceneBuilder
         _generator = generator;
     }
 
-    public int AddMaterial(string name, Rgba color, int? baseColorTexture = null)
+    public int AddMaterial(string name, Rgba color, int? baseColorTexture = null, bool useTextureAlpha = false)
     {
         int index = _materials.Count;
         var pbr = new Dictionary<string, object>
@@ -45,7 +45,7 @@ internal sealed class GlbSceneBuilder
         {
             ["name"] = name,
             ["pbrMetallicRoughness"] = pbr,
-            ["alphaMode"] = color.A < 1.0f ? "BLEND" : "OPAQUE",
+            ["alphaMode"] = color.A < 1.0f || useTextureAlpha ? "BLEND" : "OPAQUE",
             ["doubleSided"] = true
         });
         return index;

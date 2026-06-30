@@ -96,8 +96,20 @@ internal static class GfxImageDecoder
             width,
             height,
             FormatName(image.Format),
+            HasTransparency(rgba),
             PngWriter.WriteRgba(width, height, rgba));
         return true;
+    }
+
+    private static bool HasTransparency(byte[] rgba)
+    {
+        for (int index = 3; index < rgba.Length; index += 4)
+        {
+            if (rgba[index] < 255)
+                return true;
+        }
+
+        return false;
     }
 
     private static int GetTopMipSize(int width, int height, ImagePixelFormat format)
@@ -519,6 +531,7 @@ internal readonly record struct DecodedGfxImage(
     int Width,
     int Height,
     string Format,
+    bool HasTransparency,
     byte[] PngBytes);
 
 internal static class PngWriter

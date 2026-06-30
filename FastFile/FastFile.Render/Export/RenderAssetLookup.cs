@@ -2,6 +2,7 @@ using FastFile.Models.Assets.GfxMap;
 using FastFile.Models.Assets.Image;
 using FastFile.Models.Assets.LightDef;
 using FastFile.Models.Assets.Material;
+using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Database.DbFileLoad;
 using FastFile.Models.Pointers;
 using FastFile.Models.Pointers.Enums;
@@ -15,6 +16,7 @@ internal sealed class RenderAssetLookup
     private readonly BlockStreamState _blocks;
     private readonly Dictionary<XBlockAddress, MaterialAsset> _materialsByAddress = new();
     private readonly Dictionary<XBlockAddress, GfxImageAsset> _imagesByAddress = new();
+    private readonly Dictionary<XBlockAddress, MaterialTechniqueSetAsset> _techsetsByAddress = new();
 
     public RenderAssetLookup(BlockStreamState blocks, FastFileLoad load)
     {
@@ -26,26 +28,35 @@ internal sealed class RenderAssetLookup
             if (result.Asset is not { } asset)
                 continue;
 
-            if (asset is MaterialAsset material)
+            if (asset is MaterialTechniqueSetAsset techset)
+            {
+                AddTechset(techset);
+                if (entriesByIndex.TryGetValue(result.Index, out XAssetEntry? entry) && entry is not null)
+                    AddTechset(techset, entry.AssetPointerCellAddress);
+            }
+            else if (asset is MaterialAsset material)
             {
                 AddMaterial(material);
                 if (entriesByIndex.TryGetValue(result.Index, out XAssetEntry? entry) && entry is not null)
                     AddMaterial(material, entry.AssetPointerCellAddress);
                 CollectMaterialImages(material);
             }
-            else if (asset is GfxWorldAsset gfxWorld)
-            {
-                CollectGfxWorldImages(gfxWorld);
-            }
             else if (asset is LightDefAsset lightDef)
             {
                 AddImage(lightDef.Image);
             }
         }
+
+        foreach (GfxWorldAsset gfxWorld in load.LoadedAssets.Select(x => x.Asset).OfType<GfxWorldAsset>())
+        {
+            CollectGfxWorldMaterials(gfxWorld);
+            CollectGfxWorldImages(gfxWorld);
+        }
     }
 
     public int MaterialCount => _materialsByAddress.Count;
     public int ImageCount => _imagesByAddress.Count;
+    public int TechsetCount => _techsetsByAddress.Count;
 
     public MaterialAsset? ResolveMaterial(XPointer<MaterialAsset> pointer)
     {
@@ -67,6 +78,16 @@ internal sealed class RenderAssetLookup
             : null;
     }
 
+    public MaterialTechniqueSetAsset? ResolveTechniqueSet(XPointer<MaterialTechniqueSetAsset> pointer)
+    {
+        if (pointer.PackedAddress is { } cell && _techsetsByAddress.TryGetValue(cell, out MaterialTechniqueSetAsset? cellTechset))
+            return cellTechset;
+
+        return ResolveAddress(pointer.Untyped) is { } address && _techsetsByAddress.TryGetValue(address, out MaterialTechniqueSetAsset? techset)
+            ? techset
+            : null;
+    }
+
     private void AddMaterial(MaterialAsset? material)
     {
         if (material?.RuntimeAddress is { } address)
@@ -77,6 +98,12 @@ internal sealed class RenderAssetLookup
     {
         if (material is not null)
             _materialsByAddress.TryAdd(address, material);
+    }
+
+    private void AddMaterial(MaterialAsset? material, XBlockAddress? address)
+    {
+        if (address is { } cellAddress)
+            AddMaterial(material, cellAddress);
     }
 
     private void AddImage(GfxImageAsset? image)
@@ -92,12 +119,36 @@ internal sealed class RenderAssetLookup
             _imagesByAddress.TryAdd(address, image);
     }
 
+    private void AddTechset(MaterialTechniqueSetAsset? techset)
+    {
+        if (techset?.RuntimeAddress is { } address)
+            _techsetsByAddress.TryAdd(address, techset);
+    }
+
+    private void AddTechset(MaterialTechniqueSetAsset? techset, XBlockAddress? pointerCellAddress)
+    {
+        AddTechset(techset);
+        if (techset is not null && pointerCellAddress is { } address)
+            _techsetsByAddress.TryAdd(address, techset);
+    }
+
     private void CollectMaterialImages(MaterialAsset material)
     {
         foreach (MaterialTextureDef texture in material.Textures)
         {
             AddImage(texture.Image, texture.DataPointer.CellAddress);
             AddImage(texture.Water?.Image, texture.Water?.ImagePointer.CellAddress);
+        }
+    }
+
+    private void CollectGfxWorldMaterials(GfxWorldAsset gfxWorld)
+    {
+        foreach (MaterialMemory row in gfxWorld.MaterialMemory)
+        {
+            MaterialAsset? material = row.Material ?? ResolveMaterial(row.MaterialPointer);
+            AddMaterial(material, row.MaterialPointer.CellAddress);
+            if (material is not null)
+                CollectMaterialImages(material);
         }
     }
 

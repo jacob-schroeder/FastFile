@@ -463,8 +463,8 @@ public sealed class SrfTriangles
     public const int SerializedSize = 0x14;
 
     public int VertexLayerData { get; init; }
-    public int FirstVertex { get; init; }
-    public uint Unknown08 { get; init; }
+    public int BaseVertex { get; init; }
+    public uint MinVertexIndex { get; init; }
     public ushort VertexCount { get; init; }
     public ushort TriCount { get; init; }
     public int BaseIndex { get; init; }

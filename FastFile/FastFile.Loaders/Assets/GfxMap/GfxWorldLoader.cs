@@ -1413,8 +1413,8 @@ public sealed class GfxWorldLoader
         return new SrfTriangles
         {
             VertexLayerData = cursor.ReadInt32(),
-            FirstVertex = cursor.ReadInt32(),
-            Unknown08 = cursor.ReadUInt32(),
+            BaseVertex = cursor.ReadInt32(),
+            MinVertexIndex = cursor.ReadUInt32(),
             VertexCount = cursor.ReadUInt16(),
             TriCount = cursor.ReadUInt16(),
             BaseIndex = cursor.ReadInt32()
