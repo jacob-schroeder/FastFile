@@ -1,7 +1,10 @@
+using FastFile.Loaders.Assets.ComWorld;
 using FastFile.Loaders.Assets.Material;
 using FastFile.Loaders.Assets.Menu;
 using FastFile.Loaders.Assets.Font;
 using FastFile.Loaders.Assets.Fx;
+using FastFile.Loaders.Assets.FxMap;
+using FastFile.Loaders.Assets.GfxMap;
 using FastFile.Loaders.Assets.ImpactFx;
 using FastFile.Loaders.Assets.LightDef;
 using FastFile.Loaders.Assets.Localize;
@@ -43,6 +46,9 @@ public sealed class XAssetDispatcher
     private readonly PhysCollmapLoader _physCollmapLoader = new();
     private readonly VehicleDefLoader _vehicleLoader = new();
     private readonly LightDefLoader _lightDefLoader = new();
+    private readonly ComWorldLoader _comWorldLoader = new();
+    private readonly FxWorldLoader _fxWorldLoader = new();
+    private readonly GfxWorldLoader _gfxWorldLoader = new();
 
     public IReadOnlyList<XAssetLoadResult> LoadSupportedPrefix(
         FastFileCursor cursor,
@@ -88,6 +94,9 @@ public sealed class XAssetDispatcher
                 asset.Type != XAssetType.Font &&
                 asset.Type != XAssetType.Vehicle &&
                 asset.Type != XAssetType.LightDef &&
+                asset.Type != XAssetType.ComMap &&
+                asset.Type != XAssetType.FxMap &&
+                asset.Type != XAssetType.GfxMap &&
                 asset.Type != XAssetType.Weapon)
             {
                 context.Diagnostics.Trace(
@@ -174,6 +183,18 @@ public sealed class XAssetDispatcher
                 else if (asset.Type == XAssetType.LightDef)
                 {
                     loadedAsset = _lightDefLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.ComMap)
+                {
+                    loadedAsset = _comWorldLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.FxMap)
+                {
+                    loadedAsset = _fxWorldLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
+                }
+                else if (asset.Type == XAssetType.GfxMap)
+                {
+                    loadedAsset = _gfxWorldLoader.LoadFromAssetPointer(cursor, asset.AssetPointer.Untyped, context);
                 }
                 else
                 {

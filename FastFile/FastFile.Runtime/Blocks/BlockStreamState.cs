@@ -109,8 +109,20 @@ public sealed class BlockStreamState
         string? memberName = null,
         [CallerMemberName] string callerName = "")
     {
-        int sourceStart = cursor.Offset;
+        if (byteCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(byteCount));
+
         XBlockAddress destinationAddress = CurrentAddress;
+        if (CurrentBlock is XFileBlockType.RUNTIME or XFileBlockType.VIRTUAL)
+        {
+            // PS3 Load_Stream skips source copying for RUNTIME/VIRTUAL blocks.
+            // RUNTIME calls the zero-fill helper before advancing; VIRTUAL only advances.
+            byte[] zeros = new byte[byteCount];
+            Write(zeros);
+            return zeros;
+        }
+
+        int sourceStart = cursor.Offset;
         byte[] bytes = cursor.ReadBytes(byteCount);
         Write(bytes);
         SourceCoverage?.RecordLoadStream(

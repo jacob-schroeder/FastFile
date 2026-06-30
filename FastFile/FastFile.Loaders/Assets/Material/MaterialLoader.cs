@@ -395,7 +395,7 @@ public sealed class MaterialLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * TextureDefSize), "MaterialTextureDef[]");
+            context.PointerReader.ValidateOffsetPointerRange<MaterialTextureDef[]>(pointer, checked(count * TextureDefSize), "MaterialTextureDef[]");
             return [];
         }
 
@@ -795,7 +795,7 @@ public sealed class MaterialLoader
 
         if (!context.PointerReader.HasInlinePayload(pointer))
         {
-            context.PointerReader.ValidateOffsetPointerRange(pointer, checked(count * GfxStateBitsSize), "GfxStateBits[]");
+            context.PointerReader.ValidateOffsetPointerRange<GfxStateBits[]>(pointer, checked(count * GfxStateBitsSize), "GfxStateBits[]");
             return [];
         }
 

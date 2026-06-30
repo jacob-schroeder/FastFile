@@ -42,6 +42,7 @@ class Program
         catch (Exception ex)
         {
             string debugPath = WriteAssetReadDebug(path, context, ex);
+            WriteDecodedZoneDump(path, context);
             WritePointerValidationReport(path, context);
             WriteSourceCoverageReport(path, context, assertComplete: false);
             TryDumpPartialBlocks(path, context);
@@ -191,6 +192,20 @@ class Program
         foreach (string line in context.Diagnostics.TraceLines)
             writer.WriteLine(line);
 
+        return outputPath;
+    }
+
+    private static string? WriteDecodedZoneDump(
+        string path,
+        FastFileLoadContext context)
+    {
+        if (context.DecodedZoneBytes is null)
+            return null;
+
+        string directory = Path.Combine(scratchRoot, "debug-output");
+        Directory.CreateDirectory(directory);
+        string outputPath = Path.Combine(directory, $"{Path.GetFileNameWithoutExtension(path)}.xfile-zone");
+        File.WriteAllBytes(outputPath, context.DecodedZoneBytes);
         return outputPath;
     }
 

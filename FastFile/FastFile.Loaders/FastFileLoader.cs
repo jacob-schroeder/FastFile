@@ -23,6 +23,7 @@ public sealed class FastFileLoader
 
         DbHeader header = _dbHeaderReader.Read(cursor, activeContext);
         byte[] zone = _xBlockReader.ReadZone(cursor, header.FileSize, activeContext.Diagnostics);
+        activeContext.DecodedZoneBytes = zone;
         var zoneCursor = new FastFileCursor(zone);
         activeContext.SourceCoverage.BeginZone(zone.Length);
 

@@ -18,6 +18,7 @@ public sealed class FastFileLoadContext
 
     public uint SelectedLanguageMask { get; set; }
     public DbHeader? Header { get; set; }
+    public byte[]? DecodedZoneBytes { get; set; }
 
     public GfxImageStreamTable ImageStreams { get; } = new();
     public StreamFileRef CurrentFastFile { get; set; } = new(0, "<current fastfile>", StreamFileKind.CurrentFastFile);
