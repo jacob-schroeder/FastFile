@@ -133,6 +133,7 @@ public sealed class MaterialLoader
                 return new MaterialAssetModel
                 {
                     Offset = offset,
+                    RuntimeAddress = rootAddress,
                     Info = new MaterialInfo
                     {
                         NamePointer = namePointer,
@@ -501,6 +502,8 @@ public sealed class MaterialLoader
             byte pad27 = rootCursor.ReadByte();
             XPointerReference payloadPointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
             byte[] streamData = rootCursor.ReadBytes(0x20);
+            IReadOnlyList<GfxImageStreamData> parsedStreamData = ReadGfxImageStreamData(streamData);
+            int? streamImageIndex = context.AllocateGfxImageStreamIndex(HasGfxImageStreamingData(parsedStreamData));
             XPointer<string> namePointer = ReadXStringPointer(rootCursor, context);
 
             if (rootCursor.Offset != GfxImageSize)
@@ -527,7 +530,7 @@ public sealed class MaterialLoader
             try
             {
                 string? name = ReadXString(cursor, namePointer, context);
-                int payloadByteCount = ReadGfxImagePayload(
+                byte[] payloadBytes = ReadGfxImagePayload(
                     cursor,
                     payloadPointer,
                     formatByte,
@@ -543,6 +546,7 @@ public sealed class MaterialLoader
                 return new GfxImageAsset
                 {
                     Offset = sourceOffset,
+                    RuntimeAddress = rootAddress,
                     Format = formatByte,
                     LevelCount = levelCount,
                     DimensionCount = dimensionCount,
@@ -566,8 +570,10 @@ public sealed class MaterialLoader
                     BaseLevelCount = baseLevelCount,
                     Pad27 = pad27,
                     PayloadPointer = payloadPointer,
-                    StreamData = ReadGfxImageStreamData(streamData),
-                    PayloadByteCount = payloadByteCount,
+                    StreamData = parsedStreamData,
+                    StreamImageIndex = streamImageIndex,
+                    PayloadByteCount = payloadBytes.Length,
+                    PayloadBytes = payloadBytes,
                     NamePointer = namePointer,
                     Name = name
                 };
@@ -583,7 +589,7 @@ public sealed class MaterialLoader
         }
     }
 
-    private static int ReadGfxImagePayload(
+    private static byte[] ReadGfxImagePayload(
         FastFileCursor cursor,
         XPointerReference pointer,
         byte formatByte,
@@ -597,7 +603,7 @@ public sealed class MaterialLoader
         FastFileLoadContext context)
     {
         if (pointer.Type == PointerType.Null)
-            return 0;
+            return [];
 
         int byteCount = ComputeGfxImagePayloadByteCount(
             formatByte,
@@ -607,6 +613,15 @@ public sealed class MaterialLoader
             width,
             height,
             depth);
+
+        if (pointer.Type == PointerType.Offset)
+        {
+            context.PointerReader.ValidateOffsetPointerRange<byte[]>(pointer, byteCount, "GfxImage payload");
+            return [];
+        }
+
+        if (pointer.Type is not PointerType.Inline)
+            throw new NotSupportedException($"GfxImage payload pointer 0x{pointer.Raw:X8} uses unsupported source sentinel {pointer.Type}.");
 
         XFileBlockType payloadBlock = textureSemantic == 0x0b
             ? XFileBlockType.RUNTIME
@@ -621,16 +636,15 @@ public sealed class MaterialLoader
             context.Blocks.AlignCurrent(128);
             XBlockAddress payloadAddress = context.Blocks.CurrentAddress;
             context.Blocks.WriteInt32(cellAddress, XPointerCodec.Encode(payloadAddress));
-            context.Blocks.Load(cursor, byteCount);
+            byte[] payloadBytes = context.Blocks.Load(cursor, byteCount);
             context.Diagnostics.Trace(
                 $"        GfxImage payload block={payloadBlock} target={payloadAddress} bytes=0x{byteCount:X} blocks={context.Blocks.DescribePositions()}");
+            return payloadBytes;
         }
         finally
         {
             context.Blocks.Pop();
         }
-
-        return byteCount;
     }
 
     private static int ComputeGfxImagePayloadByteCount(
@@ -1006,6 +1020,11 @@ public sealed class MaterialLoader
         }
 
         return entries;
+    }
+
+    private static bool HasGfxImageStreamingData(IReadOnlyList<GfxImageStreamData> entries)
+    {
+        return entries.Any(entry => entry.HasStreamingData);
     }
 
     private static float ReadSingle(FastFileCursor cursor)

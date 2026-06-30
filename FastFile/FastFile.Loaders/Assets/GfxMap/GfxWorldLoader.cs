@@ -155,6 +155,7 @@ public sealed class GfxWorldLoader
         return new GfxWorldAsset
         {
             Offset = sourceOffset,
+            RuntimeAddress = rootAddress,
             NamePointer = root.NamePointer,
             Name = name,
             BaseNamePointer = root.BaseNamePointer,

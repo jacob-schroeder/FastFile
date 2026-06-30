@@ -10,6 +10,8 @@ namespace FastFile.Runtime;
 
 public sealed class FastFileLoadContext
 {
+    private int _nextGfxImageStreamIndex;
+
     public FastFileLoadContext()
     {
         Blocks.SourceCoverage = SourceCoverage;
@@ -29,4 +31,9 @@ public sealed class FastFileLoadContext
     public PointerResolutionTable Pointers { get; } = new();
     public AssetRegistry Assets { get; } = new();
     public LoadDiagnostics Diagnostics { get; } = new();
+
+    public int? AllocateGfxImageStreamIndex(bool hasStreamingData)
+    {
+        return hasStreamingData ? _nextGfxImageStreamIndex++ : null;
+    }
 }

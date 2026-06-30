@@ -33,7 +33,9 @@ public sealed class GfxImageAsset : BaseAsset
     public byte Pad27 { get; init; }
     public XPointerReference PayloadPointer { get; init; }
     public IReadOnlyList<GfxImageStreamData> StreamData { get; init; } = [];
+    public int? StreamImageIndex { get; init; }
     public int PayloadByteCount { get; init; }
+    public IReadOnlyList<byte> PayloadBytes { get; init; } = [];
     public XPointer<string> NamePointer { get; init; }
     public string? Name { get; init; }
 }
@@ -45,4 +47,8 @@ public sealed record GfxImageStreamData(
 {
     public const int SerializedSize = 0x08;
     public const int EntryCount = 4;
+
+    public int LevelMarker => (int)(LevelSizeAndOffset >> 26);
+    public int CumulativeByteCount => (int)(LevelSizeAndOffset & 0x03ffffff);
+    public bool HasStreamingData => Width != 0 || Height != 0 || LevelSizeAndOffset != 0;
 }

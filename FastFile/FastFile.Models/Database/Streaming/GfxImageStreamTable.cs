@@ -3,6 +3,7 @@ namespace FastFile.Models.Database.Streaming;
 public sealed class GfxImageStreamTable
 {
     public const int StreamPartsPerImage = 4;
+    public const int RuntimeStreamPartStride = 0xE00;
 
     private readonly Dictionary<int, GfxImageStreamRecord[]> _recordsByImage = new();
 
@@ -22,8 +23,11 @@ public sealed class GfxImageStreamTable
 
     public GfxImageStreamRecord GetByStreamIndex(ushort streamIndex)
     {
-        int imageIndex = streamIndex / StreamPartsPerImage;
-        int partIndex = streamIndex & 3;
+        int partIndex = streamIndex / RuntimeStreamPartStride;
+        int imageIndex = streamIndex - partIndex * RuntimeStreamPartStride;
+
+        if ((uint)partIndex >= StreamPartsPerImage)
+            throw new ArgumentOutOfRangeException(nameof(streamIndex), $"Runtime GfxImage stream index 0x{streamIndex:X} resolves to invalid part {partIndex}.");
 
         if (!_recordsByImage.TryGetValue(imageIndex, out GfxImageStreamRecord[]? records))
             throw new KeyNotFoundException($"No GfxImage stream records have been created for image index {imageIndex}.");

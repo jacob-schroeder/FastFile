@@ -67,18 +67,19 @@ public sealed class GfxImageLoader
             byte pad27 = rootCursor.ReadByte();
             XPointerReference payloadPointer = ReadRawCell(rootCursor, XPointerOffsetMode.Direct);
             IReadOnlyList<GfxImageStreamData> streamData = ReadStreamData(rootCursor);
+            int? streamImageIndex = context.AllocateGfxImageStreamIndex(HasStreamingData(streamData));
             XPointer<string> namePointer = context.PointerReader.ReadPointer<string>(rootCursor, XPointerResolutionMode.Direct);
 
             if (rootCursor.Offset != GfxImageAsset.SerializedSize)
                 throw new InvalidDataException($"GfxImage consumed 0x{rootCursor.Offset:X} bytes instead of 0x{GfxImageAsset.SerializedSize:X}.");
 
             string? name;
-            int payloadByteCount;
+            byte[] payloadBytes;
             context.Blocks.Push(XFileBlockType.LARGE);
             try
             {
                 name = context.PointerReader.LoadXString(cursor, namePointer);
-                payloadByteCount = ReadPayload(
+                payloadBytes = ReadPayload(
                     cursor,
                     payloadPointer,
                     format,
@@ -106,11 +107,12 @@ public sealed class GfxImageLoader
                 $"baseDims={baseWidth}x{baseHeight}x{baseDepth} baseLevels={baseLevelCount} cardMemory=0x{cardMemory:X8} " +
                 $"pixelBlock=0x{pixelDataBlock:X2} pitch=0x{renderTargetPitch:X8} pixelsOffset=0x{pixelsOffset:X8} " +
                 $"pad1B=0x{pad1B:X2} streamData={FormatStreamData(streamData)} " +
-                $"payload=0x{payloadPointer.Raw:X8} payloadBytes=0x{payloadByteCount:X} name={name ?? "<null>"} blocks={context.Blocks.DescribePositions()}");
+                $"payload=0x{payloadPointer.Raw:X8} payloadBytes=0x{payloadBytes.Length:X} name={name ?? "<null>"} blocks={context.Blocks.DescribePositions()}");
 
             return new GfxImageAsset
             {
                 Offset = sourceOffset,
+                RuntimeAddress = rootAddress,
                 Format = format,
                 LevelCount = levelCount,
                 DimensionCount = dimensionCount,
@@ -135,7 +137,9 @@ public sealed class GfxImageLoader
                 Pad27 = pad27,
                 PayloadPointer = payloadPointer,
                 StreamData = streamData,
-                PayloadByteCount = payloadByteCount,
+                StreamImageIndex = streamImageIndex,
+                PayloadByteCount = payloadBytes.Length,
+                PayloadBytes = payloadBytes,
                 NamePointer = namePointer,
                 Name = name
             };
@@ -167,7 +171,12 @@ public sealed class GfxImageLoader
             entries.Select(entry => $"{entry.Width}x{entry.Height}:0x{entry.LevelSizeAndOffset:X8}"));
     }
 
-    private static int ReadPayload(
+    private static bool HasStreamingData(IReadOnlyList<GfxImageStreamData> entries)
+    {
+        return entries.Any(entry => entry.HasStreamingData);
+    }
+
+    private static byte[] ReadPayload(
         FastFileCursor cursor,
         XPointerReference pointer,
         byte format,
@@ -181,14 +190,14 @@ public sealed class GfxImageLoader
         FastFileLoadContext context)
     {
         if (pointer.Type == PointerType.Null)
-            return 0;
+            return [];
 
         int byteCount = ComputePayloadByteCount(format, levelCount, multiFaceControl, textureFlags, width, height, depth);
 
         if (pointer.Type == PointerType.Offset)
         {
             context.PointerReader.ValidateOffsetPointerRange<byte[]>(pointer, byteCount, "GfxImage payload");
-            return byteCount;
+            return [];
         }
 
         if (pointer.Type is not PointerType.Inline)
@@ -207,16 +216,15 @@ public sealed class GfxImageLoader
             context.Blocks.AlignCurrent(128);
             XBlockAddress payloadAddress = context.Blocks.CurrentAddress;
             context.Blocks.WriteInt32(cellAddress, XPointerCodec.Encode(payloadAddress));
-            context.Blocks.Load(cursor, byteCount);
+            byte[] payloadBytes = context.Blocks.Load(cursor, byteCount);
             context.Diagnostics.Trace(
                 $"        GfxImage payload block={payloadBlock} target={payloadAddress} bytes=0x{byteCount:X} blocks={context.Blocks.DescribePositions()}");
+            return payloadBytes;
         }
         finally
         {
             context.Blocks.Pop();
         }
-
-        return byteCount;
     }
 
     private static int ComputePayloadByteCount(
