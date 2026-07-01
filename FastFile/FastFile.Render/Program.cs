@@ -77,7 +77,8 @@ internal static class Program
 internal sealed record RenderOptions(
     string InputPath,
     string OutputDirectory,
-    bool RawCoordinates);
+    bool RawCoordinates,
+    bool WriteUvCandidateReports);
 
 internal static class RenderOptionsParser
 {
@@ -86,6 +87,7 @@ internal static class RenderOptionsParser
         string inputPath = ProgramDefaultInput.Value;
         string? outputDirectory = null;
         bool rawCoordinates = false;
+        bool writeUvCandidateReports = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -101,6 +103,10 @@ internal static class RenderOptionsParser
 
                 case "--raw-coordinates":
                     rawCoordinates = true;
+                    break;
+
+                case "--uv-candidate-reports":
+                    writeUvCandidateReports = true;
                     break;
 
                 case "--help":
@@ -123,13 +129,13 @@ internal static class RenderOptionsParser
             "render-output",
             Path.GetFileNameWithoutExtension(inputPath));
 
-        return new RenderOptions(inputPath, Path.GetFullPath(outputDirectory), rawCoordinates);
+        return new RenderOptions(inputPath, Path.GetFullPath(outputDirectory), rawCoordinates, writeUvCandidateReports);
     }
 
     private static void PrintUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  dotnet run --project FastFile/FastFile.Render/FastFile.Render.csproj -- [fastfile.ff] [--out directory] [--raw-coordinates]");
+        Console.WriteLine("  dotnet run --project FastFile/FastFile.Render/FastFile.Render.csproj -- [fastfile.ff] [--out directory] [--raw-coordinates] [--uv-candidate-reports]");
         Console.WriteLine();
         Console.WriteLine("Outputs:");
         Console.WriteLine("  <map>.gfx.glb                 GfxMap render-world mesh");
@@ -139,6 +145,9 @@ internal static class RenderOptionsParser
         Console.WriteLine("  <map>.static-xmodels.csv      ColMap static xmodel placement table");
         Console.WriteLine("  <map>.mapents.txt             MapEnts entity string");
         Console.WriteLine("  <map>.stages.csv              MapEnts stage table");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --uv-candidate-reports        Write exhaustive UV candidate CSVs; slow on large maps.");
     }
 }
 

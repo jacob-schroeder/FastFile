@@ -72,6 +72,7 @@ internal sealed class RenderAssetLookup
     public int MaterialCount => _materialsByAddress.Count;
     public int ImageCount => _imagesByAddress.Count;
     public int TechsetCount => _techsetsByAddress.Count;
+    public IEnumerable<GfxImageAsset> Images => _imagesByAddress.Values.Distinct();
 
     public MaterialAsset? ResolveMaterial(XPointer<MaterialAsset> pointer)
     {
@@ -114,6 +115,21 @@ internal sealed class RenderAssetLookup
         declaration = ReadVertexDeclaration(address);
         _vertexDeclsByAddress[address] = declaration;
         return declaration;
+    }
+
+    public IReadOnlyList<uint> ResolveStateLoadBits(GfxStateBits state)
+    {
+        if (state.LoadBits.Count > 0)
+            return state.LoadBits;
+
+        if (ResolveAddress(state.LoadBitsPointer) is not { } address)
+            return [];
+
+        return
+        [
+            unchecked((uint)_blocks.ReadInt32(address)),
+            unchecked((uint)_blocks.ReadInt32(address.Add(sizeof(int))))
+        ];
     }
 
     private void AddMaterial(MaterialAsset? material)

@@ -21,6 +21,7 @@ internal sealed class GlbSceneBuilder
     private readonly List<Dictionary<string, object>> _materials = [];
     private readonly List<Dictionary<string, object>> _images = [];
     private readonly List<Dictionary<string, object>> _textures = [];
+    private readonly List<Dictionary<string, object>> _samplers = [];
     private readonly List<GltfMesh> _meshes = [];
     private readonly List<Dictionary<string, object>> _nodes = [];
 
@@ -67,8 +68,26 @@ internal sealed class GlbSceneBuilder
         });
 
         int texture = _textures.Count;
-        _textures.Add(new Dictionary<string, object> { ["source"] = image });
+        _textures.Add(new Dictionary<string, object>
+        {
+            ["source"] = image,
+            ["sampler"] = RepeatSamplerIndex()
+        });
         return texture;
+    }
+
+    private int RepeatSamplerIndex()
+    {
+        if (_samplers.Count == 0)
+        {
+            _samplers.Add(new Dictionary<string, object>
+            {
+                ["wrapS"] = 10497,
+                ["wrapT"] = 10497
+            });
+        }
+
+        return 0;
     }
 
     public int AddMesh(string name)
@@ -84,12 +103,15 @@ internal sealed class GlbSceneBuilder
         IReadOnlyList<uint> indices,
         GlbPrimitiveMode mode,
         int materialIndex,
-        int? texCoordAccessor = null)
+        int? texCoordAccessor = null,
+        int? colorAccessor = null)
     {
         int indexAccessor = AddIndices(indices);
         var attributes = new Dictionary<string, object> { ["POSITION"] = positionAccessor };
         if (texCoordAccessor.HasValue)
             attributes["TEXCOORD_0"] = texCoordAccessor.Value;
+        if (colorAccessor.HasValue)
+            attributes["COLOR_0"] = colorAccessor.Value;
 
         _meshes[meshIndex].Primitives.Add(new Dictionary<string, object>
         {
@@ -166,6 +188,35 @@ internal sealed class GlbSceneBuilder
             ["componentType"] = 5126,
             ["count"] = texCoords.Count,
             ["type"] = "VEC2"
+        });
+        return accessor;
+    }
+
+    public int AddColors(IReadOnlyList<Rgba> colors)
+    {
+        if (colors.Count == 0)
+            throw new ArgumentException("Color accessor cannot be empty.", nameof(colors));
+
+        AlignBin(4);
+        int byteOffset = _bin.Count;
+        foreach (Rgba color in colors)
+        {
+            WriteSingle(color.R);
+            WriteSingle(color.G);
+            WriteSingle(color.B);
+            WriteSingle(color.A);
+        }
+
+        int byteLength = _bin.Count - byteOffset;
+        int bufferView = AddBufferView(byteOffset, byteLength, target: 34962);
+        int accessor = _accessors.Count;
+        _accessors.Add(new Dictionary<string, object>
+        {
+            ["bufferView"] = bufferView,
+            ["byteOffset"] = 0,
+            ["componentType"] = 5126,
+            ["count"] = colors.Count,
+            ["type"] = "VEC4"
         });
         return accessor;
     }
@@ -275,6 +326,7 @@ internal sealed class GlbSceneBuilder
         {
             root["images"] = _images;
             root["textures"] = _textures;
+            root["samplers"] = _samplers;
         }
 
         byte[] json = JsonSerializer.SerializeToUtf8Bytes(root, new JsonSerializerOptions

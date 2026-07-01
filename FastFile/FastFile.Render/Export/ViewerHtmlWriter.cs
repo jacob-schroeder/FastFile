@@ -86,11 +86,41 @@ internal static class ViewerHtmlWriter
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.screenSpacePanning = true;
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.enableRotate = false;
+    controls.enabled = false;
     controls.zoomSpeed = 1.6;
     controls.panSpeed = 1.4;
     controls.minDistance = 0.05;
     controls.maxDistance = 500000;
     controls.zoomToCursor = true;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.NONE,
+      MIDDLE: THREE.MOUSE.NONE,
+      RIGHT: THREE.MOUSE.NONE
+    };
+    controls.touches = {
+      ONE: THREE.TOUCH.NONE,
+      TWO: THREE.TOUCH.NONE
+    };
+    camera.rotation.order = 'YXZ';
+    let lastFrameMs = null;
+    const lookSensitivity = 0.003;
+    const movePlaneUp = new THREE.Vector3(0, 1, 0);
+    const moveState = {
+      forward: false,
+      backward: false,
+      left: false,
+      right: false,
+      boost: false
+    };
+    let yaw = 0;
+    let pitch = 0;
+    let isSurfaceWindowVisible = true;
+    let mouseLook = null;
+    let suppressNextClick = false;
+    let lastTouchLook = null;
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 1.2));
     const sun = new THREE.DirectionalLight(0xffffff, 2.0);
@@ -116,8 +146,16 @@ internal static class ViewerHtmlWriter
 
     const manifest = await loadJson(`${stem}.surface-debug.json`);
     const surfaceIndex = buildSurfaceIndex(manifest.Surfaces ?? []);
+    const multiplyMaterials = buildMultiplyMaterialSet(manifest.Surfaces ?? []);
+    const additiveMaterials = buildAdditiveMaterialSet(manifest.Surfaces ?? []);
+    const additiveAlphaMaterials = buildAdditiveAlphaMaterialSet(manifest.Surfaces ?? []);
+    const skyMaterials = buildSkyMaterialSet(manifest.Surfaces ?? []);
+    const layerBlendMaterials = await buildLayerBlendMaterialMap(manifest.Surfaces ?? []);
     const gfx = await loadGlb(`${stem}.gfx.glb`);
     const collision = hasCollision ? await loadGlb(`${stem}.collision-debug.glb`) : new THREE.Group();
+    const skybox = await buildSkybox(manifest.SkyImages ?? []);
+    if (skybox)
+      scene.add(skybox);
     root.add(gfx);
     root.add(collision);
     gfx.name = 'GfxMap';
@@ -125,10 +163,16 @@ internal static class ViewerHtmlWriter
     collision.visible = false;
     document.querySelector('#collision').disabled = !hasCollision;
 
+    applyMultiplyMaterials(gfx, multiplyMaterials);
+    applyLayerBlendMaterials(gfx, layerBlendMaterials);
+    applyAdditiveMaterials(gfx, additiveMaterials);
+    applyAdditiveAlphaMaterials(gfx, additiveAlphaMaterials);
+    applySkyMaterials(gfx, skyMaterials);
     rememberMaterialState(gfx);
     setGfxOpacity(1);
     setWireframe(false);
     frameScene();
+    syncCameraAnglesFromView();
     status.innerHTML = `Loaded <code>${escapeHtml(stem)}</code>. Click visible GfxMap geometry to copy its surface id; double-click to focus.`;
 
     document.querySelector('#gfx').addEventListener('click', (event) => {
@@ -166,25 +210,130 @@ internal static class ViewerHtmlWriter
     document.querySelector('#pan-up').addEventListener('click', () => panScreen(0, 1));
     document.querySelector('#pan-down').addEventListener('click', () => panScreen(0, -1));
     document.querySelector('#pan-home').addEventListener('click', centerTargetOnVisibleScene);
-    canvas.addEventListener('click', inspectFromPointer);
+    canvas.addEventListener('click', (event) => {
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        event.preventDefault();
+        return;
+      }
+      inspectFromPointer(event);
+    });
     canvas.addEventListener('dblclick', focusFromPointer);
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    canvas.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse' || event.button !== 0)
+        return;
+      mouseLook = { x: event.clientX, y: event.clientY, moved: false };
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointermove', (event) => {
+      if (!mouseLook || event.pointerType !== 'mouse')
+        return;
+      const moveX = event.clientX - mouseLook.x;
+      const moveY = event.clientY - mouseLook.y;
+      if (!moveX && !moveY)
+        return;
+      mouseLook = { x: event.clientX, y: event.clientY, moved: mouseLook.moved || Math.hypot(moveX, moveY) > 2 };
+      lookBy(moveX, moveY);
+      event.preventDefault();
+    });
+    canvas.addEventListener('pointerup', (event) => {
+      if (!mouseLook || event.pointerType !== 'mouse')
+        return;
+      if (mouseLook.moved) {
+        suppressNextClick = true;
+        setTimeout(() => { suppressNextClick = false; }, 0);
+      }
+      mouseLook = null;
+      if (canvas.hasPointerCapture(event.pointerId))
+        canvas.releasePointerCapture(event.pointerId);
+    });
+    canvas.addEventListener('pointercancel', () => {
+      mouseLook = null;
+    });
+    canvas.addEventListener('wheel', (event) => {
+      if (event.target instanceof HTMLInputElement) return;
+      moveCameraByWheel(event.deltaY < 0 ? 1 : -1);
+      event.preventDefault();
+    }, { passive: false });
+    window.addEventListener('blur', () => {
+      mouseLook = null;
+      lastTouchLook = null;
+    });
+    canvas.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 2)
+        return;
+      const first = event.touches[0];
+      const second = event.touches[1];
+      lastTouchLook = {
+        x: (first.clientX + second.clientX) * 0.5,
+        y: (first.clientY + second.clientY) * 0.5
+      };
+      event.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (event) => {
+      if (event.touches.length !== 2)
+        return;
+      if (!lastTouchLook)
+        return;
+      const first = event.touches[0];
+      const second = event.touches[1];
+      const x = (first.clientX + second.clientX) * 0.5;
+      const y = (first.clientY + second.clientY) * 0.5;
+      const moveX = x - lastTouchLook.x;
+      const moveY = y - lastTouchLook.y;
+      lastTouchLook = { x, y };
+
+      lookBy(moveX, moveY);
+      event.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchend', (event) => {
+      if (event.touches.length === 2)
+        return;
+      lastTouchLook = null;
+    }, { passive: false });
 
     window.addEventListener('keydown', (event) => {
       if (event.target instanceof HTMLInputElement) return;
+      const key = event.key.toLowerCase();
+      if (key === 'w') moveState.forward = true;
+      if (key === 's') moveState.backward = true;
+      if (key === 'a') moveState.left = true;
+      if (key === 'd') moveState.right = true;
+      if (key === 'shift') moveState.boost = true;
       const fast = event.shiftKey ? 2.5 : 1;
       const actions = {
         '+': () => zoomBy(0.72), '=': () => zoomBy(0.72), '-': () => zoomBy(1.38), '_': () => zoomBy(1.38),
-        ArrowLeft: () => panScreen(-fast, 0), a: () => panScreen(-fast, 0), A: () => panScreen(-fast, 0),
-        ArrowRight: () => panScreen(fast, 0), d: () => panScreen(fast, 0), D: () => panScreen(fast, 0),
-        ArrowUp: () => panScreen(0, fast), w: () => panScreen(0, fast), W: () => panScreen(0, fast),
-        ArrowDown: () => panScreen(0, -fast), s: () => panScreen(0, -fast), S: () => panScreen(0, -fast),
-        f: frameScene, F: frameScene, c: centerTargetOnVisibleScene, C: centerTargetOnVisibleScene
+        ArrowLeft: () => panScreen(-fast, 0),
+        ArrowRight: () => panScreen(fast, 0),
+        ArrowUp: () => panScreen(0, fast),
+        ArrowDown: () => panScreen(0, -fast),
+        f: frameScene, F: frameScene
       };
       if (actions[event.key]) {
         actions[event.key]();
         event.preventDefault();
       }
+
+      if (key === 'q' || event.code === 'KeyQ') {
+        toggleSurfaceWindow();
+        event.preventDefault();
+      }
+
+      if (key === 'c' || event.code === 'KeyC') {
+        copySurfaceWindowText();
+        event.preventDefault();
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      if (event.target instanceof HTMLInputElement) return;
+      const key = event.key.toLowerCase();
+      if (key === 'w') moveState.forward = false;
+      if (key === 's') moveState.backward = false;
+      if (key === 'a') moveState.left = false;
+      if (key === 'd') moveState.right = false;
+      if (key === 'shift') moveState.boost = false;
     });
 
     window.addEventListener('resize', () => {
@@ -193,7 +342,12 @@ internal static class ViewerHtmlWriter
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    renderer.setAnimationLoop(() => {
+    renderer.setAnimationLoop((time) => {
+      const deltaMs = lastFrameMs == null ? 0 : time - lastFrameMs;
+      lastFrameMs = time;
+      moveByInput(Math.min(deltaMs, 60) * 0.001);
+      if (skybox)
+        skybox.position.copy(camera.position);
       controls.update();
       renderer.render(scene, camera);
     });
@@ -214,6 +368,57 @@ internal static class ViewerHtmlWriter
       return response.json();
     }
 
+    function textureUrl(path) {
+      return path.split('/').map((part) => encodeURIComponent(part)).join('/');
+    }
+
+    async function loadTexture(path) {
+      return new Promise((resolve, reject) => {
+        new THREE.TextureLoader().load(`${textureUrl(path)}?v=${version}`, (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.wrapS = THREE.ClampToEdgeWrapping;
+          texture.wrapT = THREE.ClampToEdgeWrapping;
+          resolve(texture);
+        }, undefined, reject);
+      });
+    }
+
+    async function buildSkybox(images) {
+      const decoded = images.filter((image) => image.Decoded && image.Path);
+      if (decoded.length === 0)
+        return null;
+
+      const byFace = new Map(decoded.map((image) => [String(image.Face || '').toLowerCase(), image]));
+      const fallback = byFace.get('ft') ?? decoded[0];
+      const faceSlots = [
+        { face: 'rt', rotation: -Math.PI / 2 },
+        { face: 'lf', rotation: -Math.PI / 2 },
+        { face: 'up', rotation: -Math.PI / 2 },
+        { face: 'dn', rotation: -Math.PI / 2 },
+        { face: 'ft', rotation: -Math.PI / 2 },
+        { face: 'bk', rotation: -Math.PI / 2 }
+      ];
+      const textures = await Promise.all(faceSlots.map(async (slot) => {
+        const texture = await loadTexture((byFace.get(slot.face) ?? fallback).Path);
+        texture.center.set(0.5, 0.5);
+        texture.rotation = slot.rotation;
+        texture.needsUpdate = true;
+        return texture;
+      }));
+      const materials = textures.map((texture) => new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.BackSide,
+        depthWrite: false,
+        depthTest: false,
+        fog: false
+      }));
+      const sky = new THREE.Mesh(new THREE.BoxGeometry(200000, 200000, 200000), materials);
+      sky.name = 'Skybox';
+      sky.renderOrder = -1000;
+      sky.frustumCulled = false;
+      return sky;
+    }
+
     function buildSurfaceIndex(rows) {
       const map = new Map();
       for (const row of rows) {
@@ -226,6 +431,58 @@ internal static class ViewerHtmlWriter
       for (const list of map.values())
         list.sort((a, b) => a.PrimitiveTriangleStart - b.PrimitiveTriangleStart);
       return map;
+    }
+
+    function buildMultiplyMaterialSet(rows) {
+      const names = new Set();
+      for (const row of rows) {
+        if (String(row.TechniqueSet || '').toLowerCase().includes('multiply') && row.MaterialKey)
+          names.add(row.MaterialKey);
+      }
+      return names;
+    }
+
+    function buildAdditiveMaterialSet(rows) {
+      const names = new Set();
+      for (const row of rows) {
+        if (row.RenderBlend === 'additive' && row.RenderAlpha !== 'intensity' && row.MaterialKey)
+          names.add(row.MaterialKey);
+      }
+      return names;
+    }
+
+    function buildAdditiveAlphaMaterialSet(rows) {
+      const names = new Set();
+      for (const row of rows) {
+        if (row.RenderBlend === 'additive' && row.RenderAlpha === 'intensity' && row.MaterialKey)
+          names.add(row.MaterialKey);
+      }
+      return names;
+    }
+
+    function buildSkyMaterialSet(rows) {
+      const names = new Set();
+      for (const row of rows) {
+        if (row.TechniqueSet === 'wc_sky' && row.MaterialKey)
+          names.add(row.MaterialKey);
+      }
+      return names;
+    }
+
+    async function buildLayerBlendMaterialMap(rows) {
+      const specs = new Map();
+      for (const row of rows) {
+        if (!row.MaterialKey || !row.LayerTextureDecoded || !row.LayerTexturePath)
+          continue;
+        if (!specs.has(row.MaterialKey))
+          specs.set(row.MaterialKey, row.LayerTexturePath);
+      }
+
+      const materials = new Map();
+      await Promise.all([...specs].map(async ([name, path]) => {
+        materials.set(name, await loadTexture(path));
+      }));
+      return materials;
     }
 
     function inspectFromPointer(event) {
@@ -278,6 +535,7 @@ internal static class ViewerHtmlWriter
         `techset=${row.TechniqueSet}`,
         `format=${row.WorldVertexFormat}`,
         `uv=${row.SelectedUvDecoder || '<none>'}`,
+        `textureSlot=${row.TextureSlot || '<none>'}`,
         `texture=${row.TextureImage || '<none>'}`,
         `decoded=${row.TextureDecoded}`,
         `triangles layer=0x${hex(row.VertexLayerData)} baseVertex=${row.BaseVertex} min=${row.MinVertexIndex} verts=${row.VertexCount} tris=${row.TriCount} baseIndex=${row.BaseIndex}`,
@@ -312,7 +570,7 @@ internal static class ViewerHtmlWriter
       for (let i = 0; i < resolvedHits.length; i++) {
         const item = resolvedHits[i];
         const row = item.row;
-        lines.push(`${i + 1}. surface=${row?.SurfaceIndex ?? '<unmapped>'} face=${item.hit.faceIndex ?? -1} distance=${item.hit.distance.toFixed(2)} material=${row?.MaterialKey ?? item.materialName} texture=${row?.TextureImage || '<none>'}`);
+        lines.push(`${i + 1}. surface=${row?.SurfaceIndex ?? '<unmapped>'} face=${item.hit.faceIndex ?? -1} distance=${item.hit.distance.toFixed(2)} material=${row?.MaterialKey ?? item.materialName} textureSlot=${row?.TextureSlot || '<none>'} texture=${row?.TextureImage || '<none>'}`);
       }
       return lines.join('\n');
     }
@@ -325,8 +583,9 @@ internal static class ViewerHtmlWriter
         const row = item.row;
         const surface = row?.SurfaceIndex ?? '&lt;unmapped&gt;';
         const material = escapeHtml(row?.MaterialKey ?? item.materialName);
+        const textureSlot = escapeHtml(row?.TextureSlot || '<none>');
         const texture = escapeHtml(row?.TextureImage || '<none>');
-        return `<div>${index + 1}. surface=<code>${surface}</code> face=<code>${item.hit.faceIndex ?? -1}</code> dist=<code>${item.hit.distance.toFixed(2)}</code> material=<code>${material}</code> texture=<code>${texture}</code></div>`;
+        return `<div>${index + 1}. surface=<code>${surface}</code> face=<code>${item.hit.faceIndex ?? -1}</code> dist=<code>${item.hit.distance.toFixed(2)}</code> material=<code>${material}</code> textureSlot=<code>${textureSlot}</code> texture=<code>${texture}</code></div>`;
       });
       return `<div class="hit-stack">${lines.join('')}</div>`;
     }
@@ -347,19 +606,72 @@ internal static class ViewerHtmlWriter
       camera.position.copy(point).addScaledVector(direction, nextDistance);
       camera.near = 0.05;
       camera.updateProjectionMatrix();
+      syncCameraAnglesFromView();
+      applyMouseLook();
       controls.update();
     }
 
     function frameScene() {
-      const box = new THREE.Box3().setFromObject(root);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      const radius = Math.max(size.x, size.y, size.z) * 0.62;
-      controls.target.copy(center);
-      camera.position.set(center.x + radius * 0.8, center.y + radius * 0.55, center.z + radius * 0.9);
-      camera.near = Math.max(radius / 10000, 0.1);
-      camera.far = Math.max(radius * 8, 10000);
+      const target = new THREE.Vector3(0, 0, 0);
+      const height = 1400;
+      controls.target.copy(target);
+      camera.position.set(0, height, height * 1.35);
+      camera.near = 0.1;
+      camera.far = 250000;
       camera.updateProjectionMatrix();
+      syncCameraAnglesFromView();
+      applyMouseLook();
+      controls.update();
+    }
+
+    function syncCameraAnglesFromView() {
+      const forward = camera.getWorldDirection(new THREE.Vector3());
+      yaw = Math.atan2(forward.x, forward.z);
+      pitch = Math.asin(THREE.MathUtils.clamp(forward.y, -0.999, 0.999));
+    }
+
+    function toggleSurfaceWindow() {
+      isSurfaceWindowVisible = !isSurfaceWindowVisible;
+      status.style.display = isSurfaceWindowVisible ? 'block' : 'none';
+    }
+
+    function copySurfaceWindowText() {
+      const text = surfaceWindowText();
+      if (!text)
+        return;
+      navigator.clipboard?.writeText(text).catch(() => copyTextFallback(text)) ?? copyTextFallback(text);
+    }
+
+    function surfaceWindowText() {
+      const clone = status.cloneNode(true);
+      clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+      clone.querySelectorAll('div').forEach((div) => div.append('\n'));
+      return clone.textContent.trim();
+    }
+
+    function copyTextFallback(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.append(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+
+    function lookBy(moveX, moveY) {
+      yaw += moveX * lookSensitivity;
+      pitch += moveY * lookSensitivity;
+      pitch = THREE.MathUtils.clamp(pitch, -Math.PI / 2 + 0.01, Math.PI / 2 - 0.01);
+      applyMouseLook();
+    }
+
+    function applyMouseLook() {
+      camera.rotation.set(pitch, yaw, 0, 'YXZ');
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      controls.target.copy(camera.position).addScaledVector(forward, 128);
       controls.update();
     }
 
@@ -381,6 +693,49 @@ internal static class ViewerHtmlWriter
       camera.position.copy(controls.target).add(offset);
       camera.near = Math.min(0.05, nextDistance * 0.01);
       camera.updateProjectionMatrix();
+      syncCameraAnglesFromView();
+      applyMouseLook();
+      controls.update();
+    }
+
+    function moveByInput(deltaSeconds) {
+      if (deltaSeconds <= 0)
+        return;
+
+      const forwardAxis = (moveState.forward ? 1 : 0) - (moveState.backward ? 1 : 0);
+      const rightAxis = (moveState.right ? 1 : 0) - (moveState.left ? 1 : 0);
+      if (!forwardAxis && !rightAxis)
+        return;
+
+      const forward = camera.getWorldDirection(new THREE.Vector3());
+      if (!forward.lengthSq())
+        return;
+      forward.normalize();
+      const right = new THREE.Vector3().crossVectors(forward, movePlaneUp).normalize();
+
+      const direction = forward.multiplyScalar(forwardAxis).addScaledVector(right, rightAxis);
+      if (!direction.lengthSq())
+        return;
+      direction.normalize();
+
+      const multiplier = Number(document.querySelector('#move-step').value);
+      const baseSpeed = Math.max(camera.position.length() * 0.12, 60);
+      const speed = baseSpeed * multiplier * (moveState.boost ? 2.5 : 1);
+      const distance = direction.multiplyScalar(deltaSeconds * speed);
+
+      camera.position.add(distance);
+      controls.target.add(distance);
+      applyMouseLook();
+    }
+
+    function moveCameraByWheel(direction) {
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      const distance = camera.position.distanceTo(controls.target);
+      const step = Math.max(distance * 0.08, 4);
+      camera.position.addScaledVector(forward, step * direction);
+      controls.target.addScaledVector(forward, step * direction);
+      applyMouseLook();
       controls.update();
     }
 
@@ -413,6 +768,161 @@ internal static class ViewerHtmlWriter
           material.transparent = baseTransparent || faded;
           material.depthWrite = baseTransparent || faded ? false : baseDepthWrite;
           material.needsUpdate = true;
+        }
+      });
+    }
+
+    function applyMultiplyMaterials(group, materialNames) {
+      group.traverse((object) => {
+        if (!object.material) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        let hasMultiply = false;
+        for (const material of materials) {
+          if (!materialNames.has(material.name))
+            continue;
+
+          material.transparent = true;
+          material.depthWrite = false;
+          material.depthTest = true;
+          material.vertexColors = !!object.geometry?.getAttribute('color');
+          material.blending = THREE.CustomBlending;
+          material.blendEquation = THREE.AddEquation;
+          material.blendSrc = THREE.DstColorFactor;
+          material.blendDst = THREE.ZeroFactor;
+          material.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              '#include <opaque_fragment>',
+              'gl_FragColor = vec4(diffuseColor.rgb, 1.0);');
+          };
+          material.customProgramCacheKey = () => 'unlit-multiply-v7';
+          material.polygonOffset = true;
+          material.polygonOffsetFactor = -1;
+          material.polygonOffsetUnits = -1;
+          material.needsUpdate = true;
+          hasMultiply = true;
+        }
+
+        if (hasMultiply)
+          object.renderOrder = Math.max(object.renderOrder || 0, 10);
+      });
+    }
+
+    function applyLayerBlendMaterials(group, materialTextures) {
+      group.traverse((object) => {
+        if (!object.material) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          const layerMap = materialTextures.get(material.name);
+          if (!layerMap)
+            continue;
+
+          material.vertexColors = false;
+          material.onBeforeCompile = (shader) => {
+            shader.uniforms.layerMap = { value: layerMap };
+            shader.vertexShader = shader.vertexShader
+              .replace(
+                '#include <common>',
+                '#include <common>\nattribute vec4 color;\nvarying float vLayerBlend;')
+              .replace(
+                '#include <begin_vertex>',
+                '#include <begin_vertex>\nvLayerBlend = clamp(color.r, 0.0, 1.0);');
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                '#include <common>',
+                '#include <common>\nuniform sampler2D layerMap;\nvarying float vLayerBlend;')
+              .replace(
+                '#include <map_fragment>',
+                [
+                  '#include <map_fragment>',
+                  'vec4 layerDiffuseColor = texture2D(layerMap, vMapUv);',
+                  'diffuseColor.rgb = mix(diffuseColor.rgb, layerDiffuseColor.rgb, vLayerBlend);'
+                ].join('\n'));
+          };
+          material.customProgramCacheKey = () => `layer-blend-v1-${material.name}`;
+          material.needsUpdate = true;
+        }
+      });
+    }
+
+    function applyAdditiveMaterials(group, materialNames) {
+      group.traverse((object) => {
+        if (!object.material) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        let hasAdditive = false;
+        for (const material of materials) {
+          if (!materialNames.has(material.name))
+            continue;
+
+          material.transparent = true;
+          material.depthWrite = false;
+          material.depthTest = true;
+          material.vertexColors = !!object.geometry?.getAttribute('color');
+          material.blending = THREE.CustomBlending;
+          material.blendEquation = THREE.AddEquation;
+          material.blendSrc = THREE.OneFactor;
+          material.blendDst = THREE.OneFactor;
+          material.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              '#include <opaque_fragment>',
+              'gl_FragColor = vec4(diffuseColor.rgb, 1.0);');
+          };
+          material.customProgramCacheKey = () => 'unlit-add-v1';
+          material.polygonOffset = true;
+          material.polygonOffsetFactor = -1;
+          material.polygonOffsetUnits = -1;
+          material.needsUpdate = true;
+          hasAdditive = true;
+        }
+
+        if (hasAdditive)
+          object.renderOrder = Math.max(object.renderOrder || 0, 10);
+      });
+    }
+
+    function applyAdditiveAlphaMaterials(group, materialNames) {
+      group.traverse((object) => {
+        if (!object.material) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        let hasAdditiveAlpha = false;
+        for (const material of materials) {
+          if (!materialNames.has(material.name))
+            continue;
+
+          material.transparent = true;
+          material.depthWrite = false;
+          material.depthTest = true;
+          material.blending = THREE.CustomBlending;
+          material.blendEquation = THREE.AddEquation;
+          material.blendSrc = THREE.SrcAlphaFactor;
+          material.blendDst = THREE.OneFactor;
+          material.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              '#include <opaque_fragment>',
+              [
+                'float additiveAlpha = diffuseColor.a * dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));',
+                'gl_FragColor = vec4(diffuseColor.rgb, additiveAlpha);'
+              ].join('\n'));
+          };
+          material.customProgramCacheKey = () => 'unlit-add-alpha-v1';
+          material.polygonOffset = true;
+          material.polygonOffsetFactor = -1;
+          material.polygonOffsetUnits = -1;
+          material.needsUpdate = true;
+          hasAdditiveAlpha = true;
+        }
+
+        if (hasAdditiveAlpha)
+          object.renderOrder = Math.max(object.renderOrder || 0, 10);
+      });
+    }
+
+    function applySkyMaterials(group, materialNames) {
+      group.traverse((object) => {
+        if (!object.material) return;
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          if (materialNames.has(material.name))
+            material.visible = false;
         }
       });
     }

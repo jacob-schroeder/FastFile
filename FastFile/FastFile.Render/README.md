@@ -24,6 +24,11 @@ Outputs:
 Coordinates are converted from IW-style Z-up to glTF Y-up by default. Pass
 `--raw-coordinates` to preserve source coordinates.
 
+Pass `--uv-candidate-reports` only when auditing UV layouts. It writes the
+exhaustive `<map>.world-uv-candidates.csv` and
+`<map>.world-material-uv-candidates.csv` reports and is intentionally skipped
+by default because it is slow on large maps.
+
 Current static xmodel geometry is represented as placement markers. The
 `ClipStaticModel` row exposes origin, inverse scaled axes, and raw bounds-like
 fields; full instanced XModel mesh emission should wait until the XSurface
