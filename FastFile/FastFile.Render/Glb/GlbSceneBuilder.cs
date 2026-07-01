@@ -22,6 +22,7 @@ internal sealed class GlbSceneBuilder
     private readonly List<Dictionary<string, object>> _images = [];
     private readonly List<Dictionary<string, object>> _textures = [];
     private readonly List<Dictionary<string, object>> _samplers = [];
+    private readonly Dictionary<int, int> _samplerByWrapMode = [];
     private readonly List<GltfMesh> _meshes = [];
     private readonly List<Dictionary<string, object>> _nodes = [];
 
@@ -52,7 +53,7 @@ internal sealed class GlbSceneBuilder
         return index;
     }
 
-    public int AddPngTexture(string name, byte[] pngBytes)
+    public int AddPngTexture(string name, byte[] pngBytes, byte samplerState)
     {
         AlignBin(4);
         int byteOffset = _bin.Count;
@@ -71,24 +72,29 @@ internal sealed class GlbSceneBuilder
         _textures.Add(new Dictionary<string, object>
         {
             ["source"] = image,
-            ["sampler"] = RepeatSamplerIndex()
+            ["sampler"] = SamplerIndex(samplerState)
         });
         return texture;
     }
 
-    private int RepeatSamplerIndex()
+    private int SamplerIndex(byte samplerState)
     {
-        if (_samplers.Count == 0)
+        int wrap = SamplerRepeats(samplerState) ? 10497 : 33071;
+        if (!_samplerByWrapMode.TryGetValue(wrap, out int index))
         {
+            index = _samplers.Count;
             _samplers.Add(new Dictionary<string, object>
             {
-                ["wrapS"] = 10497,
-                ["wrapT"] = 10497
+                ["wrapS"] = wrap,
+                ["wrapT"] = wrap
             });
+            _samplerByWrapMode[wrap] = index;
         }
 
-        return 0;
+        return index;
     }
+
+    private static bool SamplerRepeats(byte samplerState) => (samplerState & 0xC0) == 0;
 
     public int AddMesh(string name)
     {
@@ -104,12 +110,15 @@ internal sealed class GlbSceneBuilder
         GlbPrimitiveMode mode,
         int materialIndex,
         int? texCoordAccessor = null,
+        int? texCoord1Accessor = null,
         int? colorAccessor = null)
     {
         int indexAccessor = AddIndices(indices);
         var attributes = new Dictionary<string, object> { ["POSITION"] = positionAccessor };
         if (texCoordAccessor.HasValue)
             attributes["TEXCOORD_0"] = texCoordAccessor.Value;
+        if (texCoord1Accessor.HasValue)
+            attributes["TEXCOORD_1"] = texCoord1Accessor.Value;
         if (colorAccessor.HasValue)
             attributes["COLOR_0"] = colorAccessor.Value;
 

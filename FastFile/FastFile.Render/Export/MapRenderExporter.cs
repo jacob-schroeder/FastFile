@@ -8,6 +8,7 @@ using FastFile.Models.Assets.Image;
 using FastFile.Models.Assets.Material;
 using FastFile.Models.Assets.TechniqueSet;
 using FastFile.Models.Pointers;
+using FastFile.Models.Zone;
 using FastFile.Render.Glb;
 using ModelVec3 = FastFile.Models.Math.Vec3;
 
@@ -19,6 +20,7 @@ internal sealed class MapRenderExporter
     private const int WorldVertexLayerTexCoordOffset = 0x04;
     private const int WorldVertexLayerTexCoordSize = 0x08;
     private const float WorldVertexLayerMaxTexCoordMagnitude = 1_000_000f;
+    private const float CompactWorldVertexLayerMaxTexCoordMagnitude = 16.0f;
     private const float MaxTexturedUvFailureRatio = 0.45f;
 
     private readonly RenderOptions _options;
@@ -124,17 +126,21 @@ internal sealed class MapRenderExporter
             WorldTexCoordDecoder? texCoordDecoder = textureIndex.HasValue
                 ? SelectWorldTexCoordDecoder(gfxMap, surfaces, techset?.WorldVertexFormat, texture?.Texture, uvLayoutSamples)
                 : null;
+            bool usesLayerBlend = layerTexture is { Decoded: true, PngPath: not null };
+            WorldTexCoordDecoder? layerTexCoordDecoder = usesLayerBlend
+                ? SelectLayerBlendTexCoordDecoder(gfxMap, surfaces, techset?.WorldVertexFormat, uvLayoutSamples)
+                : null;
             if (textureIndex.HasValue && texCoordDecoder is null)
                 textureIndex = null;
             bool hasTexture = textureIndex.HasValue;
             RenderStateDescriptor renderState = DescribeRenderState(resolvedMaterial, techset);
-            bool usesLayerBlend = layerTexture is { Decoded: true, PngPath: not null };
             WorldLayerColorDecoder? colorDecoder = renderState is { Blend: "additive", Alpha: "intensity", UsesVertexColor: true } || usesLayerBlend
                 ? SelectWorldColorDecoder(gfxMap, techset, usesLayerBlend)
                 : null;
 
             var groupPositions = new List<Vec3f>();
             List<Vec2f>? groupTexCoords = hasTexture ? [] : null;
+            List<Vec2f>? groupLayerTexCoords = usesLayerBlend ? [] : null;
             List<Rgba>? groupColors = colorDecoder is null ? null : [];
             List<uint> indices = new();
             int texCoordFailures = 0;
@@ -170,6 +176,13 @@ internal sealed class MapRenderExporter
                                 texCoordFailures++;
                                 groupTexCoords.Add(default);
                             }
+                        }
+                        if (groupLayerTexCoords is not null)
+                        {
+                            if (layerTexCoordDecoder is not null && layerTexCoordDecoder.TryRead(surface, surfaceIndex, vertex, out Vec2f layerTexCoord))
+                                groupLayerTexCoords.Add(layerTexCoord);
+                            else
+                                groupLayerTexCoords.Add(groupTexCoords is { Count: > 0 } ? groupTexCoords[^1] : default);
                         }
                         if (groupColors is not null)
                             groupColors.Add(colorDecoder!.Read(surface, surfaceIndex));
@@ -215,6 +228,7 @@ internal sealed class MapRenderExporter
 
             int positionAccessor = builder.AddPositions(groupPositions);
             int? texCoordAccessor = groupTexCoords is null ? null : builder.AddTexCoords(groupTexCoords);
+            int? texCoord1Accessor = groupLayerTexCoords is null ? null : builder.AddTexCoords(groupLayerTexCoords);
             int? colorAccessor = groupColors is null ? null : builder.AddColors(groupColors);
             int material = builder.AddMaterial(
                 group.Key,
@@ -228,6 +242,7 @@ internal sealed class MapRenderExporter
                 GlbPrimitiveMode.Triangles,
                 material,
                 texCoordAccessor: texCoordAccessor,
+                texCoord1Accessor: texCoord1Accessor,
                 colorAccessor: colorAccessor);
         }
 
@@ -291,6 +306,8 @@ internal sealed class MapRenderExporter
         foreach (GfxSky sky in gfxMap.Skies)
             AddSkyImage(seedImages, sky.SkyImage);
 
+        Dictionary<XBlockAddress, byte> samplerBySkyImage = CollectSamplerStatesForImages(gfxMap, seedImages);
+
         string? prefix = seedImages
             .Select(image => SkyPrefix(image.Name))
             .FirstOrDefault(prefix => !string.IsNullOrWhiteSpace(prefix));
@@ -307,17 +324,63 @@ internal sealed class MapRenderExporter
             .Select(group => group.First())
             .OrderBy(image => image.Name, StringComparer.OrdinalIgnoreCase))
         {
+            string samplerState = image.RuntimeAddress is { } address && samplerBySkyImage.TryGetValue(address, out byte sampler)
+                ? $"0x{sampler:X2}"
+                : string.Empty;
             if (TryWriteStandalonePng(image, out string relativePath, out string reason, summary))
             {
-                rows.Add(new SkyImageDebugRow(image.Name!, SkyFace(image.Name!), relativePath, true, string.Empty));
+                rows.Add(new SkyImageDebugRow(image.Name!, SkyFace(image.Name!), samplerState, relativePath, true, string.Empty));
             }
             else
             {
-                rows.Add(new SkyImageDebugRow(image.Name!, SkyFace(image.Name!), string.Empty, false, reason));
+                rows.Add(new SkyImageDebugRow(image.Name!, SkyFace(image.Name!), samplerState, string.Empty, false, reason));
             }
         }
 
         return rows;
+    }
+
+    private Dictionary<XBlockAddress, byte> CollectSamplerStatesForImages(
+        GfxWorldAsset gfxMap,
+        IReadOnlyList<GfxImageAsset> images)
+    {
+        var targetImages = images
+            .Select(image => image.RuntimeAddress)
+            .Where(address => address is not null)
+            .Select(address => address!.Value)
+            .ToHashSet();
+        var result = new Dictionary<XBlockAddress, byte>();
+        if (targetImages.Count == 0)
+            return result;
+
+        foreach (MaterialAsset material in SurfaceMaterials(gfxMap))
+        {
+            foreach (MaterialTextureDef texture in material.Textures)
+            {
+                GfxImageAsset? image = texture.Image ?? _assets.ResolveImage(texture.DataPointer);
+                if (image?.RuntimeAddress is { } address && targetImages.Contains(address))
+                    result.TryAdd(address, texture.SamplerState);
+            }
+        }
+
+        return result;
+    }
+
+    private IEnumerable<MaterialAsset> SurfaceMaterials(GfxWorldAsset gfxMap)
+    {
+        foreach (MaterialMemory row in gfxMap.MaterialMemory)
+        {
+            MaterialAsset? material = row.Material ?? _assets.ResolveMaterial(row.MaterialPointer);
+            if (material is not null)
+                yield return material;
+        }
+
+        foreach (GfxSurface surface in gfxMap.Dpvs.Surfaces)
+        {
+            MaterialAsset? material = ResolveSurfaceMaterial(surface);
+            if (material is not null)
+                yield return material;
+        }
     }
 
     private static void AddSkyImage(List<GfxImageAsset> images, GfxImageAsset? image)
@@ -422,10 +485,12 @@ internal sealed class MapRenderExporter
             SelectedUvDecoder: selectedUv?.ToString() ?? string.Empty,
             TextureSemantic: texture?.Texture.Semantic.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             TextureSlot: texture is null ? string.Empty : TextureSlotText(texture.Value.Texture),
+            TextureSamplerState: texture is null ? string.Empty : $"0x{texture.Value.Texture.SamplerState:X2}",
             TextureImage: texture?.Image.Name ?? string.Empty,
             TextureDecoded: texture?.Decoded ?? false,
             TextureDecodeReason: texture?.DecodeReason ?? string.Empty,
             LayerTextureSlot: layerTexture is null ? string.Empty : TextureSlotText(layerTexture.Value.Texture),
+            LayerTextureSamplerState: layerTexture is null ? string.Empty : $"0x{layerTexture.Value.Texture.SamplerState:X2}",
             LayerTextureImage: layerTexture?.Image.Name ?? string.Empty,
             LayerTexturePath: RelativeTexturePath(layerTexture?.PngPath),
             LayerTextureDecoded: layerTexture?.Decoded ?? false,
@@ -836,7 +901,7 @@ internal sealed class MapRenderExporter
             {
                 if (layoutSamples.Count < 12)
                     layoutSamples.Add($"{worldVertexFormat?.ToString() ?? "unknown"}:{candidate}");
-                return new WorldTexCoordDecoder(layer, layerBaseIndices, candidate, WorldVertexLayerMaxTexCoordMagnitude);
+                return new WorldTexCoordDecoder(layer, layerBaseIndices, candidate, MaxTexCoordMagnitude(candidate));
             }
         }
 
@@ -847,6 +912,10 @@ internal sealed class MapRenderExporter
                 $"{worldVertexFormat?.ToString() ?? "unknown"}:{failed.Candidate} " +
                 $"failed {failed.ValidIndexedVertices}/{failed.TotalIndexedVertices}");
         }
+        if (best is { } candidateBest &&
+            candidateBest.TotalIndexedVertices > 0 &&
+            candidateBest.ValidIndexedVertices / (float)candidateBest.TotalIndexedVertices >= 1.0f - MaxTexturedUvFailureRatio)
+            return new WorldTexCoordDecoder(layer, layerBaseIndices, candidateBest.Candidate, MaxTexCoordMagnitude(candidateBest.Candidate));
         return null;
     }
 
@@ -887,9 +956,10 @@ internal sealed class MapRenderExporter
                 new UvCandidate(0x3C, 0x04, true, 1, UvIndexMode.SurfaceIndex, UvValueFormat.Float2)
             ],
 
-            // TEX_2_NRM_2 tc0 validates as a layer-local float2 at +0x08.
-            // Numbered color slots are blend inputs, so the preview still binds
-            // the primary c-p texture when present.
+            // TEX_2_NRM_2 interleaves the paired blend records as a 0x28-byte
+            // logical vertex: c0/n0/s0 uses tc0 at +0x04 and c1/n1/s1 uses
+            // tc1 at +0x1C. The surface debug FirstLayerBytes field starts
+            // at +0x04, so tc1 appears there at +0x18.
             MaterialWorldVertexFormat.MTL_WORLDVERT_TEX_2_NRM_2 =>
                 SelectedTex2Nrm2UvCandidates(),
 
@@ -914,8 +984,30 @@ internal sealed class MapRenderExporter
     {
         return
         [
-            new UvCandidate(0x14, 0x08, true, 1, UvIndexMode.LayerData, UvValueFormat.Float2)
+            new UvCandidate(0x28, 0x04, true, 1, UvIndexMode.SurfaceIndex, UvValueFormat.Float2)
         ];
+    }
+
+    private static WorldTexCoordDecoder? SelectLayerBlendTexCoordDecoder(
+        GfxWorldAsset gfxMap,
+        IReadOnlyList<GfxSurface> surfaces,
+        MaterialWorldVertexFormat? worldVertexFormat,
+        List<string> layoutSamples)
+    {
+        if (worldVertexFormat != MaterialWorldVertexFormat.MTL_WORLDVERT_TEX_2_NRM_2)
+            return null;
+
+        IReadOnlyList<byte> layer = gfxMap.WorldDraw.VertexLayerData.PackedLayerData;
+        int vertexCount = gfxMap.WorldDraw.VertexData.PackedVertices.Count / 0x10;
+        var candidate = new UvCandidate(0x28, 0x1C, true, 1, UvIndexMode.SurfaceIndex, UvValueFormat.Float2);
+        UvDecodeResult result = ScoreWorldTexCoordCandidate(gfxMap, candidate, vertexCount, surfaces);
+        if (result.TotalIndexedVertices > 0 &&
+            result.ValidIndexedVertices / (float)result.TotalIndexedVertices >= 1.0f - MaxTexturedUvFailureRatio)
+            return new WorldTexCoordDecoder(layer, BuildLayerBaseIndices(gfxMap.Dpvs.Surfaces), candidate, MaxTexCoordMagnitude(candidate));
+
+        if (layoutSamples.Count < 12)
+            layoutSamples.Add($"{worldVertexFormat}:layer:{candidate} failed {result.ValidIndexedVertices}/{result.TotalIndexedVertices}");
+        return null;
     }
 
     private static WorldLayerColorDecoder? SelectWorldColorDecoder(
@@ -938,7 +1030,7 @@ internal sealed class MapRenderExporter
             return new WorldLayerColorDecoder(
                 gfxMap.WorldDraw.VertexLayerData.PackedLayerData,
                 BuildLayerBaseIndices(gfxMap.Dpvs.Surfaces),
-                0x14,
+                0x28,
                 0x00,
                 invert: true);
         }
@@ -960,6 +1052,7 @@ internal sealed class MapRenderExporter
         int badValue = 0;
         int over4096 = 0;
         float maxAbs = 0.0f;
+        float maxMagnitude = MaxTexCoordMagnitude(candidate);
         Dictionary<LayerStreamKey, int> layerBaseIndices = BuildLayerBaseIndices(gfxMap.Dpvs.Surfaces);
 
         foreach (GfxSurface surface in surfaces ?? gfxMap.Dpvs.Surfaces)
@@ -999,7 +1092,7 @@ internal sealed class MapRenderExporter
                     ? (ReadSingle(layer, offset, candidate.BigEndian), ReadSingle(layer, offset + 4, candidate.BigEndian))
                     : (ReadHalf(layer, offset, candidate.BigEndian), ReadHalf(layer, offset + 2, candidate.BigEndian));
                 float candidateMaxAbs = MathF.Max(MathF.Abs(u), MathF.Abs(v));
-                if (!float.IsFinite(u) || !float.IsFinite(v) || candidateMaxAbs > WorldVertexLayerMaxTexCoordMagnitude)
+                if (!float.IsFinite(u) || !float.IsFinite(v) || candidateMaxAbs > maxMagnitude)
                 {
                     badValue++;
                     continue;
@@ -1014,6 +1107,13 @@ internal sealed class MapRenderExporter
 
         int score = valid - badOffset / 32 - badValue / 16 - badVertex;
         return new UvDecodeResult(candidate, total, valid, badVertex, badOffset, badValue, over4096, maxAbs, score);
+    }
+
+    private static float MaxTexCoordMagnitude(UvCandidate candidate)
+    {
+        return candidate is { Stride: 0x14, IndexMode: UvIndexMode.LayerData, Format: UvValueFormat.Float2 }
+            ? CompactWorldVertexLayerMaxTexCoordMagnitude
+            : WorldVertexLayerMaxTexCoordMagnitude;
     }
 
     private static string DescribeSurfaceIndexStats(GfxWorldAsset gfxMap, int vertexCount)
@@ -1202,6 +1302,9 @@ internal sealed class MapRenderExporter
         if (techset?.WorldVertexFormat != MaterialWorldVertexFormat.MTL_WORLDVERT_TEX_2_NRM_2)
             return null;
 
+        if (SelectLayerBlendColorTexture(material, techset) is { } shaderBinding)
+            return BindTexture(builder, shaderBinding.Texture, shaderBinding.Image, summary);
+
         foreach (MaterialTextureDef texture in material.Textures)
         {
             if (!IsNumberedColorTexture(texture))
@@ -1258,7 +1361,7 @@ internal sealed class MapRenderExporter
         Directory.CreateDirectory(textureDirectory);
         string pngPath = Path.Combine(textureDirectory, $"{SafeFileName(cacheKey)}.png");
         File.WriteAllBytes(pngPath, decoded.PngBytes);
-        int glbTexture = builder.AddPngTexture(decoded.Name, decoded.PngBytes);
+        int glbTexture = builder.AddPngTexture(decoded.Name, decoded.PngBytes, texture.SamplerState);
         _textureByImageAddress[cacheKey] = new CachedTexture(glbTexture, pngPath, decoded.HasTransparency);
         summary.DecodedTextureCount++;
         summary.TextureOutputDirectory = textureDirectory;
@@ -1269,6 +1372,11 @@ internal sealed class MapRenderExporter
         MaterialAsset material,
         MaterialTechniqueSetAsset? techset)
     {
+        IReadOnlyList<(MaterialTextureDef Texture, GfxImageAsset Image)> shaderColorTextures =
+            SelectShaderTextures(material, techset, semantic: 0x02);
+        if (shaderColorTextures.Count > 0)
+            return shaderColorTextures[0];
+
         int colorTextureCount = material.Textures.Count(texture => texture.Semantic == 0x02);
         foreach (MaterialTextureDef texture in material.Textures)
         {
@@ -1308,6 +1416,50 @@ internal sealed class MapRenderExporter
         }
 
         return best;
+    }
+
+    private (MaterialTextureDef Texture, GfxImageAsset Image)? SelectLayerBlendColorTexture(
+        MaterialAsset material,
+        MaterialTechniqueSetAsset? techset)
+    {
+        IReadOnlyList<(MaterialTextureDef Texture, GfxImageAsset Image)> shaderColorTextures =
+            SelectShaderTextures(material, techset, semantic: 0x02);
+        return shaderColorTextures.Count > 1
+            ? shaderColorTextures[1]
+            : null;
+    }
+
+    private IReadOnlyList<(MaterialTextureDef Texture, GfxImageAsset Image)> SelectShaderTextures(
+        MaterialAsset material,
+        MaterialTechniqueSetAsset? techset,
+        byte semantic)
+    {
+        if (techset is null)
+            return [];
+
+        var texturesByHash = material.Textures
+            .Where(texture => texture.Semantic == semantic)
+            .GroupBy(texture => texture.NameHash)
+            .ToDictionary(group => group.Key, group => group.First());
+        var result = new List<(MaterialTextureDef Texture, GfxImageAsset Image)>();
+        var seen = new HashSet<uint>();
+
+        foreach (MaterialShaderArgumentAsset arg in techset.TechniqueSlots
+            .Where(slot => slot.Technique is not null)
+            .SelectMany(slot => slot.Technique!.Passes)
+            .SelectMany(pass => pass.Args))
+        {
+            if (arg.Type != 0x0002 || !texturesByHash.TryGetValue(unchecked((uint)arg.ArgumentRaw), out MaterialTextureDef? texture))
+                continue;
+            if (!seen.Add(texture.NameHash))
+                continue;
+
+            GfxImageAsset? image = texture.Image ?? _assets.ResolveImage(texture.DataPointer);
+            if (image is not null)
+                result.Add((texture, image));
+        }
+
+        return result;
     }
 
     private static bool IsPrimaryColorTexture(MaterialTextureDef texture)
@@ -1363,7 +1515,7 @@ internal sealed class MapRenderExporter
         string name = string.IsNullOrWhiteSpace(image.Name)
             ? texture.DataPointer.Raw.ToString("X8", CultureInfo.InvariantCulture)
             : image.Name!;
-        return $"{name}_{image.Format:X2}_{image.BaseWidth}x{image.BaseHeight}";
+        return $"{name}_{image.Format:X2}_{image.BaseWidth}x{image.BaseHeight}_{texture.SamplerState:X2}";
     }
 
     private static string ImageCacheKey(GfxImageAsset image)
@@ -1517,10 +1669,32 @@ internal sealed class MapRenderExporter
                             string routing = decl is null
                                 ? "vd=<null>"
                                 : $"vdStreams={decl.StreamCount} opt={decl.HasOptionalSource} routes={string.Join(" ", decl.Routing.Select(x => $"{x.Source:X2}->{x.Dest:X2}"))}";
-                            return $"p{index}:{pass.VertexShader?.Name}/{pass.PixelShader?.Name} {routing} args={pass.PerPrimArgCount}+{pass.PerObjArgCount}+{pass.StableArgCount}";
+                            return $"p{index}:{ShaderText(pass.VertexShader)}/{ShaderText(pass.PixelShader)} {routing} args={pass.PerPrimArgCount}+{pass.PerObjArgCount}+{pass.StableArgCount} [{ShaderArgsText(pass)}]";
                         }));
                     return $"slot{slot.Index}:{slot.Technique!.Name}[{passes}]";
                 }));
+    }
+
+    private static string ShaderText(MaterialShaderAsset? shader)
+    {
+        if (shader is null)
+            return string.Empty;
+
+        string prefix = shader.Data is { Length: > 0 } data
+            ? HexBytes(data, Math.Min(16, data.Length))
+            : string.Empty;
+        return $"{shader.Name}#bytes={shader.DataSize}:0x{prefix}";
+    }
+
+    private static string ShaderArgsText(MaterialPassAsset pass)
+    {
+        return string.Join(" ", pass.Args.Select((arg, index) =>
+        {
+            string value = $"#{index}:t=0x{arg.Type:X4},d=0x{arg.Dest:X4},v=0x{arg.ArgumentRaw:X8}";
+            return arg.LiteralConstant is { } literal
+                ? $"{value},lit=({literal.X.ToString("G4", CultureInfo.InvariantCulture)}/{literal.Y.ToString("G4", CultureInfo.InvariantCulture)}/{literal.Z.ToString("G4", CultureInfo.InvariantCulture)}/{literal.W.ToString("G4", CultureInfo.InvariantCulture)})"
+                : value;
+        }));
     }
 
     private string? TechniqueRoutesText(MaterialTechniqueSetAsset? techset)
@@ -1725,6 +1899,11 @@ internal sealed class MapRenderExporter
         return builder.ToString();
     }
 
+    private static string HexBytes(IReadOnlyList<byte> bytes, int count)
+    {
+        return HexSlice(bytes, 0, count);
+    }
+
     private static string FirstIndexText(IReadOnlyList<ushort> indices, int offset, int count)
     {
         if (offset < 0 || offset >= indices.Count || count <= 0)
@@ -1799,6 +1978,7 @@ internal sealed record WorldSurfaceDebugManifest(
 internal sealed record SkyImageDebugRow(
     string ImageName,
     string Face,
+    string SamplerState,
     string Path,
     bool Decoded,
     string DecodeReason);
@@ -1822,10 +2002,12 @@ internal sealed record WorldSurfaceDebugRow(
     string SelectedUvDecoder,
     string TextureSemantic,
     string TextureSlot,
+    string TextureSamplerState,
     string TextureImage,
     bool TextureDecoded,
     string TextureDecodeReason,
     string LayerTextureSlot,
+    string LayerTextureSamplerState,
     string LayerTextureImage,
     string LayerTexturePath,
     bool LayerTextureDecoded,

@@ -372,12 +372,21 @@ internal static class ViewerHtmlWriter
       return path.split('/').map((part) => encodeURIComponent(part)).join('/');
     }
 
-    async function loadTexture(path) {
+    function samplerRepeats(samplerState) {
+      if (typeof samplerState !== 'string')
+        return true;
+      const value = Number.parseInt(samplerState, 16);
+      if (!Number.isFinite(value))
+        return true;
+      return (value & 0x40) === 0 && (value & 0x80) === 0;
+    }
+
+    async function loadTexture(path, repeat = true) {
       return new Promise((resolve, reject) => {
         new THREE.TextureLoader().load(`${textureUrl(path)}?v=${version}`, (texture) => {
           texture.colorSpace = THREE.SRGBColorSpace;
-          texture.wrapS = THREE.ClampToEdgeWrapping;
-          texture.wrapT = THREE.ClampToEdgeWrapping;
+          texture.wrapS = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+          texture.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
           resolve(texture);
         }, undefined, reject);
       });
@@ -399,7 +408,8 @@ internal static class ViewerHtmlWriter
         { face: 'bk', rotation: -Math.PI / 2 }
       ];
       const textures = await Promise.all(faceSlots.map(async (slot) => {
-        const texture = await loadTexture((byFace.get(slot.face) ?? fallback).Path);
+        const image = byFace.get(slot.face) ?? fallback;
+        const texture = await loadTexture(image.Path, samplerRepeats(image.SamplerState));
         texture.center.set(0.5, 0.5);
         texture.rotation = slot.rotation;
         texture.needsUpdate = true;
@@ -475,12 +485,15 @@ internal static class ViewerHtmlWriter
         if (!row.MaterialKey || !row.LayerTextureDecoded || !row.LayerTexturePath)
           continue;
         if (!specs.has(row.MaterialKey))
-          specs.set(row.MaterialKey, row.LayerTexturePath);
+          specs.set(row.MaterialKey, {
+            path: row.LayerTexturePath,
+            samplerState: row.LayerTextureSamplerState
+          });
       }
 
       const materials = new Map();
-      await Promise.all([...specs].map(async ([name, path]) => {
-        materials.set(name, await loadTexture(path));
+      await Promise.all([...specs].map(async ([name, spec]) => {
+        materials.set(name, await loadTexture(spec.path, samplerRepeats(spec.samplerState)));
       }));
       return materials;
     }
@@ -536,8 +549,12 @@ internal static class ViewerHtmlWriter
         `format=${row.WorldVertexFormat}`,
         `uv=${row.SelectedUvDecoder || '<none>'}`,
         `textureSlot=${row.TextureSlot || '<none>'}`,
+        row.TextureSamplerState ? `textureSampler=${row.TextureSamplerState}` : '',
         `texture=${row.TextureImage || '<none>'}`,
         `decoded=${row.TextureDecoded}`,
+        row.LayerTextureSlot ? `layerTextureSlot=${row.LayerTextureSlot}` : '',
+        row.LayerTextureSamplerState ? `layerTextureSampler=${row.LayerTextureSamplerState}` : '',
+        row.LayerTextureImage ? `layerTexture=${row.LayerTextureImage}` : '',
         `triangles layer=0x${hex(row.VertexLayerData)} baseVertex=${row.BaseVertex} min=${row.MinVertexIndex} verts=${row.VertexCount} tris=${row.TriCount} baseIndex=${row.BaseIndex}`,
         `firstLayerOffset=0x${hex(row.FirstLayerOffset)}`,
         `layerBytes=${row.FirstLayerBytes}`
@@ -815,6 +832,10 @@ internal static class ViewerHtmlWriter
           const layerMap = materialTextures.get(material.name);
           if (!layerMap)
             continue;
+          if (object.geometry?.getAttribute('uv1') && !object.geometry.getAttribute('uv2'))
+            object.geometry.setAttribute('uv2', object.geometry.getAttribute('uv1'));
+          if (!object.geometry?.getAttribute('uv2'))
+            continue;
 
           material.vertexColors = false;
           material.onBeforeCompile = (shader) => {
@@ -822,19 +843,19 @@ internal static class ViewerHtmlWriter
             shader.vertexShader = shader.vertexShader
               .replace(
                 '#include <common>',
-                '#include <common>\nattribute vec4 color;\nvarying float vLayerBlend;')
+                '#include <common>\nattribute vec4 color;\nattribute vec2 uv2;\nvarying float vLayerBlend;\nvarying vec2 vLayerMapUv;')
               .replace(
                 '#include <begin_vertex>',
-                '#include <begin_vertex>\nvLayerBlend = clamp(color.r, 0.0, 1.0);');
+                '#include <begin_vertex>\nvLayerBlend = clamp(color.g, 0.0, 1.0);\nvLayerMapUv = uv2;');
             shader.fragmentShader = shader.fragmentShader
               .replace(
                 '#include <common>',
-                '#include <common>\nuniform sampler2D layerMap;\nvarying float vLayerBlend;')
+                '#include <common>\nuniform sampler2D layerMap;\nvarying float vLayerBlend;\nvarying vec2 vLayerMapUv;')
               .replace(
                 '#include <map_fragment>',
                 [
                   '#include <map_fragment>',
-                  'vec4 layerDiffuseColor = texture2D(layerMap, vMapUv);',
+                  'vec4 layerDiffuseColor = texture2D(layerMap, vLayerMapUv);',
                   'diffuseColor.rgb = mix(diffuseColor.rgb, layerDiffuseColor.rgb, vLayerBlend);'
                 ].join('\n'));
           };
