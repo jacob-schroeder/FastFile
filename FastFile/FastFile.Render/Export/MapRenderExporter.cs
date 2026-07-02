@@ -250,6 +250,7 @@ internal sealed class MapRenderExporter
         string outputPath = Path.Combine(_options.OutputDirectory, $"{stem}.gfx.glb");
         builder.Write(outputPath);
         WriteMaterialTextureReport(stem, materialRows, summary);
+        WriteMaterialShaderReport(stem, materialRows, summary);
         WriteWorldVertexFormatReport(stem, materialRows, summary);
         if (_options.WriteUvCandidateReports)
         {
@@ -495,6 +496,8 @@ internal sealed class MapRenderExporter
             LayerTexturePath: RelativeTexturePath(layerTexture?.PngPath),
             LayerTextureDecoded: layerTexture?.Decoded ?? false,
             LayerTextureDecodeReason: layerTexture?.DecodeReason ?? string.Empty,
+            LayerBaseTint: LayerBlendTintText(material, techset, texture?.Texture, layerTexture?.Texture, tintIndex: 0),
+            LayerTextureTint: LayerBlendTintText(material, techset, texture?.Texture, layerTexture?.Texture, tintIndex: 1),
             LightmapIndex: surface.LightmapIndex,
             ReflectionProbeIndex: surface.ReflectionProbeIndex,
             PrimaryLightIndex: surface.PrimaryLightIndex,
@@ -956,10 +959,9 @@ internal sealed class MapRenderExporter
                 new UvCandidate(0x3C, 0x04, true, 1, UvIndexMode.SurfaceIndex, UvValueFormat.Float2)
             ],
 
-            // TEX_2_NRM_2 interleaves the paired blend records as a 0x28-byte
-            // logical vertex: c0/n0/s0 uses tc0 at +0x04 and c1/n1/s1 uses
-            // tc1 at +0x1C. The surface debug FirstLayerBytes field starts
-            // at +0x04, so tc1 appears there at +0x18.
+            // TEX_2_NRM_2 interleaves paired blend data in a 0x28-byte
+            // logical vertex. The decoded RSX fragment program samples c1/n1/s1
+            // from texcoord6.zw, which lands at +0x18/+0x1C in this record.
             MaterialWorldVertexFormat.MTL_WORLDVERT_TEX_2_NRM_2 =>
                 SelectedTex2Nrm2UvCandidates(),
 
@@ -999,7 +1001,7 @@ internal sealed class MapRenderExporter
 
         IReadOnlyList<byte> layer = gfxMap.WorldDraw.VertexLayerData.PackedLayerData;
         int vertexCount = gfxMap.WorldDraw.VertexData.PackedVertices.Count / 0x10;
-        var candidate = new UvCandidate(0x28, 0x1C, true, 1, UvIndexMode.SurfaceIndex, UvValueFormat.Float2);
+        var candidate = new UvCandidate(0x28, 0x18, true, 1, UvIndexMode.SurfaceIndex, UvValueFormat.Float2);
         UvDecodeResult result = ScoreWorldTexCoordCandidate(gfxMap, candidate, vertexCount, surfaces);
         if (result.TotalIndexedVertices > 0 &&
             result.ValidIndexedVertices / (float)result.TotalIndexedVertices >= 1.0f - MaxTexturedUvFailureRatio)
@@ -1022,6 +1024,7 @@ internal sealed class MapRenderExporter
                 BuildLayerBaseIndices(gfxMap.Dpvs.Surfaces),
                 WorldVertexLayerStride,
                 0x18,
+                WorldColorPacking.RawRgba,
                 invert: false);
         }
 
@@ -1032,7 +1035,8 @@ internal sealed class MapRenderExporter
                 BuildLayerBaseIndices(gfxMap.Dpvs.Surfaces),
                 0x28,
                 0x00,
-                invert: true);
+                WorldColorPacking.D3DArgb,
+                invert: false);
         }
 
         return null;
@@ -1449,7 +1453,8 @@ internal sealed class MapRenderExporter
             .SelectMany(slot => slot.Technique!.Passes)
             .SelectMany(pass => pass.Args))
         {
-            if (arg.Type != 0x0002 || !texturesByHash.TryGetValue(unchecked((uint)arg.ArgumentRaw), out MaterialTextureDef? texture))
+            if (arg.Type != MaterialShaderArgumentType.MaterialPixelSampler ||
+                !texturesByHash.TryGetValue(unchecked((uint)arg.ArgumentRaw), out MaterialTextureDef? texture))
                 continue;
             if (!seen.Add(texture.NameHash))
                 continue;
@@ -1460,6 +1465,81 @@ internal sealed class MapRenderExporter
         }
 
         return result;
+    }
+
+    private static string LayerBlendTintText(
+        MaterialAsset? material,
+        MaterialTechniqueSetAsset? techset,
+        MaterialTextureDef? baseTexture,
+        MaterialTextureDef? layerTexture,
+        int tintIndex)
+    {
+        if (material is null || techset is null || baseTexture is null || layerTexture is null)
+            return string.Empty;
+
+        MaterialPassAsset? pass = FindPassBindingTextures(techset, baseTexture.NameHash, layerTexture.NameHash);
+        if (pass is null)
+            return string.Empty;
+
+        string targetName = tintIndex == 0 ? "colorTint" : "colorTint1";
+        Dictionary<uint, MaterialConstantDef> constantsByHash = material.Constants
+            .GroupBy(constant => constant.NameHash)
+            .ToDictionary(group => group.Key, group => group.First());
+        foreach (MaterialShaderArgumentAsset arg in pass.Args)
+        {
+            if (arg.Type != MaterialShaderArgumentType.MaterialPixelConst ||
+                !constantsByHash.TryGetValue(unchecked((uint)arg.ArgumentRaw), out MaterialConstantDef? constant) ||
+                !string.Equals(ConstantName(constant), targetName, StringComparison.Ordinal))
+                continue;
+
+            return Vec4Text(constant.Literal);
+        }
+
+        return string.Empty;
+    }
+
+    private static MaterialPassAsset? FindPassBindingTextures(
+        MaterialTechniqueSetAsset techset,
+        uint baseTextureHash,
+        uint layerTextureHash)
+    {
+        foreach (MaterialPassAsset pass in techset.TechniqueSlots
+            .Where(slot => slot.Technique is not null)
+            .SelectMany(slot => slot.Technique!.Passes))
+        {
+            bool hasBase = false;
+            bool hasLayer = false;
+            foreach (MaterialShaderArgumentAsset arg in pass.Args)
+            {
+                if (arg.Type != MaterialShaderArgumentType.MaterialPixelSampler)
+                    continue;
+
+                uint hash = unchecked((uint)arg.ArgumentRaw);
+                hasBase |= hash == baseTextureHash;
+                hasLayer |= hash == layerTextureHash;
+            }
+
+            if (hasBase && hasLayer)
+                return pass;
+        }
+
+        return null;
+    }
+
+    private static string Vec4Text(MaterialVec4 value)
+    {
+        return string.Join(
+            " ",
+            value.X.ToString("R", CultureInfo.InvariantCulture),
+            value.Y.ToString("R", CultureInfo.InvariantCulture),
+            value.Z.ToString("R", CultureInfo.InvariantCulture),
+            value.W.ToString("R", CultureInfo.InvariantCulture));
+    }
+
+    private static string ConstantName(MaterialConstantDef constant)
+    {
+        int length = constant.NameBytes.TakeWhile(value => value != 0).Count();
+        return Encoding.ASCII.GetString(constant.NameBytes.Take(length).ToArray());
     }
 
     private static bool IsPrimaryColorTexture(MaterialTextureDef texture)
@@ -1578,7 +1658,7 @@ internal sealed class MapRenderExporter
     {
         string outputPath = Path.Combine(_options.OutputDirectory, $"{stem}.material-textures.csv");
         using var writer = new StreamWriter(outputPath, false, Encoding.UTF8);
-        writer.WriteLine("materialName,surfaceCount,resolvedMaterial,cameraRegion,techsetName,worldVertexFormat,techsetPasses,stateBits,textureCount,textures,selectedTextureSemantic,selectedTextureSlot,imageName,width,height,baseWidth,baseHeight,format,payloadBytes,streamData,decoded,hasTransparency,pngPath,decodeReason");
+        writer.WriteLine("materialName,surfaceCount,resolvedMaterial,cameraRegion,techsetName,worldVertexFormat,techsetPasses,stateBits,textureCount,textures,constantCount,constants,selectedTextureSemantic,selectedTextureSlot,imageName,width,height,baseWidth,baseHeight,format,payloadBytes,streamData,decoded,hasTransparency,pngPath,decodeReason");
         foreach (MaterialTextureReportRow row in rows)
         {
             TextureBinding? texture = row.Texture;
@@ -1595,6 +1675,8 @@ internal sealed class MapRenderExporter
                 Csv(row.Material is null ? null : StateBitsText(row.Material)),
                 row.Material?.Textures.Count.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                 Csv(row.Material is null ? null : TextureListText(row.Material)),
+                row.Material?.Constants.Count.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                Csv(row.Material is null ? null : ConstantListText(row.Material)),
                 texture?.Texture.Semantic.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                 texture is null ? string.Empty : TextureSlotText(texture.Value.Texture),
                 Csv(texture?.Image.Name),
@@ -1612,6 +1694,332 @@ internal sealed class MapRenderExporter
         }
 
         summary.WrittenFiles.Add(outputPath);
+    }
+
+    private void WriteMaterialShaderReport(
+        string stem,
+        IReadOnlyList<MaterialTextureReportRow> rows,
+        MapRenderSummary summary)
+    {
+        string shaderDirectory = Path.Combine(_options.OutputDirectory, "shaders");
+        string outputPath = Path.Combine(_options.OutputDirectory, $"{stem}.material-shaders.csv");
+        var writtenShaders = new HashSet<string>(StringComparer.Ordinal);
+        using var writer = new StreamWriter(outputPath, false, Encoding.UTF8);
+        writer.WriteLine("materialName,techsetName,techniqueSlot,techniqueName,passIndex,shaderKind,shaderName,dataSize,bytecodePath,bytecodePrefix,bytecodeHeader,shaderSymbols,rsxDecode,vertexDecl,args");
+
+        foreach (MaterialTextureReportRow row in rows)
+        {
+            MaterialTechniqueSetAsset? techset = ResolveTechniqueSet(row.Material);
+            if (techset is null)
+                continue;
+
+            foreach (MaterialTechniqueSlot slot in techset.TechniqueSlots.Where(slot => slot.Technique is not null))
+            {
+                for (int passIndex = 0; passIndex < slot.Technique!.Passes.Count; passIndex++)
+                {
+                    MaterialPassAsset pass = slot.Technique.Passes[passIndex];
+                    MaterialVertexDeclarationAsset? decl = pass.VertexDeclaration ?? _assets.ResolveVertexDeclaration(pass.VertexDeclPointer);
+                    string vertexDecl = decl is null
+                        ? string.Empty
+                        : TechniqueRouteText(decl, includeSemanticNames: true);
+                    string args = ShaderArgsText(pass, row.Material);
+                    WriteShaderReportRow(writer, shaderDirectory, writtenShaders, row.MaterialName, techset, slot, passIndex, pass.VertexShader, vertexDecl, args);
+                    WriteShaderReportRow(writer, shaderDirectory, writtenShaders, row.MaterialName, techset, slot, passIndex, pass.PixelShader, vertexDecl, args);
+                }
+            }
+        }
+
+        summary.WrittenFiles.Add(outputPath);
+    }
+
+    private static void WriteShaderReportRow(
+        StreamWriter writer,
+        string shaderDirectory,
+        HashSet<string> writtenShaders,
+        string materialName,
+        MaterialTechniqueSetAsset techset,
+        MaterialTechniqueSlot slot,
+        int passIndex,
+        MaterialShaderAsset? shader,
+        string vertexDecl,
+        string args)
+    {
+        if (shader is null)
+            return;
+
+        string bytecodePath = string.Empty;
+        byte[]? data = shader.Data;
+        if (data is { Length: > 0 })
+        {
+            Directory.CreateDirectory(shaderDirectory);
+            string fileName = $"{SafeFileName($"{shader.Kind}_{shader.Name}_{shader.DataSize:X}_{Fnv1A32(data):X8}")}.bin";
+            string absolutePath = Path.Combine(shaderDirectory, fileName);
+            if (writtenShaders.Add(absolutePath))
+                File.WriteAllBytes(absolutePath, data);
+            bytecodePath = Path.Combine("shaders", fileName).Replace('\\', '/');
+        }
+
+        writer.WriteLine(string.Join(
+            ",",
+            Csv(materialName),
+            Csv(techset.Name),
+            slot.Index.ToString(CultureInfo.InvariantCulture),
+            Csv(slot.Technique?.Name),
+            passIndex.ToString(CultureInfo.InvariantCulture),
+            shader.Kind.ToString(),
+            Csv(shader.Name),
+            shader.DataSize.ToString(CultureInfo.InvariantCulture),
+            Csv(bytecodePath),
+            Csv(data is { Length: > 0 } ? HexBytes(data, Math.Min(64, data.Length)) : string.Empty),
+            Csv(data is { Length: > 0 } ? ShaderHeaderText(data) : string.Empty),
+            Csv(data is { Length: > 0 } ? ShaderSymbolsText(data) : string.Empty),
+            Csv(data is { Length: > 0 } ? RsxShaderDecodeText(shader.Kind, data) : string.Empty),
+            Csv(vertexDecl),
+            Csv(args)));
+    }
+
+    private static string ShaderHeaderText(byte[] data)
+    {
+        int count = Math.Min(data.Length / 4, 16);
+        return string.Join(" ", Enumerable.Range(0, count)
+            .Select(index => $"0x{BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(index * 4, 4)):X8}"));
+    }
+
+    private static string ShaderSymbolsText(byte[] data)
+    {
+        var symbols = new List<string>();
+        int start = -1;
+        for (int i = 0; i <= data.Length; i++)
+        {
+            bool printable = i < data.Length && data[i] >= 0x20 && data[i] <= 0x7E;
+            if (printable)
+            {
+                if (start < 0)
+                    start = i;
+                continue;
+            }
+
+            if (start >= 0 && i - start >= 4)
+                symbols.Add(Encoding.ASCII.GetString(data, start, i - start));
+            start = -1;
+        }
+
+        return string.Join(" ", symbols.Distinct(StringComparer.Ordinal).Take(96));
+    }
+
+    private static string RsxShaderDecodeText(MaterialShaderKind kind, byte[] data)
+    {
+        int offset = RsxShaderCodeOffset(data);
+        if (offset < 0)
+            return string.Empty;
+
+        return kind == MaterialShaderKind.Pixel
+            ? RsxFragmentDecodeText(data, offset)
+            : RsxVertexDecodeText(data, offset);
+    }
+
+    private static int RsxShaderCodeOffset(byte[] data)
+    {
+        if (data.Length < 0x18)
+            return -1;
+
+        uint offset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x14, 4));
+        return offset >= 0x40 && offset + 16 <= data.Length && (offset & 0x0f) == 0
+            ? (int)offset
+            : -1;
+    }
+
+    private static string RsxFragmentDecodeText(byte[] data, int offset)
+    {
+        int instructionCount = Math.Min(96, (data.Length - offset) / 16);
+        var opCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var texOps = new List<string>();
+        for (int i = 0; i < instructionCount; i++)
+        {
+            uint w0 = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(offset + i * 16, 4)));
+            byte opcode = (byte)((w0 >> 24) & 0x3f);
+            string opName = RsxFragmentOpcodeName(opcode);
+            opCounts[opName] = opCounts.TryGetValue(opName, out int count) ? count + 1 : 1;
+            if (opcode is 0x17 or 0x18 or 0x19 or 0x2f or 0x31)
+            {
+                int textureUnit = (int)((w0 >> 17) & 0x0f);
+                int input = (int)((w0 >> 13) & 0x0f);
+                int dest = (int)((w0 >> 1) & 0x3f);
+                int mask = (int)((w0 >> 9) & 0x0f);
+                texOps.Add($"{i}@0x{offset + i * 16:X}:{opName} t{textureUnit} {RsxFragmentInputName(input)}->R{dest}.{WriteMaskText(mask)}");
+            }
+        }
+
+        string ops = string.Join(" ", opCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(16).Select(x => $"{x.Key}:{x.Value}"));
+        return $"fp@0x{offset:X} sample={instructionCount} ops=[{ops}] tex=[{string.Join(" ", texOps.Take(24))}]";
+    }
+
+    private static string RsxVertexDecodeText(byte[] data, int offset)
+    {
+        int instructionCount = Math.Min(64, (data.Length - offset) / 16);
+        var vecCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var scaCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < instructionCount; i++)
+        {
+            uint w1 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(offset + i * 16 + 4, 4));
+            string vec = RsxVertexVectorOpcodeName((byte)((w1 >> 22) & 0x1f));
+            string sca = RsxVertexScalarOpcodeName((byte)((w1 >> 27) & 0x1f));
+            vecCounts[vec] = vecCounts.TryGetValue(vec, out int vecCount) ? vecCount + 1 : 1;
+            scaCounts[sca] = scaCounts.TryGetValue(sca, out int scaCount) ? scaCount + 1 : 1;
+        }
+
+        string vecOps = string.Join(" ", vecCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(12).Select(x => $"{x.Key}:{x.Value}"));
+        string scaOps = string.Join(" ", scaCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(12).Select(x => $"{x.Key}:{x.Value}"));
+        return $"vp@0x{offset:X} sample={instructionCount} vec=[{vecOps}] sca=[{scaOps}]";
+    }
+
+    // PSL1GHT cgcomp writes fragment ucode with this byte-lane transform; reverse it before decoding fields.
+    private static uint RsxFragmentWord(uint value)
+    {
+        return ((value & 0x000000ffu) << 16)
+            | ((value & 0x0000ff00u) << 16)
+            | ((value & 0x00ff0000u) >> 16)
+            | ((value & 0xff000000u) >> 16);
+    }
+
+    private static string RsxFragmentInputName(int input)
+    {
+        return input switch
+        {
+            0x0 => "position",
+            0x1 => "color0",
+            0x2 => "color1",
+            0x3 => "fog",
+            >= 0x4 and <= 0xb => $"texcoord{input - 0x4}",
+            0xe => "facing",
+            _ => $"input{input:X}"
+        };
+    }
+
+    private static string WriteMaskText(int mask)
+    {
+        if (mask == 0)
+            return "-";
+
+        Span<char> chars = stackalloc char[4];
+        int count = 0;
+        if ((mask & 0x1) != 0) chars[count++] = 'x';
+        if ((mask & 0x2) != 0) chars[count++] = 'y';
+        if ((mask & 0x4) != 0) chars[count++] = 'z';
+        if ((mask & 0x8) != 0) chars[count++] = 'w';
+        return new string(chars[..count]);
+    }
+
+    private static string RsxFragmentOpcodeName(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 => "NOP",
+            0x01 => "MOV",
+            0x02 => "MUL",
+            0x03 => "ADD",
+            0x04 => "MAD",
+            0x05 => "DP3",
+            0x06 => "DP4",
+            0x07 => "DST",
+            0x08 => "MIN",
+            0x09 => "MAX",
+            0x0a => "SLT",
+            0x0b => "SGE",
+            0x0c => "SLE",
+            0x0d => "SGT",
+            0x0e => "SNE",
+            0x0f => "SEQ",
+            0x10 => "FRC",
+            0x11 => "FLR",
+            0x12 => "KIL",
+            0x13 => "PK4B",
+            0x14 => "UP4B",
+            0x15 => "DDX",
+            0x16 => "DDY",
+            0x17 => "TEX",
+            0x18 => "TXP",
+            0x19 => "TXD",
+            0x1a => "RCP",
+            0x1b => "RSQ",
+            0x1c => "EX2",
+            0x1d => "LG2",
+            0x20 => "STR",
+            0x21 => "SFL",
+            0x22 => "COS",
+            0x23 => "SIN",
+            0x24 => "PK2H",
+            0x25 => "UP2H",
+            0x27 => "PK4UB",
+            0x28 => "UP4UB",
+            0x29 => "PK2US",
+            0x2a => "UP2US",
+            0x2e => "DP2A",
+            0x2f => "TXL",
+            0x31 => "TXB",
+            0x38 => "DP2",
+            0x39 => "NRM",
+            0x3a => "DIV",
+            0x3b => "DIVRSQ",
+            0x3c => "LITEX2",
+            _ => $"op{opcode:X2}"
+        };
+    }
+
+    private static string RsxVertexVectorOpcodeName(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 => "NOP",
+            0x01 => "MOV",
+            0x02 => "MUL",
+            0x03 => "ADD",
+            0x04 => "MAD",
+            0x05 => "DP3",
+            0x06 => "DP4",
+            0x07 => "DST",
+            0x08 => "MIN",
+            0x09 => "MAX",
+            0x0a => "SLT",
+            0x0b => "SGE",
+            0x0c => "ARL",
+            0x0d => "FRC",
+            0x0e => "FLR",
+            0x0f => "SEQ",
+            0x10 => "SFL",
+            0x11 => "SGT",
+            0x12 => "SLE",
+            0x13 => "SNE",
+            0x14 => "STR",
+            0x15 => "SSG",
+            0x16 => "ARR",
+            0x17 => "ARA",
+            0x19 => "TXL",
+            _ => $"vop{opcode:X2}"
+        };
+    }
+
+    private static string RsxVertexScalarOpcodeName(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 => "NOP",
+            0x01 => "MOV",
+            0x02 => "RCP",
+            0x03 => "RCC",
+            0x04 => "RSQ",
+            0x05 => "EXP",
+            0x06 => "LOG",
+            0x07 => "LIT",
+            0x08 => "BRA",
+            0x09 => "CAL",
+            0x0a => "RET",
+            0x0b => "LG2",
+            0x0c => "EX2",
+            0x0d => "SIN",
+            0x0e => "COS",
+            _ => $"sop{opcode:X2}"
+        };
     }
 
     private string StateBitsText(MaterialAsset material)
@@ -1650,6 +2058,14 @@ internal sealed class MapRenderExporter
             }));
     }
 
+    private static string ConstantListText(MaterialAsset material)
+    {
+        return string.Join(
+            "; ",
+            material.Constants.Select(constant =>
+                $"hash=0x{constant.NameHash:X8} nameBytes={HexBytes(constant.NameBytes, constant.NameBytes.Count)} value=({Vec4Text(constant.Literal).Replace(' ', '/')})"));
+    }
+
     private string? TechniquePassText(MaterialTechniqueSetAsset? techset)
     {
         if (techset is null)
@@ -1669,7 +2085,7 @@ internal sealed class MapRenderExporter
                             string routing = decl is null
                                 ? "vd=<null>"
                                 : $"vdStreams={decl.StreamCount} opt={decl.HasOptionalSource} routes={string.Join(" ", decl.Routing.Select(x => $"{x.Source:X2}->{x.Dest:X2}"))}";
-                            return $"p{index}:{ShaderText(pass.VertexShader)}/{ShaderText(pass.PixelShader)} {routing} args={pass.PerPrimArgCount}+{pass.PerObjArgCount}+{pass.StableArgCount} [{ShaderArgsText(pass)}]";
+                            return $"p{index}:{ShaderText(pass.VertexShader)}/{ShaderText(pass.PixelShader)} {routing} args={pass.PerPrimArgCount}+{pass.PerObjArgCount}+{pass.StableArgCount} [{ShaderArgsText(pass, null)}]";
                         }));
                     return $"slot{slot.Index}:{slot.Technique!.Name}[{passes}]";
                 }));
@@ -1686,11 +2102,27 @@ internal sealed class MapRenderExporter
         return $"{shader.Name}#bytes={shader.DataSize}:0x{prefix}";
     }
 
-    private static string ShaderArgsText(MaterialPassAsset pass)
+    private static string ShaderArgsText(MaterialPassAsset pass, MaterialAsset? material)
     {
+        Dictionary<uint, MaterialTextureDef> texturesByHash = material?.Textures
+            .GroupBy(texture => texture.NameHash)
+            .ToDictionary(group => group.Key, group => group.First())
+            ?? [];
+        Dictionary<uint, MaterialConstantDef> constantsByHash = material?.Constants
+            .GroupBy(constant => constant.NameHash)
+            .ToDictionary(group => group.Key, group => group.First())
+            ?? [];
+
         return string.Join(" ", pass.Args.Select((arg, index) =>
         {
-            string value = $"#{index}:t=0x{arg.Type:X4},d=0x{arg.Dest:X4},v=0x{arg.ArgumentRaw:X8}";
+            uint raw = unchecked((uint)arg.ArgumentRaw);
+            string value = $"#{index}:t={arg.Type}/0x{(ushort)arg.Type:X4},d=0x{arg.Dest:X4},v=0x{arg.ArgumentRaw:X8}";
+            if (arg.Type == MaterialShaderArgumentType.MaterialPixelSampler &&
+                texturesByHash.TryGetValue(raw, out MaterialTextureDef? texture))
+                value += $",tex={TextureSlotText(texture)}";
+            if (arg.Type == MaterialShaderArgumentType.MaterialPixelConst &&
+                constantsByHash.TryGetValue(raw, out MaterialConstantDef? constant))
+                value += $",const={ConstantName(constant)}({Vec4Text(constant.Literal).Replace(' ', '/')})";
             return arg.LiteralConstant is { } literal
                 ? $"{value},lit=({literal.X.ToString("G4", CultureInfo.InvariantCulture)}/{literal.Y.ToString("G4", CultureInfo.InvariantCulture)}/{literal.Z.ToString("G4", CultureInfo.InvariantCulture)}/{literal.W.ToString("G4", CultureInfo.InvariantCulture)})"
                 : value;
@@ -1817,6 +2249,7 @@ internal sealed class MapRenderExporter
             0x0A => "texcoord[5]",
             0x0B => "texcoord[6]",
             0x0C => "texcoord[7]",
+            0x0D => "color[1]",
             _ => $"dest[{dest:X2}]"
         };
     }
@@ -1847,6 +2280,18 @@ internal sealed class MapRenderExporter
         foreach (char ch in value)
             builder.Append(Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch);
         return builder.Length == 0 ? "image" : builder.ToString();
+    }
+
+    private static uint Fnv1A32(IReadOnlyList<byte> bytes)
+    {
+        uint hash = 2166136261;
+        foreach (byte value in bytes)
+        {
+            hash ^= value;
+            hash *= 16777619;
+        }
+
+        return hash;
     }
 
     private static Rgba ColorFromString(string key, float alpha)
@@ -2012,6 +2457,8 @@ internal sealed record WorldSurfaceDebugRow(
     string LayerTexturePath,
     bool LayerTextureDecoded,
     string LayerTextureDecodeReason,
+    string LayerBaseTint,
+    string LayerTextureTint,
     byte LightmapIndex,
     byte ReflectionProbeIndex,
     byte PrimaryLightIndex,
@@ -2070,12 +2517,19 @@ internal readonly record struct LayerStreamKey(
     int VertexLayerData,
     int BaseVertex);
 
+internal enum WorldColorPacking
+{
+    RawRgba,
+    D3DArgb
+}
+
 internal sealed class WorldLayerColorDecoder
 {
     private readonly IReadOnlyList<byte> _layer;
     private readonly IReadOnlyDictionary<LayerStreamKey, int> _layerBaseIndices;
     private readonly int _stride;
     private readonly int _offset;
+    private readonly WorldColorPacking _packing;
     private readonly bool _invert;
 
     public WorldLayerColorDecoder(
@@ -2083,12 +2537,14 @@ internal sealed class WorldLayerColorDecoder
         IReadOnlyDictionary<LayerStreamKey, int> layerBaseIndices,
         int stride,
         int offset,
+        WorldColorPacking packing,
         bool invert)
     {
         _layer = layer;
         _layerBaseIndices = layerBaseIndices;
         _stride = stride;
         _offset = offset;
+        _packing = packing;
         _invert = invert;
     }
 
@@ -2101,10 +2557,25 @@ internal sealed class WorldLayerColorDecoder
         if (offset < 0 || offset + 4 > _layer.Count)
             return new Rgba(1, 1, 1, 1);
 
-        float r = _layer[offset] / 255.0f;
-        float g = _layer[offset + 1] / 255.0f;
-        float b = _layer[offset + 2] / 255.0f;
-        float a = _layer[offset + 3] / 255.0f;
+        float r;
+        float g;
+        float b;
+        float a;
+        if (_packing == WorldColorPacking.D3DArgb)
+        {
+            a = _layer[offset] / 255.0f;
+            r = _layer[offset + 1] / 255.0f;
+            g = _layer[offset + 2] / 255.0f;
+            b = _layer[offset + 3] / 255.0f;
+        }
+        else
+        {
+            r = _layer[offset] / 255.0f;
+            g = _layer[offset + 1] / 255.0f;
+            b = _layer[offset + 2] / 255.0f;
+            a = _layer[offset + 3] / 255.0f;
+        }
+
         if (_invert)
         {
             r = 1.0f - r;

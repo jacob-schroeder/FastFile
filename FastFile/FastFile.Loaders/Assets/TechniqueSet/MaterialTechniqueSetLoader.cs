@@ -460,7 +460,7 @@ public sealed class MaterialTechniqueSetLoader
         {
             int offset = cursor.Offset - argBytes.Length + i * ShaderArgSize;
             int argStart = argCursor.Offset;
-            ushort type = argCursor.ReadUInt16();
+            var type = (MaterialShaderArgumentType)argCursor.ReadUInt16();
             ushort dest = argCursor.ReadUInt16();
             int valueCellOffset = argCursor.Offset;
             XPointerReference argumentPointer = XPointerReference.FromRaw(
@@ -479,7 +479,7 @@ public sealed class MaterialTechniqueSetLoader
         {
             MaterialShaderLiteralConstant? literal = null;
             XPointerReference argumentPointer = argumentPointers[i];
-            if (args[i].Type is 1 or 7)
+            if (args[i].Type is MaterialShaderArgumentType.LiteralVertexConst or MaterialShaderArgumentType.LiteralPixelConst)
                 literal = ReadLiteralFloat4Pointer(cursor, argumentPointer, context);
 
             args[i] = args[i] with { LiteralConstant = literal };

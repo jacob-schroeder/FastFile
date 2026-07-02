@@ -68,9 +68,23 @@ public enum MaterialShaderKind
     Pixel
 }
 
+public enum MaterialShaderArgumentType : ushort
+{
+    MaterialVertexConst = 0x0,
+    LiteralVertexConst = 0x1,
+    MaterialPixelSampler = 0x2,
+    CodePrimBegin = 0x3,
+    CodeVertexConst = 0x3,
+    CodePixelSampler = 0x4,
+    CodePixelConst = 0x5,
+    MaterialPixelConst = 0x6,
+    CodePrimEnd = 0x6,
+    LiteralPixelConst = 0x7
+}
+
 public sealed record MaterialShaderArgumentAsset(
     int Offset,
-    ushort Type,
+    MaterialShaderArgumentType Type,
     ushort Dest,
     int ArgumentRaw,
     MaterialShaderLiteralConstant? LiteralConstant);

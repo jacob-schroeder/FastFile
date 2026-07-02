@@ -487,15 +487,30 @@ internal static class ViewerHtmlWriter
         if (!specs.has(row.MaterialKey))
           specs.set(row.MaterialKey, {
             path: row.LayerTexturePath,
-            samplerState: row.LayerTextureSamplerState
+            samplerState: row.LayerTextureSamplerState,
+            baseTint: parseVec4(row.LayerBaseTint),
+            layerTint: parseVec4(row.LayerTextureTint)
           });
       }
 
       const materials = new Map();
       await Promise.all([...specs].map(async ([name, spec]) => {
-        materials.set(name, await loadTexture(spec.path, samplerRepeats(spec.samplerState)));
+        materials.set(name, {
+          texture: await loadTexture(spec.path, samplerRepeats(spec.samplerState)),
+          baseTint: spec.baseTint,
+          layerTint: spec.layerTint
+        });
       }));
       return materials;
+    }
+
+    function parseVec4(text) {
+      if (typeof text !== 'string')
+        return new THREE.Vector4(1, 1, 1, 1);
+      const values = text.trim().split(/\s+/).map(Number);
+      return values.length >= 4 && values.every(Number.isFinite)
+        ? new THREE.Vector4(values[0], values[1], values[2], values[3])
+        : new THREE.Vector4(1, 1, 1, 1);
     }
 
     function inspectFromPointer(event) {
@@ -829,8 +844,8 @@ internal static class ViewerHtmlWriter
         if (!object.material) return;
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
-          const layerMap = materialTextures.get(material.name);
-          if (!layerMap)
+          const layerSpec = materialTextures.get(material.name);
+          if (!layerSpec)
             continue;
           if (object.geometry?.getAttribute('uv1') && !object.geometry.getAttribute('uv2'))
             object.geometry.setAttribute('uv2', object.geometry.getAttribute('uv1'));
@@ -839,27 +854,33 @@ internal static class ViewerHtmlWriter
 
           material.vertexColors = false;
           material.onBeforeCompile = (shader) => {
-            shader.uniforms.layerMap = { value: layerMap };
-            shader.vertexShader = shader.vertexShader
-              .replace(
-                '#include <common>',
-                '#include <common>\nattribute vec4 color;\nattribute vec2 uv2;\nvarying float vLayerBlend;\nvarying vec2 vLayerMapUv;')
-              .replace(
-                '#include <begin_vertex>',
-                '#include <begin_vertex>\nvLayerBlend = clamp(color.g, 0.0, 1.0);\nvLayerMapUv = uv2;');
-            shader.fragmentShader = shader.fragmentShader
-              .replace(
-                '#include <common>',
-                '#include <common>\nuniform sampler2D layerMap;\nvarying float vLayerBlend;\nvarying vec2 vLayerMapUv;')
-              .replace(
-                '#include <map_fragment>',
-                [
-                  '#include <map_fragment>',
-                  'vec4 layerDiffuseColor = texture2D(layerMap, vLayerMapUv);',
-                  'diffuseColor.rgb = mix(diffuseColor.rgb, layerDiffuseColor.rgb, vLayerBlend);'
-                ].join('\n'));
-          };
-          material.customProgramCacheKey = () => `layer-blend-v1-${material.name}`;
+            shader.uniforms.layerMap = { value: layerSpec.texture };
+            shader.uniforms.layerBaseTint = { value: layerSpec.baseTint };
+            shader.uniforms.layerTextureTint = { value: layerSpec.layerTint };
+        shader.vertexShader = shader.vertexShader
+          .replace(
+            '#include <common>',
+            '#include <common>\nattribute vec2 uv2;\nvarying vec2 vLayerMapUv;')
+          .replace(
+            '#include <begin_vertex>',
+            '#include <begin_vertex>\nvLayerMapUv = uv2;');
+        shader.fragmentShader = shader.fragmentShader
+          .replace(
+            '#include <common>',
+            '#include <common>\nuniform sampler2D layerMap;\nuniform vec4 layerBaseTint;\nuniform vec4 layerTextureTint;\nvarying vec2 vLayerMapUv;')
+          .replace(
+            '#include <map_fragment>',
+            [
+              '#include <map_fragment>',
+              'vec4 layerDiffuseColor = texture2D(layerMap, vLayerMapUv);',
+              'vec3 baseLayerColor = diffuseColor.rgb * layerBaseTint.rgb;',
+              'vec3 secondaryLayerColor = layerDiffuseColor.rgb * layerTextureTint.rgb;',
+              'float baseLayerScale = layerDiffuseColor.a * layerDiffuseColor.b;',
+              'float secondaryLayerScale = layerDiffuseColor.a * layerDiffuseColor.a;',
+              'diffuseColor.rgb = mix(baseLayerColor * baseLayerScale, layerDiffuseColor.rgb * secondaryLayerColor, secondaryLayerScale);'
+            ].join('\n'));
+      };
+      material.customProgramCacheKey = () => `layer-blend-v4-${material.name}`;
           material.needsUpdate = true;
         }
       });
