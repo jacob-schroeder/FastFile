@@ -229,6 +229,24 @@ public sealed class BlockStreamState
         return segment[offset];
     }
 
+    public byte[] ReadBytes(XBlockAddress address, int byteCount)
+    {
+        if (byteCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(byteCount));
+
+        int index = GetBlockIndex(address.BlockType);
+        int offset = address.Offset;
+        int writtenLength = _materializedLengths[index];
+        if (offset < 0 || offset > writtenLength - byteCount)
+            throw new InvalidDataException($"Cannot read 0x{byteCount:X} byte(s) at {address}; block {address.BlockType} has 0x{writtenLength:X} materialized byte(s).");
+
+        MemoryStream stream = _streams[index];
+        if (!stream.TryGetBuffer(out ArraySegment<byte> segment))
+            throw new InvalidOperationException($"Unable to inspect block {address.BlockType} bytes.");
+
+        return segment.AsSpan(offset, byteCount).ToArray();
+    }
+
     public string FormatByteWindow(XBlockAddress address, int bytesBefore, int bytesAfter)
     {
         if (bytesBefore < 0)

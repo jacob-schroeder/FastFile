@@ -1705,7 +1705,7 @@ internal sealed class MapRenderExporter
         string outputPath = Path.Combine(_options.OutputDirectory, $"{stem}.material-shaders.csv");
         var writtenShaders = new HashSet<string>(StringComparer.Ordinal);
         using var writer = new StreamWriter(outputPath, false, Encoding.UTF8);
-        writer.WriteLine("materialName,techsetName,techniqueSlot,techniqueName,passIndex,shaderKind,shaderName,dataSize,bytecodePath,bytecodePrefix,bytecodeHeader,shaderSymbols,rsxDecode,vertexDecl,args");
+        writer.WriteLine("materialName,techsetName,techniqueSlot,techniqueName,passIndex,shaderKind,shaderName,dataSize,bytecodePath,rsxReportPath,liveRenderSafe,bytecodePrefix,bytecodeHeader,shaderProgramRoot,shaderSymbols,rsxDecode,vertexDecl,backendStreamVertexInputProof,argRegisterContract,args");
 
         foreach (MaterialTextureReportRow row in rows)
         {
@@ -1723,8 +1723,9 @@ internal sealed class MapRenderExporter
                         ? string.Empty
                         : TechniqueRouteText(decl, includeSemanticNames: true);
                     string args = ShaderArgsText(pass, row.Material);
-                    WriteShaderReportRow(writer, shaderDirectory, writtenShaders, row.MaterialName, techset, slot, passIndex, pass.VertexShader, vertexDecl, args);
-                    WriteShaderReportRow(writer, shaderDirectory, writtenShaders, row.MaterialName, techset, slot, passIndex, pass.PixelShader, vertexDecl, args);
+                    string argContract = ShaderArgRegisterContractText(pass, row.Material);
+                    WriteShaderReportRow(writer, shaderDirectory, writtenShaders, row.MaterialName, row.Material, techset, slot, passIndex, pass, pass.VertexShader, decl, vertexDecl, argContract, args);
+                    WriteShaderReportRow(writer, shaderDirectory, writtenShaders, row.MaterialName, row.Material, techset, slot, passIndex, pass, pass.PixelShader, decl, vertexDecl, argContract, args);
                 }
             }
         }
@@ -1737,17 +1738,24 @@ internal sealed class MapRenderExporter
         string shaderDirectory,
         HashSet<string> writtenShaders,
         string materialName,
+        MaterialAsset? material,
         MaterialTechniqueSetAsset techset,
         MaterialTechniqueSlot slot,
         int passIndex,
+        MaterialPassAsset pass,
         MaterialShaderAsset? shader,
+        MaterialVertexDeclarationAsset? decl,
         string vertexDecl,
+        string argContract,
         string args)
     {
         if (shader is null)
             return;
 
         string bytecodePath = string.Empty;
+        string rsxReportPath = string.Empty;
+        string liveRenderSafe = string.Empty;
+        string backendProof = decl is null ? string.Empty : BackendStreamVertexInputProofText(techset, decl);
         byte[]? data = shader.Data;
         if (data is { Length: > 0 })
         {
@@ -1757,6 +1765,24 @@ internal sealed class MapRenderExporter
             if (writtenShaders.Add(absolutePath))
                 File.WriteAllBytes(absolutePath, data);
             bytecodePath = Path.Combine("shaders", fileName).Replace('\\', '/');
+
+            if (shader.Kind == MaterialShaderKind.Pixel && TryBuildRsxFragmentReport(data, pass, material, out string report, out bool safeForLive))
+            {
+                string reportFileName = Path.ChangeExtension(fileName, ".rsx.txt");
+                string reportAbsolutePath = Path.Combine(shaderDirectory, reportFileName);
+                if (writtenShaders.Add(reportAbsolutePath))
+                    File.WriteAllText(reportAbsolutePath, report, Encoding.UTF8);
+                rsxReportPath = Path.Combine("shaders", reportFileName).Replace('\\', '/');
+                liveRenderSafe = safeForLive.ToString(CultureInfo.InvariantCulture);
+            }
+            else if (shader.Kind == MaterialShaderKind.Vertex && TryBuildRsxVertexReport(data, decl, out report))
+            {
+                string reportFileName = Path.ChangeExtension(fileName, ".rsx.txt");
+                string reportAbsolutePath = Path.Combine(shaderDirectory, reportFileName);
+                if (writtenShaders.Add(reportAbsolutePath))
+                    File.WriteAllText(reportAbsolutePath, report, Encoding.UTF8);
+                rsxReportPath = Path.Combine("shaders", reportFileName).Replace('\\', '/');
+            }
         }
 
         writer.WriteLine(string.Join(
@@ -1770,12 +1796,125 @@ internal sealed class MapRenderExporter
             Csv(shader.Name),
             shader.DataSize.ToString(CultureInfo.InvariantCulture),
             Csv(bytecodePath),
+            Csv(rsxReportPath),
+            Csv(liveRenderSafe),
             Csv(data is { Length: > 0 } ? HexBytes(data, Math.Min(64, data.Length)) : string.Empty),
             Csv(data is { Length: > 0 } ? ShaderHeaderText(data) : string.Empty),
+            Csv(ShaderProgramRootText(shader)),
             Csv(data is { Length: > 0 } ? ShaderSymbolsText(data) : string.Empty),
             Csv(data is { Length: > 0 } ? RsxShaderDecodeText(shader.Kind, data) : string.Empty),
             Csv(vertexDecl),
+            Csv(backendProof),
+            Csv(argContract),
             Csv(args)));
+    }
+
+    private static string ShaderProgramRootText(MaterialShaderAsset shader)
+    {
+        if (shader.Kind != MaterialShaderKind.Pixel || shader.ProgramBytes.Length == 0)
+            return string.Empty;
+
+        string bytes = HexBytes(shader.ProgramBytes, shader.ProgramBytes.Length);
+        string serializedTail = string.Empty;
+        if (shader.ProgramBytes.Length >= 0x0c)
+        {
+            uint root0C = BinaryPrimitives.ReadUInt32BigEndian(shader.ProgramBytes.AsSpan(0, 4));
+            ushort root12 = BinaryPrimitives.ReadUInt16BigEndian(shader.ProgramBytes.AsSpan(6, 2));
+            uint root14 = BinaryPrimitives.ReadUInt32BigEndian(shader.ProgramBytes.AsSpan(8, 4));
+            serializedTail = $" serializedRoot+0x0c=0x{root0C:X8} serializedRoot+0x12=0x{root12:X4} serializedRoot+0x14=0x{root14:X8}";
+        }
+
+        string runtime = "runtimeRoot=UNMODELED";
+        if (shader.Data is { Length: > 0 } data &&
+            TryReadRsxShaderRuntimeInfo(data, out RsxShaderRuntimeInfo runtimeInfo))
+        {
+            runtime = $"runtimeRoot=REPORT_ONLY +0x04=patchTablePtr +0x08=commandListOffset +0x0c=0x{RsxCopiedCommandDwordCount(data, runtimeInfo):X} +0x10=patchTableHalfwords +0x12=0x{runtimeInfo.UploadSize:X} +0x14=raw+0x{runtimeInfo.UploadOffset:X}";
+        }
+
+        return $"serializedRootTail=0x{bytes}{serializedTail} {runtime} evidence=EBOOT.elf:0xfb128 loads the 0x14 MaterialPixelShaderProgram root; 0xfaff8 loads the 0x08 GfxPixelShaderLoadDef and calls 0x004c7428->0x00361f38; 0x00361f38 writes runtime fields +0x04/+0x08/+0x0c/+0x10/+0x12/+0x14; default_mp.elf:00396e48 consumes runtime +0x04/+0x12/+0x14 during fragment upload";
+    }
+
+    private static string ShaderArgRegisterContractText(MaterialPassAsset pass, MaterialAsset? material)
+    {
+        Dictionary<uint, MaterialTextureDef> texturesByHash = material?.Textures
+            .GroupBy(texture => texture.NameHash)
+            .ToDictionary(group => group.Key, group => group.First())
+            ?? [];
+        Dictionary<uint, MaterialConstantDef> constantsByHash = material?.Constants
+            .GroupBy(constant => constant.NameHash)
+            .ToDictionary(group => group.Key, group => group.First())
+            ?? [];
+
+        var parts = new List<string>(pass.Args.Count + 1)
+        {
+            "PS3_PROVEN default_mp.elf:003ac268 applies types0-4, 003a7738 bundles type5, 003a7608 bundles types6-7, 00396e48 patches fragment constants into the pixel shader upload buffer"
+        };
+
+        for (int i = 0; i < pass.Args.Count; i++)
+        {
+            MaterialShaderArgumentAsset arg = pass.Args[i];
+            uint raw = unchecked((uint)arg.ArgumentRaw);
+            string partition = ArgPartition(i, pass);
+            string prefix = $"#{i}:{partition}:type={(ushort)arg.Type}/0x{(ushort)arg.Type:X4}:dest=0x{arg.Dest:X4}:raw=0x{raw:X8}:";
+            parts.Add(prefix + (arg.Type switch
+            {
+                MaterialShaderArgumentType.MaterialVertexConst =>
+                    $"rsxVertexConst[{arg.Dest}] <- material.constants[hash=0x{raw:X8}]+0x10 via method 0x1efc {MaterialConstantText(constantsByHash, raw)}",
+                MaterialShaderArgumentType.LiteralVertexConst =>
+                    $"rsxVertexConst[{arg.Dest}] <- literal float4 via method 0x1efc {LiteralConstantText(arg.LiteralConstant)}",
+                MaterialShaderArgumentType.MaterialPixelSampler =>
+                    $"rsxTextureUnit[{arg.Dest}] <- material.textures[hash=0x{raw:X8}] via FUN_00376620 methods 0x1a00/0x1a18/0x1840/0x1a10 + unit*stride {MaterialTextureText(texturesByHash, raw)}",
+                MaterialShaderArgumentType.CodeVertexConst =>
+                    $"rsxVertexConst[{arg.Dest}..+{Math.Max(0, CodeConstVectorCount(raw) - 1)}] <- codeConst[index=0x{CodeConstIndex(raw):X4},count={CodeConstVectorCount(raw)}] via method 0x1efc",
+                MaterialShaderArgumentType.CodePixelSampler =>
+                    $"rsxTextureUnit[{arg.Dest}] <- codeTexture[index=0x{raw:X8}] texture=context+0x12b0+index*4 sampler=context+0x131c+index via FUN_00375db8/FUN_00376620",
+                MaterialShaderArgumentType.CodePixelConst =>
+                    $"rsxFragmentConstPatchDest[{arg.Dest}] <- codeConst[index=0x{CodeConstIndex(raw):X4}] from context+0xe00+index*0x10; 00396e48 patches every shader patch-list entry for this dest",
+                MaterialShaderArgumentType.MaterialPixelConst =>
+                    $"rsxFragmentConstPatchDest[{arg.Dest}] <- material.constants[hash=0x{raw:X8}]+0x10; 00396e48 patches every shader patch-list entry for this dest {MaterialConstantText(constantsByHash, raw)}",
+                MaterialShaderArgumentType.LiteralPixelConst =>
+                    $"rsxFragmentConstPatchDest[{arg.Dest}] <- literal float4; 00396e48 patches every shader patch-list entry for this dest {LiteralConstantText(arg.LiteralConstant)}",
+                _ => "unhandled arg type in C# enum"
+            }));
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    private static string ArgPartition(int index, MaterialPassAsset pass)
+    {
+        int perObjStart = pass.PerPrimArgCount;
+        int stableStart = pass.PerPrimArgCount + pass.PerObjArgCount;
+        if (index < perObjStart)
+            return "perPrim";
+        return index < stableStart ? "perObj" : "stable";
+    }
+
+    private static int CodeConstIndex(uint raw) => (int)((raw >> 16) & 0xffff);
+
+    private static int CodeConstVectorCount(uint raw) => (int)(raw & 0xff);
+
+    private static string MaterialTextureText(Dictionary<uint, MaterialTextureDef> texturesByHash, uint hash)
+    {
+        if (!texturesByHash.TryGetValue(hash, out MaterialTextureDef? texture))
+            return string.Empty;
+
+        string imageName = texture.Image?.Name ?? "<null-image>";
+        return $"slot={TextureSlotText(texture)} sampler=0x{texture.SamplerState:X2} image={imageName}";
+    }
+
+    private static string MaterialConstantText(Dictionary<uint, MaterialConstantDef> constantsByHash, uint hash)
+    {
+        return constantsByHash.TryGetValue(hash, out MaterialConstantDef? constant)
+            ? $"const={ConstantName(constant)}({Vec4Text(constant.Literal).Replace(' ', '/')})"
+            : string.Empty;
+    }
+
+    private static string LiteralConstantText(MaterialShaderLiteralConstant? literal)
+    {
+        return literal is { } value
+            ? $"literal=({value.X.ToString("R", CultureInfo.InvariantCulture)}/{value.Y.ToString("R", CultureInfo.InvariantCulture)}/{value.Z.ToString("R", CultureInfo.InvariantCulture)}/{value.W.ToString("R", CultureInfo.InvariantCulture)})"
+            : "literal=<offset-or-null>";
     }
 
     private static string ShaderHeaderText(byte[] data)
@@ -1809,7 +1948,7 @@ internal sealed class MapRenderExporter
 
     private static string RsxShaderDecodeText(MaterialShaderKind kind, byte[] data)
     {
-        int offset = RsxShaderCodeOffset(data);
+        int offset = RsxShaderUploadOffset(data);
         if (offset < 0)
             return string.Empty;
 
@@ -1818,59 +1957,1498 @@ internal sealed class MapRenderExporter
             : RsxVertexDecodeText(data, offset);
     }
 
-    private static int RsxShaderCodeOffset(byte[] data)
+    private static bool TryBuildRsxFragmentReport(byte[] data, MaterialPassAsset pass, MaterialAsset? material, out string report, out bool safeForLive)
     {
-        if (data.Length < 0x18)
+        report = string.Empty;
+        safeForLive = false;
+        int offset = RsxShaderUploadOffset(data);
+        if (offset < 0)
+            return false;
+
+        List<RsxFragmentInstruction> instructions = DecodeRsxFragmentInstructions(data, offset, maxInstructions: 512);
+        if (instructions.Count == 0)
+            return false;
+        TryReadRsxShaderRuntimeInfo(data, out RsxShaderRuntimeInfo runtimeInfo);
+        TryBuildRsxRuntimeUploadModel(data, pass, material, runtimeInfo, out RsxRuntimeUploadModel uploadModel);
+
+        var opCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var unresolved = new SortedSet<string>(StringComparer.Ordinal);
+        var textureOps = new List<string>();
+        foreach (RsxFragmentInstruction instruction in instructions)
+        {
+            opCounts[instruction.OpName] = opCounts.TryGetValue(instruction.OpName, out int count) ? count + 1 : 1;
+            AddRsxFragmentUnresolvedNotes(instruction, unresolved);
+            if (instruction.IsTexture)
+            {
+                textureOps.Add($"{instruction.Index}@0x{instruction.Offset:X}:{instruction.OpName} unit={instruction.TextureUnit} input={RsxFragmentInputName(instruction.SourceAttribute)} dest={RsxFragmentDestinationText(instruction)}");
+            }
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine("SAFE_FOR_LIVE_RENDERING=false");
+        builder.AppendLine("reason=decoded RSX fragment report only; no GLSL is emitted or wired into viewer.html until every opcode, control-flow, output, scale, and patch-table store semantic is proven");
+        builder.AppendLine("evidence=default_mp.elf:00396e48 consumes pixel shader data+0x04/+0x12/+0x14 and applies type5/type6/type7 fragment constant patch lists; PSL1GHT nvfx_shader.h documents the RSX fragment instruction bit fields used here");
+        builder.AppendLine($"dataSize=0x{data.Length:X}");
+        builder.AppendLine($"headerDwords={ShaderHeaderText(data)}");
+        builder.AppendLine($"runtimeModel={RsxRuntimeModelText(data, runtimeInfo)}");
+        builder.AppendLine($"uploadCodeOffset=0x{offset:X}");
+        builder.AppendLine($"instructionCount={instructions.Count}");
+        builder.AppendLine($"ops={string.Join(" ", opCounts.OrderByDescending(pair => pair.Value).ThenBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value}"))}");
+        builder.AppendLine($"textureOps={string.Join(" | ", textureOps)}");
+        builder.AppendLine($"fragmentCcSemantics={RsxFragmentCcSemanticsText()}");
+        builder.AppendLine($"fragmentInterpolationContract={RsxFragmentInterpolationContractText(instructions)}");
+        builder.AppendLine($"fragmentConstPatchDests={RsxFragmentPatchTableText(pass, data, runtimeInfo)}");
+        builder.AppendLine($"runtimeUploadCode={RsxRuntimeUploadModelText(uploadModel)}");
+        builder.AppendLine($"unresolved={string.Join(" | ", unresolved)}");
+        builder.AppendLine("instructions:");
+        foreach (RsxFragmentInstruction instruction in instructions)
+            builder.AppendLine(RsxFragmentInstructionDetailText(instruction));
+
+        report = builder.ToString();
+        return true;
+    }
+
+    private static void AddRsxFragmentUnresolvedNotes(RsxFragmentInstruction instruction, SortedSet<string> unresolved)
+    {
+        if (instruction.Branch)
+            unresolved.Add("branch/control-flow translation is decoded but not lowered to GLSL");
+        if (!instruction.Branch && instruction.Scale == 4)
+            unresolved.Add("scale code 4 is not defined by the RSX reference used here");
+        if (!instruction.Branch &&
+            (instruction.NoDest || instruction.WriteMask == 0) &&
+            !instruction.CondWriteEnabled &&
+            !IsRsxFragmentReservedNoOp(instruction))
+        {
+            unresolved.Add("no-destination/write-mask instructions must be classified as control or side-effect ops before live rendering");
+        }
+        if (!instruction.Branch && instruction.Opcode is 0x13 or 0x14 or 0x19 or 0x24 or 0x25 or 0x27 or 0x28 or 0x29 or 0x2a)
+            unresolved.Add($"{instruction.OpName} needs exact GLSL lowering");
+        if (!instruction.Branch && (instruction.Opcode is 0x3d or 0x3e) && !IsRsxFragmentReservedNoOp(instruction))
+            unresolved.Add($"opcode 0x{instruction.Opcode:X2} does not match the official-fastfile reserved no-op pattern");
+        if (!instruction.Branch && (RsxFragmentSourceRegisterType(instruction.Src0) == 3 ||
+            RsxFragmentSourceRegisterType(instruction.Src1) == 3 ||
+            RsxFragmentSourceRegisterType(instruction.Src2) == 3))
+        {
+            unresolved.Add("source register type 3 is not mapped");
+        }
+    }
+
+    private static int RsxShaderUploadOffset(byte[] data)
+    {
+        if (data.Length < 0x20)
             return -1;
 
-        uint offset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x14, 4));
-        return offset >= 0x40 && offset + 16 <= data.Length && (offset & 0x0f) == 0
+        uint size = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x18, 4));
+        uint offset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x1c, 4));
+        return offset >= 0x40 &&
+            offset + 16 <= data.Length &&
+            offset + size <= data.Length &&
+            (offset & 0x0f) == 0
             ? (int)offset
             : -1;
     }
 
     private static string RsxFragmentDecodeText(byte[] data, int offset)
     {
-        int instructionCount = Math.Min(96, (data.Length - offset) / 16);
+        List<RsxFragmentInstruction> instructions = DecodeRsxFragmentInstructions(data, offset, maxInstructions: 256);
         var opCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         var texOps = new List<string>();
-        for (int i = 0; i < instructionCount; i++)
+        var detail = new List<string>();
+        foreach (RsxFragmentInstruction instruction in instructions)
         {
-            uint w0 = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(offset + i * 16, 4)));
-            byte opcode = (byte)((w0 >> 24) & 0x3f);
-            string opName = RsxFragmentOpcodeName(opcode);
+            string opName = instruction.OpName;
             opCounts[opName] = opCounts.TryGetValue(opName, out int count) ? count + 1 : 1;
-            if (opcode is 0x17 or 0x18 or 0x19 or 0x2f or 0x31)
+            detail.Add(RsxFragmentInstructionText(instruction));
+            if (instruction.IsTexture)
             {
-                int textureUnit = (int)((w0 >> 17) & 0x0f);
-                int input = (int)((w0 >> 13) & 0x0f);
-                int dest = (int)((w0 >> 1) & 0x3f);
-                int mask = (int)((w0 >> 9) & 0x0f);
-                texOps.Add($"{i}@0x{offset + i * 16:X}:{opName} t{textureUnit} {RsxFragmentInputName(input)}->R{dest}.{WriteMaskText(mask)}");
+                texOps.Add($"{instruction.Index}@0x{instruction.Offset:X}:{opName} t{instruction.TextureUnit} {RsxFragmentInputName(instruction.SourceAttribute)}->R{instruction.DestRegister}.{WriteMaskText(instruction.WriteMask)}");
             }
         }
 
         string ops = string.Join(" ", opCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(16).Select(x => $"{x.Key}:{x.Value}"));
-        return $"fp@0x{offset:X} sample={instructionCount} ops=[{ops}] tex=[{string.Join(" ", texOps.Take(24))}]";
+        return $"fp@0x{offset:X} instructions={instructions.Count} ops=[{ops}] tex=[{string.Join(" ", texOps.Take(24))}] code=[{string.Join(" | ", detail.Take(96))}]";
+    }
+
+    private static bool TryBuildRsxVertexReport(byte[] data, MaterialVertexDeclarationAsset? decl, out string report)
+    {
+        report = string.Empty;
+        int offset = RsxShaderUploadOffset(data);
+        if (offset < 0)
+            return false;
+
+        List<RsxVertexInstruction> instructions = DecodeRsxVertexInstructions(data, offset, maxInstructions: 512);
+        if (instructions.Count == 0)
+            return false;
+
+        var builder = new StringBuilder();
+        builder.AppendLine("SAFE_FOR_LIVE_RENDERING=false");
+        builder.AppendLine("reason=vertex bytecode/declaration report only; not wired into viewer.html");
+        builder.AppendLine("evidence=EBOOT.elf:0xfb498/0xfb128 load Material*ShaderProgram roots; techset loader 0xe8b90 proves MaterialVertexDeclaration as 0x1c bytes; PSL1GHT nvfx_shader.h documents RSX vertex input indices/opcodes; Mesa/Nouveau nv40_vertprog.h documents NV40 vertex instruction source/dest/output bit fields");
+        builder.AppendLine($"dataSize=0x{data.Length:X}");
+        builder.AppendLine($"headerDwords={ShaderHeaderText(data)}");
+        builder.AppendLine($"uploadCodeOffset=0x{offset:X}");
+        builder.AppendLine($"instructionCount={instructions.Count}");
+        builder.AppendLine($"symbols={ShaderSymbolsText(data)}");
+        builder.AppendLine($"vertexDecl={(decl is null ? "none" : TechniqueRouteText(decl, includeSemanticNames: true))}");
+        builder.AppendLine($"vertexInputContract={(decl is null ? "none" : RsxVertexInputContractText(decl))}");
+        builder.AppendLine($"vertexOutputFragmentContract={RsxVertexOutputFragmentContractText(instructions)}");
+        builder.AppendLine($"vertexGlslSemantics={RsxVertexGlslSemanticsText()}");
+        builder.AppendLine($"rsxDecode={RsxVertexDecodeText(instructions, offset)}");
+        builder.AppendLine($"unresolved={RsxVertexUnresolvedText(instructions)}");
+        builder.AppendLine("instructions:");
+        foreach (RsxVertexInstruction instruction in instructions)
+            builder.AppendLine(RsxVertexInstructionDetailText(instruction));
+        report = builder.ToString();
+        return true;
+    }
+
+    private static string RsxVertexInputContractText(MaterialVertexDeclarationAsset decl)
+    {
+        var routes = decl.Routing
+            .Take(decl.StreamCount)
+            .Select(route =>
+                $"{RouteSourceName(route.Source)}->{RouteDestinationName(route.Dest)}" +
+                $":rsxVpInput={RsxVertexDeclarationDestinationText(route.Dest)}" +
+                $":fragmentInput={RsxFragmentInputFromVertexDestinationText(route.Dest)}");
+        return string.Join(" ", routes) +
+            " | evidence=techset loader 0xe8b90 proves the 0x1c MaterialVertexDeclaration route table; PSL1GHT nvfx_shader.h documents RSX vertex input indices and RSX fragment input aliases";
+    }
+
+    private static string BackendStreamVertexInputProofText(MaterialTechniqueSetAsset techset, MaterialVertexDeclarationAsset decl)
+    {
+        string routes = string.Join(
+            " ",
+            decl.Routing
+                .Take(decl.StreamCount)
+                .Select(route =>
+                    $"{RouteSourceName(route.Source)}->{RouteDestinationName(route.Dest)}" +
+                    $":rsxVpInput={RsxVertexDeclarationDestinationText(route.Dest)}"));
+        return $"OPEN format={techset.WorldVertexFormat} routes={routes} | requires exhaustive official-fastfile byte validation of each backend stream source record before live GLSL/reader use";
+    }
+
+    private static string RsxVertexOutputFragmentContractText(IReadOnlyList<RsxVertexInstruction> instructions)
+    {
+        string routes = string.Join(
+            " ",
+            instructions
+                .SelectMany(RsxVertexWrittenOutputs)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .Select(output => $"{output}->{RsxVertexOutputFragmentName(output)}"));
+        if (routes.Length == 0)
+            routes = "outputs=none";
+
+        return $"{routes} | evidence=Khronos NV_vertex_program2 defines COL0/COL1 and TEX0..TEX7 vertex result attributes as fragment-interpolated color/texture-coordinate varyings; report aliases match the decoded RSX fragment input names";
+    }
+
+    private static string RsxVertexGlslSemanticsText()
+    {
+        return "vertexWrite applies vector/scalar slot write masks per component; scalar slot operands are read from src2 in the observed NV40 encoding; predicate uses the same FL/LT/EQ/LE/GT/NE/GE/TR ccTest rules and ccWrite updates written components from result sign/zero/NaN | evidence=Khronos NV_vertex_program2 TestCC/GenerateCC pseudocode plus Mesa/Nouveau NV40 vertex bit-field decode";
+    }
+
+    private static string RsxVertexOutputFragmentName(string output)
+    {
+        return output switch
+        {
+            "o0/POS" => "gl_Position",
+            "o1/COL0" => "color0",
+            "o2/COL1" => "color1",
+            "o5/FOGC" => "fog",
+            "o6/PSZ" => "gl_PointSize",
+            _ when output.Contains("/TEX", StringComparison.Ordinal) =>
+                $"texcoord{output[(output.IndexOf("/TEX", StringComparison.Ordinal) + 4)..]}",
+            _ => "unmapped"
+        };
+    }
+
+    private static string RsxVertexDeclarationDestinationText(byte dest)
+    {
+        return dest switch
+        {
+            0x00 => "v0/POS",
+            0x01 => "v2/NORMAL",
+            0x02 => "v3/COL0",
+            0x03 or 0x0d => "v4/COL1",
+            0x04 => "depth",
+            >= 0x05 and <= 0x0c => $"v{8 + dest - 0x05}/TEX{dest - 0x05}",
+            _ => $"dest[{dest:X2}]"
+        };
+    }
+
+    private static string RsxFragmentInputFromVertexDestinationText(byte dest)
+    {
+        return dest switch
+        {
+            0x00 => "position",
+            0x02 => "color0",
+            0x03 or 0x0d => "color1",
+            >= 0x05 and <= 0x0c => $"texcoord{dest - 0x05}",
+            _ => "not-fragment-varying"
+        };
+    }
+
+    private static string RsxFragmentPatchTableText(
+        MaterialPassAsset pass,
+        byte[] data,
+        RsxShaderRuntimeInfo runtimeInfo)
+    {
+        int stableStart = pass.PerPrimArgCount + pass.PerObjArgCount;
+        var patchArgs = pass.Args
+            .Select((arg, index) => (arg, index))
+            .Where(item => item.index >= stableStart && item.arg.Type is
+                MaterialShaderArgumentType.CodePixelConst or
+                MaterialShaderArgumentType.MaterialPixelConst or
+                MaterialShaderArgumentType.LiteralPixelConst)
+            .GroupBy(item => item.arg.Dest)
+            .OrderBy(group => group.Key)
+            .ToList();
+
+        if (patchArgs.Count == 0)
+            return "none";
+
+        var parts = new List<string>(patchArgs.Count);
+        foreach (IGrouping<ushort, (MaterialShaderArgumentAsset arg, int index)> group in patchArgs)
+        {
+            string argRefs = string.Join("/", group.Select(item => $"#{item.index}:{item.arg.Type}:raw=0x{unchecked((uint)item.arg.ArgumentRaw):X8}"));
+            string patchTable = TryReadRsxPatchEntry(data, runtimeInfo, group.Key, out RsxPatchEntry patchEntry)
+                ? $"runtimePatchCount={patchEntry.PatchOffsets.Count}:entry=0x{patchEntry.EntryOffset:X}:defaultConst=0x{patchEntry.DefaultConstantOffset:X}:patchList=0x{patchEntry.PatchListOffset:X}:byteOffsets={PatchOffsetsText(patchEntry)}"
+                : "runtimePatchTable=UNRESOLVED_FOR_DEST";
+            parts.Add($"dest=0x{group.Key:X4}:args={argRefs}:{patchTable}");
+        }
+
+        return string.Join(" | ", parts) +
+            " | evidence=EBOOT.elf:00361f38 builds runtime *(MaterialPixelShader+0x04) as count/offset halfword pairs from raw parameter entries; 0045e4b0 reads entry+0x18 patch-list count; 0045e4e0 reads raw patch offsets; default_mp.elf:00396e48 indexes dest*4, loads patch count and byte offsets, and stores a 16-byte constant at runtimeUpload+offset";
+    }
+
+    private static bool TryBuildRsxRuntimeUploadModel(
+        byte[] data,
+        MaterialPassAsset pass,
+        MaterialAsset? material,
+        RsxShaderRuntimeInfo runtimeInfo,
+        out RsxRuntimeUploadModel model)
+    {
+        model = default;
+        if (runtimeInfo.Tag == 0 ||
+            runtimeInfo.UploadSize > int.MaxValue ||
+            runtimeInfo.UploadOffset + runtimeInfo.UploadSize > data.Length)
+        {
+            return false;
+        }
+
+        byte[] upload = data.AsSpan((int)runtimeInfo.UploadOffset, (int)runtimeInfo.UploadSize).ToArray();
+        var notes = new List<string>();
+        int defaultPatches = ApplyDefaultRsxConstantPatches(data, runtimeInfo, upload);
+        int argPatches = 0;
+        int externalPatches = 0;
+
+        Dictionary<uint, MaterialConstantDef> constantsByHash = material?.Constants
+            .GroupBy(constant => constant.NameHash)
+            .ToDictionary(group => group.Key, group => group.First())
+            ?? [];
+
+        int stableStart = pass.PerPrimArgCount + pass.PerObjArgCount;
+        foreach (MaterialShaderArgumentAsset arg in pass.Args.Skip(stableStart))
+        {
+            if (arg.Type is not (MaterialShaderArgumentType.CodePixelConst or MaterialShaderArgumentType.MaterialPixelConst or MaterialShaderArgumentType.LiteralPixelConst) ||
+                !TryReadRsxPatchEntry(data, runtimeInfo, arg.Dest, out RsxPatchEntry entry))
+            {
+                continue;
+            }
+
+            uint raw = unchecked((uint)arg.ArgumentRaw);
+            switch (arg.Type)
+            {
+                case MaterialShaderArgumentType.CodePixelConst:
+                    externalPatches += entry.PatchOffsets.Count;
+                    notes.Add($"dest=0x{arg.Dest:X4}:codeConst[index=0x{CodeConstIndex(raw):X4},count={CodeConstVectorCount(raw)}]:externalContextPatches={entry.PatchOffsets.Count}");
+                    break;
+                case MaterialShaderArgumentType.MaterialPixelConst when constantsByHash.TryGetValue(raw, out MaterialConstantDef? constant):
+                    argPatches += ApplyRsxConstantPatch(upload, entry, constant.Literal);
+                    notes.Add($"dest=0x{arg.Dest:X4}:materialConst=0x{raw:X8}:patches={entry.PatchOffsets.Count}");
+                    break;
+                case MaterialShaderArgumentType.LiteralPixelConst when arg.LiteralConstant is { } literal:
+                    argPatches += ApplyRsxConstantPatch(upload, entry, literal);
+                    notes.Add($"dest=0x{arg.Dest:X4}:literal:patches={entry.PatchOffsets.Count}");
+                    break;
+                default:
+                    notes.Add($"dest=0x{arg.Dest:X4}:{arg.Type}:valueUnavailable");
+                    break;
+            }
+        }
+
+        model = new RsxRuntimeUploadModel(upload, defaultPatches, argPatches, externalPatches, notes);
+        return true;
+    }
+
+    private static int ApplyDefaultRsxConstantPatches(byte[] data, RsxShaderRuntimeInfo runtimeInfo, byte[] upload)
+    {
+        int writes = 0;
+        for (ushort dest = 0; dest < runtimeInfo.ParameterCount; dest++)
+        {
+            if (!TryReadRsxPatchEntry(data, runtimeInfo, dest, out RsxPatchEntry entry) ||
+                entry.DefaultConstantOffset == 0 ||
+                entry.DefaultConstantOffset + 0x10 > data.Length)
+            {
+                continue;
+            }
+
+            foreach (ushort patchOffset in entry.PatchOffsets)
+            {
+                if (patchOffset + 0x10 > upload.Length)
+                    continue;
+
+                data.AsSpan((int)entry.DefaultConstantOffset, 0x10).CopyTo(upload.AsSpan(patchOffset, 0x10));
+                RotateRsxConstantWords(upload, patchOffset);
+                writes++;
+            }
+        }
+
+        return writes;
+    }
+
+    private static int ApplyRsxConstantPatch(byte[] upload, RsxPatchEntry entry, MaterialVec4 value)
+    {
+        return ApplyRsxConstantPatch(upload, entry, value.X, value.Y, value.Z, value.W);
+    }
+
+    private static int ApplyRsxConstantPatch(byte[] upload, RsxPatchEntry entry, MaterialShaderLiteralConstant value)
+    {
+        return ApplyRsxConstantPatch(upload, entry, value.X, value.Y, value.Z, value.W);
+    }
+
+    private static int ApplyRsxConstantPatch(byte[] upload, RsxPatchEntry entry, float x, float y, float z, float w)
+    {
+        int writes = 0;
+        Span<byte> encoded = stackalloc byte[0x10];
+        WriteRsxFragmentConstantFloat(encoded, 0x00, x);
+        WriteRsxFragmentConstantFloat(encoded, 0x04, y);
+        WriteRsxFragmentConstantFloat(encoded, 0x08, z);
+        WriteRsxFragmentConstantFloat(encoded, 0x0c, w);
+        foreach (ushort patchOffset in entry.PatchOffsets)
+        {
+            if (patchOffset + 0x10 > upload.Length)
+                continue;
+
+            encoded.CopyTo(upload.AsSpan(patchOffset, 0x10));
+            writes++;
+        }
+
+        return writes;
+    }
+
+    private static void WriteRsxFragmentConstantFloat(Span<byte> destination, int offset, float value)
+    {
+        uint bits = unchecked((uint)BitConverter.SingleToInt32Bits(value));
+        BinaryPrimitives.WriteUInt32BigEndian(destination[offset..], RsxFragmentWord(bits));
+    }
+
+    private static void RotateRsxConstantWords(byte[] upload, int patchOffset)
+    {
+        for (int i = 0; i < 0x10; i += 4)
+        {
+            uint value = BinaryPrimitives.ReadUInt32BigEndian(upload.AsSpan(patchOffset + i, 4));
+            BinaryPrimitives.WriteUInt32BigEndian(upload.AsSpan(patchOffset + i, 4), RsxFragmentWord(value));
+        }
+    }
+
+    private static string RsxRuntimeUploadModelText(RsxRuntimeUploadModel model)
+    {
+        if (model.UploadCode is null)
+            return "unavailable";
+
+        string notes = model.Notes.Count == 0
+            ? "none"
+            : string.Join("/", model.Notes.Take(16));
+        return string.Join(
+            " ",
+            $"bytes=0x{model.UploadCode.Length:X}",
+            $"fnv1a=0x{Fnv1A32(model.UploadCode):X8}",
+            $"defaultConstantPatches={model.DefaultConstantPatches}",
+            $"materialOrLiteralPatches={model.ArgConstantPatches}",
+            $"externalCodeConstPatches={model.ExternalCodeConstantPatches}",
+            $"notes={notes}",
+            "evidence=EBOOT.elf:0045e7f0 copies default constants into raw upload patch offsets with 16-bit word rotation; default_mp.elf:00396e48 applies code/material/literal pixel constants to runtime upload+patchOffset using the same patch table");
+    }
+
+    private static bool TryReadRsxShaderRuntimeInfo(byte[] data, out RsxShaderRuntimeInfo info)
+    {
+        info = default;
+        if (data.Length < 0x20)
+            return false;
+
+        uint tag = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0, 4));
+        if (!IsKnownRsxShaderTag(tag))
+            return false;
+
+        uint parameterCount = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x0c, 4));
+        uint parameterTableOffset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x10, 4));
+        uint descriptorOffset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x14, 4));
+        uint uploadSize = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x18, 4));
+        uint uploadOffset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x1c, 4));
+        ulong parameterTableEnd = (ulong)parameterTableOffset + parameterCount * 0x30UL;
+        ulong uploadEnd = (ulong)uploadOffset + uploadSize;
+        if (parameterTableEnd > (ulong)data.Length || uploadEnd > (ulong)data.Length)
+            return false;
+
+        info = new RsxShaderRuntimeInfo(
+            tag,
+            parameterCount,
+            parameterTableOffset,
+            descriptorOffset,
+            uploadSize,
+            uploadOffset);
+        return true;
+    }
+
+    private static bool IsKnownRsxShaderTag(uint tag)
+    {
+        return tag is 0x1807 or 0x1b59 or 0x1b5b or 0x1b5c or 0x1b5d or 0x1b5e;
+    }
+
+    private static string RsxRuntimeModelText(byte[] data, RsxShaderRuntimeInfo runtimeInfo)
+    {
+        if (runtimeInfo.Tag == 0)
+            return "unparsed";
+
+        uint tableHalfwords = runtimeInfo.ParameterCount * 2;
+        for (ushort dest = 0; dest < runtimeInfo.ParameterCount; dest++)
+        {
+            if (TryReadRsxPatchEntry(data, runtimeInfo, dest, out RsxPatchEntry entry))
+                tableHalfwords += (uint)entry.PatchOffsets.Count;
+        }
+
+        return string.Join(
+            " ",
+            $"tag=0x{runtimeInfo.Tag:X}",
+            $"parameterCount=0x{runtimeInfo.ParameterCount:X}",
+            $"parameterTableOffset=0x{runtimeInfo.ParameterTableOffset:X}",
+            $"descriptorOffset=0x{runtimeInfo.DescriptorOffset:X}",
+            $"uploadCodeOffset=0x{runtimeInfo.UploadOffset:X}",
+            $"uploadCodeSize=0x{runtimeInfo.UploadSize:X}",
+            $"commandList={RsxCommandListModelText(data, runtimeInfo)}",
+            $"runtimePatchTableHalfwords=0x{tableHalfwords:X}",
+            "evidence=EBOOT.elf:0045e7f0 normalizes the raw shader and patches default constants into upload code; 00361f38 stores runtime +0x04 patch table, +0x08 command-list offset, +0x0c command dword count, +0x10 patch-table halfword count, +0x12 upload byte size, +0x14 upload pointer; 0045e028 returns raw+0x1c and raw+0x18");
+    }
+
+    private static string RsxCommandListModelText(byte[] data, RsxShaderRuntimeInfo runtimeInfo)
+    {
+        if (runtimeInfo.DescriptorOffset + 0x16 > data.Length)
+            return "unparsed";
+
+        int descriptorOffset = (int)runtimeInfo.DescriptorOffset;
+        uint descriptorWord04 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(descriptorOffset + 0x04, 4));
+        ushort colorMask = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(descriptorOffset + 0x0c, 2));
+        ushort controlMask0E = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(descriptorOffset + 0x0e, 2));
+        ushort controlMask10 = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(descriptorOffset + 0x10, 2));
+        byte byte12 = data[descriptorOffset + 0x12];
+        byte byte13 = data[descriptorOffset + 0x13];
+        byte byte14 = data[descriptorOffset + 0x14];
+        byte byte15 = data[descriptorOffset + 0x15];
+
+        return string.Join(
+            "/",
+            $"descriptor=0x{runtimeInfo.DescriptorOffset:X}",
+            $"method0x041ff4Value=0x{descriptorWord04 | 0x20:X8}",
+            $"rtMask=0x{colorMask:X4}",
+            $"rtMethodCount={PopCount(colorMask)}",
+            $"control0E=0x{controlMask0E:X4}",
+            $"control10=0x{controlMask10:X4}",
+            $"bytes12_15={byte12:X2}{byte13:X2}{byte14:X2}{byte15:X2}",
+            $"copiedDwordsExcludingTerminator=0x{RsxCopiedCommandDwordCount(data, runtimeInfo):X}",
+            "evidence=EBOOT.elf:00460098 calls 00460b28(builder,raw,0,0) then 00460cd8(builder,raw,1); 00361f38 appends 0x00020000, copies from builder+8, and stores +0x0c as totalDwords-3");
+    }
+
+    private static int RsxCopiedCommandDwordCount(byte[] data, RsxShaderRuntimeInfo runtimeInfo)
+    {
+        if (runtimeInfo.DescriptorOffset + 0x0e > data.Length)
+            return 0;
+
+        ushort colorMask = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan((int)runtimeInfo.DescriptorOffset + 0x0c, 2));
+        int methodPairs = 3 + PopCount(colorMask);
+        return methodPairs * 2 - 2;
+    }
+
+    private static int PopCount(ushort value)
+    {
+        int count = 0;
+        uint remaining = value;
+        while (remaining != 0)
+        {
+            remaining &= remaining - 1;
+            count++;
+        }
+
+        return count;
+    }
+
+    private static bool TryReadRsxPatchEntry(
+        byte[] data,
+        RsxShaderRuntimeInfo runtimeInfo,
+        ushort dest,
+        out RsxPatchEntry entry)
+    {
+        entry = default;
+        if (runtimeInfo.Tag == 0 || dest >= runtimeInfo.ParameterCount)
+            return false;
+
+        uint entryOffset = runtimeInfo.ParameterTableOffset + dest * 0x30u;
+        if (entryOffset + 0x1c > data.Length)
+            return false;
+
+        uint defaultConstantOffset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)entryOffset + 0x14, 4));
+        uint patchListOffset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)entryOffset + 0x18, 4));
+        if (patchListOffset == 0)
+        {
+            entry = new RsxPatchEntry(entryOffset, defaultConstantOffset, patchListOffset, []);
+            return true;
+        }
+
+        if (patchListOffset + 4 > data.Length)
+            return false;
+
+        uint patchCount = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)patchListOffset, 4));
+        if (patchCount > ushort.MaxValue || patchListOffset + 4 + patchCount * 4UL > (ulong)data.Length)
+            return false;
+
+        var patchOffsets = new List<ushort>((int)patchCount);
+        for (int index = 0; index < patchCount; index++)
+        {
+            uint rawOffset = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan((int)patchListOffset + 4 + index * 4, 4));
+            if (rawOffset > ushort.MaxValue || rawOffset + 0x10 > runtimeInfo.UploadSize)
+                return false;
+            patchOffsets.Add((ushort)rawOffset);
+        }
+
+        entry = new RsxPatchEntry(entryOffset, defaultConstantOffset, patchListOffset, patchOffsets);
+        return true;
+    }
+
+    private static string PatchOffsetsText(RsxPatchEntry entry)
+    {
+        return entry.PatchOffsets.Count == 0
+            ? "none"
+            : string.Join("/", entry.PatchOffsets.Select(offset => $"0x{offset:X4}"));
+    }
+
+    private static string RsxFragmentInstructionDetailText(RsxFragmentInstruction instruction)
+    {
+        string fields = string.Join(
+            " ",
+            $"{instruction.Index:000}@0x{instruction.Offset:X}",
+            $"raw=dst:{instruction.Dst:X8}/s0:{instruction.Src0:X8}/s1:{instruction.Src1:X8}/s2:{instruction.Src2:X8}",
+            $"op={instruction.OpName}(0x{instruction.Opcode:X2})",
+            $"branch={instruction.Branch}",
+            $"end={instruction.End}",
+            $"dest={RsxFragmentDestinationText(instruction)}",
+            $"output={RsxFragmentOutputAliasText(instruction)}",
+            $"sat={instruction.Saturate}",
+            $"scale={RsxFragmentScaleText(instruction.Scale)}",
+            $"precision={RsxFragmentPrecisionText(instruction.Precision)}",
+            $"condWrite={instruction.CondWriteEnabled}",
+            $"cond={RsxFragmentConditionText(instruction.ConditionCode)}.{RsxFragmentConditionSwizzleText(instruction)}",
+            $"conditionEffect={RsxFragmentConditionEffectText(instruction)}",
+            $"texUnit={instruction.TextureUnit}",
+            $"texExpand={instruction.TextureExpand}",
+            $"inputSrc={RsxFragmentInputName(instruction.SourceAttribute)}",
+            $"disablePc={instruction.DisablePerspectiveCorrect}",
+            $"interpolation={RsxFragmentInterpolationText(instruction)}");
+
+        if (instruction.Branch)
+        {
+            fields += $" branchSrc1=0x{instruction.BranchSrc1Payload:X8} branchSrc2=0x{instruction.BranchSrc2Payload:X8}";
+        }
+
+        if (!instruction.Branch)
+        {
+            fields += $" src0={RsxFragmentSourceText(instruction, instruction.Src0, 0, instruction.Constant)}";
+            fields += $" src1={RsxFragmentSourceText(instruction, instruction.Src1, 1, instruction.Constant)}";
+            fields += $" src2={RsxFragmentSourceText(instruction, instruction.Src2, 2, instruction.Constant)}";
+        }
+        if (instruction.Constant is { } constant)
+            fields += $" inlineConst={constant.ToGlsl()}";
+        fields += $" lowering={RsxFragmentLoweringText(instruction)}";
+        fields += $" glslWrite={RsxFragmentGlslWriteText(instruction)}";
+        return fields;
+    }
+
+    private static string RsxFragmentDestinationText(RsxFragmentInstruction instruction)
+    {
+        return instruction.NoDest
+            ? "-"
+            : $"{(instruction.DestFp16 ? "H" : "R")}{instruction.DestRegister}.{WriteMaskText(instruction.WriteMask)}";
+    }
+
+    private static string RsxFragmentOutputAliasText(RsxFragmentInstruction instruction)
+    {
+        if (instruction.NoDest || instruction.WriteMask == 0)
+            return "-";
+        if (instruction.DestRegister == 0)
+            return $"result.color.{WriteMaskText(instruction.WriteMask)}";
+        if (instruction.DestRegister == 1 && (instruction.WriteMask & 0x4) != 0)
+            return "result.depth.z";
+        return "-";
+    }
+
+    private static string RsxFragmentScaleText(int scale)
+    {
+        return scale switch
+        {
+            0 => "1x",
+            1 => "2x",
+            2 => "4x",
+            3 => "8x",
+            5 => "1/2x",
+            6 => "1/4x",
+            7 => "1/8x",
+            _ => $"unmapped({scale})"
+        };
+    }
+
+    private static string RsxFragmentPrecisionText(int precision)
+    {
+        return precision switch
+        {
+            0 => "fp32",
+            1 => "fp16",
+            2 => "fx12",
+            3 => "fx8",
+            _ => $"precision{precision}"
+        };
+    }
+
+    private static string RsxFragmentConditionText(int condition)
+    {
+        return condition switch
+        {
+            0 => "FL",
+            1 => "LT",
+            2 => "EQ",
+            3 => "LE",
+            4 => "GT",
+            5 => "NE",
+            6 => "GE",
+            7 => "TR",
+            _ => $"cond{condition}"
+        };
+    }
+
+    private static string RsxFragmentConditionSwizzleText(RsxFragmentInstruction instruction)
+    {
+        Span<char> chars = stackalloc char[4];
+        chars[0] = RsxFragmentSwizzleChar((int)((instruction.Src0 >> 21) & 0x3));
+        chars[1] = RsxFragmentSwizzleChar((int)((instruction.Src0 >> 23) & 0x3));
+        chars[2] = RsxFragmentSwizzleChar((int)((instruction.Src0 >> 25) & 0x3));
+        chars[3] = RsxFragmentSwizzleChar((int)((instruction.Src0 >> 27) & 0x3));
+        return new string(chars);
+    }
+
+    private static string RsxFragmentConditionEffectText(RsxFragmentInstruction instruction)
+    {
+        string predicate = instruction.ConditionCode == 7
+            ? "execute=always"
+            : $"execute=if {RsxFragmentPredicateText(instruction)}";
+        string write = instruction.CondWriteEnabled
+            ? "ccWrite=enabled-from-result"
+            : "ccWrite=none";
+        return $"{predicate};{write}";
+    }
+
+    private static string RsxFragmentCcSemanticsText()
+    {
+        return "rsxWrite applies the instruction write mask per component; predicate ccTest uses FL/LT/EQ/LE/GT/NE/GE/TR against cc.xyzw with swizzle, TR always true and FL always false; NE also passes unordered/NaN; cc initializes EQ per fragment; ccWrite updates only written components from result sign/zero/NaN and leaves masked components unchanged | evidence=Khronos NV_fragment_program condition-code vector plus NV_vertex_program2 TestCC/GenerateCC pseudocode";
+    }
+
+    private static string RsxFragmentPredicateText(RsxFragmentInstruction instruction)
+    {
+        return instruction.ConditionCode == 7
+            ? "TR.xyzw"
+            : $"cc.{RsxFragmentConditionSwizzleText(instruction)} {RsxFragmentConditionText(instruction.ConditionCode)}";
+    }
+
+    private static string RsxFragmentInterpolationContractText(IReadOnlyList<RsxFragmentInstruction> instructions)
+    {
+        string inputs = string.Join(
+            " ",
+            instructions
+                .Where(instruction => !instruction.Branch && instruction.DisablePerspectiveCorrect)
+                .Select(instruction => RsxFragmentInputName(instruction.SourceAttribute))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .Select(input => $"{input}=noperspective"));
+        if (inputs.Length == 0)
+            inputs = "disablePcInputs=none";
+
+        return $"default=smooth {inputs} | evidence=PSL1GHT cgcomp emits the NV40 fragment disable_pc bit only while encoding texture-coordinate inputs; GLSL noperspective is the non-perspective-correct interpolation qualifier";
+    }
+
+    private static string RsxFragmentInterpolationText(RsxFragmentInstruction instruction)
+    {
+        return instruction.DisablePerspectiveCorrect
+            ? $"{RsxFragmentInputName(instruction.SourceAttribute)}:noperspective"
+            : "default:smooth";
+    }
+
+    private static List<RsxFragmentInstruction> DecodeRsxFragmentInstructions(byte[] data, int offset, int maxInstructions)
+    {
+        var instructions = new List<RsxFragmentInstruction>();
+        int pc = offset;
+        for (int index = 0; index < maxInstructions && pc + 16 <= data.Length; index++)
+        {
+            uint dst = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc, 4)));
+            uint src0 = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc + 4, 4)));
+            uint src1 = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc + 8, 4)));
+            uint src2 = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc + 12, 4)));
+            byte opcode = (byte)((dst >> 24) & 0x3f);
+            bool branch = (src1 & 0x80000000u) != 0;
+            int operandCount = branch ? 0 : RsxFragmentOperandCount(opcode);
+            bool hasInlineConstant =
+                (operandCount > 0 && RsxFragmentSourceRegisterType(src0) == 2) ||
+                (operandCount > 1 && RsxFragmentSourceRegisterType(src1) == 2) ||
+                (operandCount > 2 && RsxFragmentSourceRegisterType(src2) == 2);
+            RsxFragmentConstant? constant = null;
+            int byteCount = hasInlineConstant ? 32 : 16;
+            if (hasInlineConstant && pc + byteCount <= data.Length)
+            {
+                constant = new RsxFragmentConstant(
+                    RsxFragmentConstantFloat(data, pc + 16),
+                    RsxFragmentConstantFloat(data, pc + 20),
+                    RsxFragmentConstantFloat(data, pc + 24),
+                    RsxFragmentConstantFloat(data, pc + 28));
+            }
+
+            instructions.Add(new RsxFragmentInstruction(index, pc, dst, src0, src1, src2, opcode, byteCount, constant));
+            pc += byteCount;
+            if ((dst & 0x1) != 0)
+                break;
+        }
+
+        return instructions;
+    }
+
+    private static float RsxFragmentConstantFloat(byte[] data, int offset)
+    {
+        uint value = RsxFragmentWord(BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(offset, 4)));
+        return BitConverter.Int32BitsToSingle(unchecked((int)value));
+    }
+
+    private static string RsxFragmentInstructionText(RsxFragmentInstruction instruction)
+    {
+        string dest = RsxFragmentDestinationText(instruction);
+        string source0 = RsxFragmentSourceText(instruction, instruction.Src0, 0, instruction.Constant);
+        string source1 = RsxFragmentSourceText(instruction, instruction.Src1, 1, instruction.Constant);
+        string source2 = RsxFragmentSourceText(instruction, instruction.Src2, 2, instruction.Constant);
+        string sources = (instruction.Branch ? 0 : RsxFragmentOperandCount(instruction.Opcode)) switch
+        {
+            0 => string.Empty,
+            1 => source0,
+            2 => $"{source0},{source1}",
+            _ => $"{source0},{source1},{source2}"
+        };
+        string flags = string.Concat(
+            instruction.Saturate ? "_sat" : string.Empty,
+            instruction.DestFp16 ? "_h" : string.Empty,
+            instruction.End ? "_end" : string.Empty,
+            instruction.ByteCount == 32 ? "_const" : string.Empty);
+        return $"{instruction.Index:000}@0x{instruction.Offset:X}:{instruction.OpName}{flags} {dest} <- {sources}";
+    }
+
+    private static string RsxFragmentLoweringText(RsxFragmentInstruction instruction)
+    {
+        if (instruction.Branch)
+            return "control-flow";
+        if (IsRsxFragmentReservedNoOp(instruction))
+            return "reserved-nop";
+        if (instruction.Opcode is 0x3d or 0x3e)
+            return "unmapped-opcode";
+
+        string dest = RsxFragmentDestinationText(instruction);
+        string expression = RsxFragmentExpressionText(instruction);
+        return instruction.NoDest || instruction.WriteMask == 0
+            ? expression
+            : $"{dest}={expression}";
+    }
+
+    private static string RsxFragmentGlslWriteText(RsxFragmentInstruction instruction)
+    {
+        if (instruction.Branch)
+            return "control-flow";
+        if (IsRsxFragmentReservedNoOp(instruction))
+            return "reserved-nop";
+        if (instruction.Opcode is 0x3d or 0x3e)
+            return "unmapped-opcode";
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"rsxWrite(dest={RsxFragmentDestinationText(instruction)},mask={WriteMaskText(instruction.WriteMask)},predicate={RsxFragmentPredicateText(instruction)},ccWrite={instruction.CondWriteEnabled},value={RsxFragmentExpressionText(instruction)})");
+    }
+
+    private static string RsxFragmentExpressionText(RsxFragmentInstruction instruction)
+    {
+        string source0 = RsxFragmentSourceText(instruction, instruction.Src0, 0, instruction.Constant);
+        string source1 = RsxFragmentSourceText(instruction, instruction.Src1, 1, instruction.Constant);
+        string source2 = RsxFragmentSourceText(instruction, instruction.Src2, 2, instruction.Constant);
+        string expression = instruction.Opcode switch
+        {
+            0x00 => "nop",
+            0x01 => source0,
+            0x02 => $"{source0} * {source1}",
+            0x03 => $"{source0} + {source1}",
+            0x04 => $"{source0} * {source1} + {source2}",
+            0x05 => $"dot3({source0}, {source1})",
+            0x06 => $"dot4({source0}, {source1})",
+            0x08 => $"min({source0}, {source1})",
+            0x09 => $"max({source0}, {source1})",
+            0x0a => $"lessThan({source0}, {source1})",
+            0x0b => $"greaterThanEqual({source0}, {source1})",
+            0x0c => $"lessThanEqual({source0}, {source1})",
+            0x0d => $"greaterThan({source0}, {source1})",
+            0x0e => $"notEqual({source0}, {source1})",
+            0x0f => $"equal({source0}, {source1})",
+            0x10 => $"fract({source0})",
+            0x11 => $"floor({source0})",
+            0x12 => $"kill({source0})",
+            0x15 => $"dFdx({source0})",
+            0x16 => $"dFdy({source0})",
+            0x17 => RsxTextureLoweringText("texture", instruction, source0, null),
+            0x18 => RsxTextureLoweringText("textureProj", instruction, source0, null),
+            0x1a => $"1.0 / {source0}",
+            0x1b => $"inversesqrt({source0})",
+            0x1c => $"exp2({source0})",
+            0x1d => $"log2({source0})",
+            0x22 => $"cos({source0})",
+            0x23 => $"sin({source0})",
+            0x2f => RsxTextureLoweringText("textureLod", instruction, source0, $"{source0}.w"),
+            0x31 => RsxTextureLoweringText("textureBias", instruction, source0, $"{source0}.w"),
+            0x38 => $"dot2({source0}, {source1})",
+            0x39 => $"normalize({source0})",
+            0x3a => $"{source0} / {source1}",
+            0x3b => $"{source0} * inversesqrt({source1})",
+            0x3c => $"litExp2({source0})",
+            _ => $"{instruction.OpName.ToLowerInvariant()}({source0}, {source1}, {source2})"
+        };
+
+        if (instruction.Saturate)
+            expression = $"saturate({expression})";
+        string scale = RsxFragmentScaleFactorText(instruction.Scale);
+        if (scale != "1")
+            expression = $"{expression} * {scale}";
+
+        return expression;
+    }
+
+    private static string RsxTextureLoweringText(string op, RsxFragmentInstruction instruction, string coord, string? lod)
+    {
+        string sampler = $"sampler{instruction.TextureUnit}";
+        return lod is null
+            ? $"{op}({sampler}, {coord})"
+            : $"{op}({sampler}, {coord}, {lod})";
+    }
+
+    private static string RsxFragmentScaleFactorText(int scale)
+    {
+        return scale switch
+        {
+            0 => "1",
+            1 => "2",
+            2 => "4",
+            3 => "8",
+            5 => "0.5",
+            6 => "0.25",
+            7 => "0.125",
+            _ => $"scale{scale}"
+        };
+    }
+
+    private static string RsxFragmentSourceText(RsxFragmentInstruction instruction, uint source, int sourceIndex, RsxFragmentConstant? constant)
+    {
+        string value = RsxFragmentSourceBase(instruction, source, constant);
+        string suffix = RsxFragmentSwizzleSuffix(source);
+        if (!string.IsNullOrEmpty(suffix))
+            value += suffix;
+        if (RsxFragmentSourceAbs(source, sourceIndex))
+            value = $"|{value}|";
+        if (RsxFragmentSourceNeg(source))
+            value = $"-{value}";
+        return value;
+    }
+
+    private static string RsxFragmentSourceBase(RsxFragmentInstruction instruction, uint source, RsxFragmentConstant? constant)
+    {
+        return RsxFragmentSourceRegisterType(source) switch
+        {
+            0 => $"{(RsxFragmentSourceFp16(source) ? "H" : "R")}{RsxFragmentSourceRegisterIndex(source)}",
+            1 => RsxFragmentInputName(instruction.SourceAttribute),
+            2 => constant is { } value ? $"C{instruction.Index}({value.ToGlsl()})" : $"C{instruction.Index}",
+            _ => $"sourceType{RsxFragmentSourceRegisterType(source)}"
+        };
+    }
+
+    private static string RsxFragmentSwizzleSuffix(uint source, bool simplify = true)
+    {
+        Span<char> chars = stackalloc char[4];
+        chars[0] = RsxFragmentSwizzleChar((int)((source >> 9) & 0x3));
+        chars[1] = RsxFragmentSwizzleChar((int)((source >> 11) & 0x3));
+        chars[2] = RsxFragmentSwizzleChar((int)((source >> 13) & 0x3));
+        chars[3] = RsxFragmentSwizzleChar((int)((source >> 15) & 0x3));
+        if (!simplify)
+            return chars is ['x', 'y', 'z', 'w'] ? string.Empty : $".{new string(chars)}";
+
+        return chars switch
+        {
+            ['x', 'y', 'z', 'w'] => string.Empty,
+            ['x', 'x', 'x', 'x'] => ".x",
+            ['y', 'y', 'y', 'y'] => ".y",
+            ['z', 'z', 'z', 'z'] => ".z",
+            ['w', 'w', 'w', 'w'] => ".w",
+            _ => $".{new string(chars)}"
+        };
+    }
+
+    private static char RsxFragmentSwizzleChar(int value)
+    {
+        return value switch
+        {
+            0 => 'x',
+            1 => 'y',
+            2 => 'z',
+            _ => 'w'
+        };
+    }
+
+    private static int RsxFragmentSourceRegisterType(uint source) => (int)(source & 0x3);
+
+    private static int RsxFragmentSourceRegisterIndex(uint source) => (int)((source >> 2) & 0x3f);
+
+    private static bool RsxFragmentSourceFp16(uint source) => ((source >> 8) & 0x1) != 0;
+
+    private static bool RsxFragmentSourceNeg(uint source) => ((source >> 17) & 0x1) != 0;
+
+    private static bool RsxFragmentSourceAbs(uint source, int sourceIndex)
+    {
+        return sourceIndex == 0
+            ? ((source >> 29) & 0x1) != 0
+            : ((source >> 18) & 0x1) != 0;
+    }
+
+    private static int RsxFragmentOperandCount(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 or 0x20 or 0x21 or 0x3d or 0x3e or 0x40 or 0x41 or 0x42 or 0x43 or 0x44 or 0x45 => 0,
+            0x01 or 0x10 or 0x11 or 0x12 or 0x13 or 0x14 or 0x15 or 0x16 or 0x17 or 0x18 or 0x1a or 0x1b or 0x1c or 0x1d or 0x1e or 0x22 or 0x23 or 0x24 or 0x25 or 0x27 or 0x28 or 0x29 or 0x2a or 0x2c or 0x2d or 0x2f or 0x31 or 0x39 or 0x3c => 1,
+            0x02 or 0x03 or 0x05 or 0x06 or 0x07 or 0x08 or 0x09 or 0x0a or 0x0b or 0x0c or 0x0d or 0x0e or 0x0f or 0x36 or 0x38 or 0x3a or 0x3b => 2,
+            _ => 3
+        };
+    }
+
+    private static bool IsRsxFragmentReservedNoOp(RsxFragmentInstruction instruction)
+    {
+        return !instruction.Branch &&
+            (instruction.Opcode is 0x3d or 0x3e) &&
+            (instruction.Dst & 0xff00ffffu) == ((0x40u | instruction.Opcode) << 24 | 0x001e7eu) &&
+            instruction.Src0 == 0x1c9dc800u &&
+            instruction.Src1 == 0x0001c800u &&
+            instruction.Src2 == 0x0001c800u &&
+            instruction.NoDest &&
+            !instruction.End &&
+            !instruction.Saturate &&
+            instruction.Scale == 0 &&
+            !instruction.CondWriteEnabled &&
+            instruction.ConditionCode == 7;
+    }
+
+    private readonly record struct RsxShaderRuntimeInfo(
+        uint Tag,
+        uint ParameterCount,
+        uint ParameterTableOffset,
+        uint DescriptorOffset,
+        uint UploadSize,
+        uint UploadOffset);
+
+    private readonly record struct RsxPatchEntry(
+        uint EntryOffset,
+        uint DefaultConstantOffset,
+        uint PatchListOffset,
+        IReadOnlyList<ushort> PatchOffsets);
+
+    private readonly record struct RsxRuntimeUploadModel(
+        byte[]? UploadCode,
+        int DefaultConstantPatches,
+        int ArgConstantPatches,
+        int ExternalCodeConstantPatches,
+        IReadOnlyList<string> Notes);
+
+    private readonly record struct RsxFragmentInstruction(
+        int Index,
+        int Offset,
+        uint Dst,
+        uint Src0,
+        uint Src1,
+        uint Src2,
+        byte Opcode,
+        int ByteCount,
+        RsxFragmentConstant? Constant)
+    {
+        public bool End => (Dst & 0x1) != 0;
+        public int DestRegister => (int)((Dst >> 1) & 0x3f);
+        public bool DestFp16 => ((Dst >> 7) & 0x1) != 0;
+        public int WriteMask => (int)((Dst >> 9) & 0x0f);
+        public int SourceAttribute => (int)((Dst >> 13) & 0x0f);
+        public int TextureUnit => (int)((Dst >> 17) & 0x0f);
+        public bool TextureExpand => ((Dst >> 21) & 0x1) != 0;
+        public int Precision => (int)((Dst >> 22) & 0x3);
+        public bool NoDest => ((Dst >> 30) & 0x1) != 0;
+        public bool Saturate => ((Dst >> 31) & 0x1) != 0;
+        public bool CondWriteEnabled => ((Dst >> 8) & 0x1) != 0;
+        public int ConditionCode => (int)((Src0 >> 18) & 0x7);
+        public bool Branch => (Src1 & 0x80000000u) != 0;
+        public int Scale => (int)((Src1 >> 28) & 0x7);
+        public uint BranchSrc1Payload => Src1 & 0x7fffffffu;
+        public uint BranchSrc2Payload => Src2 & 0x7fffffffu;
+        public bool DisablePerspectiveCorrect => (Src2 & 0x80000000u) != 0;
+        public bool IsTexture => !Branch && Opcode is 0x17 or 0x18 or 0x19 or 0x2f or 0x31;
+        public string OpName => Branch ? RsxFragmentBranchOpcodeName(Opcode) : RsxFragmentOpcodeName(Opcode);
+    }
+
+    private readonly record struct RsxFragmentConstant(float X, float Y, float Z, float W)
+    {
+        public string ToGlsl()
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"vec4({X:R}, {Y:R}, {Z:R}, {W:R})");
+        }
     }
 
     private static string RsxVertexDecodeText(byte[] data, int offset)
     {
-        int instructionCount = Math.Min(64, (data.Length - offset) / 16);
+        List<RsxVertexInstruction> instructions = DecodeRsxVertexInstructions(data, offset, maxInstructions: 512);
+        return RsxVertexDecodeText(instructions, offset);
+    }
+
+    private static string RsxVertexDecodeText(IReadOnlyList<RsxVertexInstruction> instructions, int offset)
+    {
         var vecCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         var scaCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-        for (int i = 0; i < instructionCount; i++)
+        var outputs = new SortedSet<string>(StringComparer.Ordinal);
+        var inputs = new SortedSet<string>(StringComparer.Ordinal);
+        var constants = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (RsxVertexInstruction instruction in instructions)
         {
-            uint w1 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(offset + i * 16 + 4, 4));
-            string vec = RsxVertexVectorOpcodeName((byte)((w1 >> 22) & 0x1f));
-            string sca = RsxVertexScalarOpcodeName((byte)((w1 >> 27) & 0x1f));
+            string vec = instruction.VecOpName;
+            string sca = instruction.ScaOpName;
             vecCounts[vec] = vecCounts.TryGetValue(vec, out int vecCount) ? vecCount + 1 : 1;
             scaCounts[sca] = scaCounts.TryGetValue(sca, out int scaCount) ? scaCount + 1 : 1;
+            foreach (string output in RsxVertexWrittenOutputs(instruction))
+                outputs.Add(output);
+            foreach (string input in RsxVertexReadInputs(instruction))
+                inputs.Add(input);
+            foreach (string constant in RsxVertexReadConstants(instruction))
+                constants.Add(constant);
         }
 
         string vecOps = string.Join(" ", vecCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(12).Select(x => $"{x.Key}:{x.Value}"));
         string scaOps = string.Join(" ", scaCounts.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(12).Select(x => $"{x.Key}:{x.Value}"));
-        return $"vp@0x{offset:X} sample={instructionCount} vec=[{vecOps}] sca=[{scaOps}]";
+        string detail = string.Join(" | ", instructions.Take(96).Select(RsxVertexInstructionText));
+        return $"vp@0x{offset:X} instructions={instructions.Count} vec=[{vecOps}] sca=[{scaOps}] outputs=[{string.Join(" ", outputs)}] inputs=[{string.Join(" ", inputs)}] constants=[{string.Join(" ", constants)}] code=[{detail}]";
+    }
+
+    private static string RsxVertexUnresolvedText(IReadOnlyList<RsxVertexInstruction> instructions)
+    {
+        var unresolved = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (RsxVertexInstruction instruction in instructions)
+        {
+            if (instruction.HasControlFlow)
+                unresolved.Add("vertex branch/control-flow is decoded but not lowered to GLSL");
+            if (instruction.CondTestEnabled || instruction.CondUpdateEnabled || instruction.ConditionCode != 7)
+                unresolved.Add("vertex condition-code write/test semantics must be lowered exactly in final GLSL");
+            if (instruction.VecOpName.StartsWith("vop", StringComparison.Ordinal) ||
+                instruction.ScaOpName.StartsWith("sop", StringComparison.Ordinal))
+            {
+                unresolved.Add("vertex opcode is not mapped");
+            }
+        }
+
+        return unresolved.Count == 0 ? "none" : string.Join(" | ", unresolved);
+    }
+
+    private static List<RsxVertexInstruction> DecodeRsxVertexInstructions(byte[] data, int offset, int maxInstructions)
+    {
+        var instructions = new List<RsxVertexInstruction>();
+        int uploadEnd = data.Length;
+        if (data.Length >= 0x20)
+        {
+            uint uploadSize = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(0x18, 4));
+            if (uploadSize <= int.MaxValue && offset + uploadSize <= data.Length)
+                uploadEnd = offset + (int)uploadSize;
+        }
+
+        int pc = offset;
+        for (int index = 0; index < maxInstructions && pc + 16 <= uploadEnd; index++, pc += 16)
+        {
+            uint w0 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc, 4));
+            uint w1 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc + 4, 4));
+            uint w2 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc + 8, 4));
+            uint w3 = BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(pc + 12, 4));
+            instructions.Add(new RsxVertexInstruction(index, pc, w0, w1, w2, w3));
+            if ((w3 & 0x1) != 0)
+                break;
+        }
+
+        return instructions;
+    }
+
+    private static string RsxVertexInstructionText(RsxVertexInstruction instruction)
+    {
+        return string.Join(
+            " ",
+            $"{instruction.Index:000}@0x{instruction.Offset:X}",
+            $"vec={RsxVertexSlotText(instruction, scalar: false)}",
+            $"sca={RsxVertexSlotText(instruction, scalar: true)}",
+            $"src0={RsxVertexSourceText(instruction, instruction.Source0, 0)}",
+            $"src1={RsxVertexSourceText(instruction, instruction.Source1, 1)}",
+            $"src2={RsxVertexSourceText(instruction, instruction.Source2, 2)}");
+    }
+
+    private static string RsxVertexInstructionDetailText(RsxVertexInstruction instruction)
+    {
+        string branch = instruction.HasControlFlow ? $" branchTarget={instruction.BranchTarget}" : string.Empty;
+        return string.Join(
+            " ",
+            $"{instruction.Index:000}@0x{instruction.Offset:X}",
+            $"raw=w0:{instruction.Word0:X8}/w1:{instruction.Word1:X8}/w2:{instruction.Word2:X8}/w3:{instruction.Word3:X8}",
+            $"last={instruction.Last}",
+            $"vec={RsxVertexSlotText(instruction, scalar: false)}",
+            $"sca={RsxVertexSlotText(instruction, scalar: true)}",
+            $"resultIndex={instruction.ResultIndex}:{RsxVertexOutputName(instruction.ResultIndex)}",
+            $"inputSrc={instruction.InputSource}:{RsxVertexInputName(instruction.InputSource)}",
+            $"constSrc={instruction.ConstSource}",
+            $"indexInput={instruction.IndexInput}",
+            $"indexConst={instruction.IndexConst}",
+            $"saturate={instruction.Saturate}",
+            $"srcAbs={instruction.Source0Abs}/{instruction.Source1Abs}/{instruction.Source2Abs}",
+            $"condTest={instruction.CondTestEnabled}",
+            $"condUpdate={instruction.CondUpdateEnabled}",
+            $"cond={RsxFragmentConditionText(instruction.ConditionCode)}.{RsxVertexConditionSwizzleText(instruction)}",
+            $"addrSwz={RsxFragmentSwizzleChar(instruction.AddressSwizzle)}{branch}",
+            $"src0={RsxVertexSourceText(instruction, instruction.Source0, 0)}",
+            $"src1={RsxVertexSourceText(instruction, instruction.Source1, 1)}",
+            $"src2={RsxVertexSourceText(instruction, instruction.Source2, 2)}",
+            $"glsl={RsxVertexInstructionGlslText(instruction)}");
+    }
+
+    private static string RsxVertexSlotText(RsxVertexInstruction instruction, bool scalar)
+    {
+        string op = scalar ? instruction.ScaOpName : instruction.VecOpName;
+        if (op == "NOP")
+            return "NOP";
+
+        string dest = RsxVertexDestinationText(instruction, scalar);
+        string mask = VertexWriteMaskText(scalar ? instruction.ScaWriteMask : instruction.VecWriteMask);
+        return $"{op} {dest}.{mask}";
+    }
+
+    private static string RsxVertexInstructionGlslText(RsxVertexInstruction instruction)
+    {
+        var parts = new List<string>(2);
+        string vector = RsxVertexSlotGlslText(instruction, scalar: false);
+        string scalar = RsxVertexSlotGlslText(instruction, scalar: true);
+        if (vector != "nop")
+            parts.Add(vector);
+        if (scalar != "nop")
+            parts.Add(scalar);
+        return parts.Count == 0 ? "nop" : string.Join(";", parts);
+    }
+
+    private static string RsxVertexSlotGlslText(RsxVertexInstruction instruction, bool scalar)
+    {
+        byte opcode = scalar ? instruction.ScaOpcode : instruction.VecOpcode;
+        int writeMask = scalar ? instruction.ScaWriteMask : instruction.VecWriteMask;
+        if (opcode == 0 || writeMask == 0)
+            return "nop";
+
+        string expression = RsxVertexSlotExpressionText(instruction, scalar);
+        if (instruction.Saturate)
+            expression = $"saturate({expression})";
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"vertexWrite(dest={RsxVertexDestinationText(instruction, scalar)},mask={VertexWriteMaskText(writeMask)},predicate={RsxVertexPredicateText(instruction)},ccWrite={instruction.CondUpdateEnabled},value={expression})");
+    }
+
+    private static string RsxVertexPredicateText(RsxVertexInstruction instruction)
+    {
+        return instruction.CondTestEnabled
+            ? $"cc.{RsxVertexConditionSwizzleText(instruction)} {RsxFragmentConditionText(instruction.ConditionCode)}"
+            : "TR.xyzw";
+    }
+
+    private static string RsxVertexSlotExpressionText(RsxVertexInstruction instruction, bool scalar)
+    {
+        if (scalar)
+        {
+            string source = RsxVertexSourceText(instruction, instruction.Source2, 2);
+            return instruction.ScaOpcode switch
+            {
+                0x01 => source,
+                0x02 => $"1.0 / {source}",
+                0x03 => $"rcpClamped({source})",
+                0x04 => $"inversesqrt({source})",
+                0x05 => $"expApprox({source})",
+                0x06 => $"logApprox({source})",
+                0x07 => $"lit({source})",
+                0x0d => $"log2({source})",
+                0x0e => $"exp2({source})",
+                0x0f => $"sin({source})",
+                0x10 => $"cos({source})",
+                _ => $"{instruction.ScaOpName.ToLowerInvariant()}({source})"
+            };
+        }
+
+        string source0 = RsxVertexSourceText(instruction, instruction.Source0, 0);
+        string source1 = RsxVertexSourceText(instruction, instruction.Source1, 1);
+        string source2 = RsxVertexSourceText(instruction, instruction.Source2, 2);
+        return instruction.VecOpcode switch
+        {
+            0x01 => source0,
+            0x02 => $"{source0} * {source1}",
+            0x03 => $"{source0} + {source1}",
+            0x04 => $"{source0} * {source1} + {source2}",
+            0x05 => $"splat(dot3({source0}, {source1}))",
+            0x06 => $"splat(dph({source0}, {source1}))",
+            0x07 => $"splat(dot4({source0}, {source1}))",
+            0x08 => $"dst({source0}, {source1})",
+            0x09 => $"min({source0}, {source1})",
+            0x0a => $"max({source0}, {source1})",
+            0x0b => $"lessThan({source0}, {source1})",
+            0x0c => $"greaterThanEqual({source0}, {source1})",
+            0x0d => $"addressFloor({source0})",
+            0x0e => $"fract({source0})",
+            0x0f => $"floor({source0})",
+            0x10 => $"equal({source0}, {source1})",
+            0x11 => "vec4(false)",
+            0x12 => $"greaterThan({source0}, {source1})",
+            0x13 => $"lessThanEqual({source0}, {source1})",
+            0x14 => $"notEqual({source0}, {source1})",
+            0x15 => "vec4(true)",
+            0x16 => $"sign({source0})",
+            0x17 => $"addressRound({source0})",
+            0x18 => $"address({source0})",
+            0x19 => $"textureLod(vertexSampler, {source0})",
+            _ => $"{instruction.VecOpName.ToLowerInvariant()}({source0}, {source1}, {source2})"
+        };
+    }
+
+    private static string RsxVertexDestinationText(RsxVertexInstruction instruction, bool scalar)
+    {
+        bool result = scalar ? instruction.ScaResult : instruction.VecResult;
+        int temp = scalar ? instruction.ScaDestTemp : instruction.VecDestTemp;
+        if (!result || instruction.ResultIndex == 0x1f)
+            return $"R{temp}";
+
+        return RsxVertexOutputName(instruction.ResultIndex);
+    }
+
+    private static IEnumerable<string> RsxVertexWrittenOutputs(RsxVertexInstruction instruction)
+    {
+        if (instruction.VecOpcode != 0 && instruction.VecWriteMask != 0 && instruction.VecResult && instruction.ResultIndex != 0x1f)
+            yield return RsxVertexOutputName(instruction.ResultIndex);
+        if (instruction.ScaOpcode != 0 && instruction.ScaWriteMask != 0 && instruction.ScaResult && instruction.ResultIndex != 0x1f)
+            yield return RsxVertexOutputName(instruction.ResultIndex);
+    }
+
+    private static IEnumerable<string> RsxVertexReadInputs(RsxVertexInstruction instruction)
+    {
+        foreach ((uint source, int sourceIndex) in RsxVertexActiveSources(instruction))
+        {
+            if (RsxVertexSourceRegisterType(source) == 2)
+                yield return $"{sourceIndex}:{RsxVertexInputName(instruction.InputSource)}";
+        }
+    }
+
+    private static IEnumerable<string> RsxVertexReadConstants(RsxVertexInstruction instruction)
+    {
+        foreach ((uint source, int sourceIndex) in RsxVertexActiveSources(instruction))
+        {
+            if (RsxVertexSourceRegisterType(source) == 3)
+                yield return $"{sourceIndex}:C{instruction.ConstSource}{(instruction.IndexConst ? "[indexed]" : string.Empty)}";
+        }
+    }
+
+    private static IEnumerable<(uint Source, int SourceIndex)> RsxVertexActiveSources(RsxVertexInstruction instruction)
+    {
+        int vectorSourceCount = RsxVertexVectorOperandCount(instruction.VecOpcode);
+        if (vectorSourceCount > 0) yield return (instruction.Source0, 0);
+        if (vectorSourceCount > 1) yield return (instruction.Source1, 1);
+        if (vectorSourceCount > 2) yield return (instruction.Source2, 2);
+        if (RsxVertexScalarOperandCount(instruction.ScaOpcode) > 0)
+            yield return (instruction.Source2, 2);
+    }
+
+    private static string RsxVertexSourceText(RsxVertexInstruction instruction, uint source, int sourceIndex)
+    {
+        string value = RsxVertexSourceBase(instruction, source);
+        string suffix = RsxVertexSwizzleSuffix(source);
+        if (!string.IsNullOrEmpty(suffix))
+            value += suffix;
+        if (sourceIndex switch
+            {
+                0 => instruction.Source0Abs,
+                1 => instruction.Source1Abs,
+                _ => instruction.Source2Abs
+            })
+        {
+            value = $"|{value}|";
+        }
+        if ((source & 0x10000u) != 0)
+            value = $"-{value}";
+        return value;
+    }
+
+    private static string RsxVertexSourceBase(RsxVertexInstruction instruction, uint source)
+    {
+        return RsxVertexSourceRegisterType(source) switch
+        {
+            1 => $"R{(source >> 2) & 0x1f}",
+            2 => RsxVertexInputName(instruction.InputSource),
+            3 => $"C{instruction.ConstSource}{(instruction.IndexConst ? "[indexed]" : string.Empty)}",
+            _ => $"sourceType{RsxVertexSourceRegisterType(source)}[{(source >> 2) & 0x1f}]"
+        };
+    }
+
+    private static int RsxVertexSourceRegisterType(uint source) => (int)(source & 0x3);
+
+    private static string RsxVertexSwizzleSuffix(uint source)
+    {
+        Span<char> chars = stackalloc char[4];
+        chars[0] = RsxFragmentSwizzleChar((int)((source >> 14) & 0x3));
+        chars[1] = RsxFragmentSwizzleChar((int)((source >> 12) & 0x3));
+        chars[2] = RsxFragmentSwizzleChar((int)((source >> 10) & 0x3));
+        chars[3] = RsxFragmentSwizzleChar((int)((source >> 8) & 0x3));
+        return chars switch
+        {
+            ['x', 'y', 'z', 'w'] => string.Empty,
+            ['x', 'x', 'x', 'x'] => ".x",
+            ['y', 'y', 'y', 'y'] => ".y",
+            ['z', 'z', 'z', 'z'] => ".z",
+            ['w', 'w', 'w', 'w'] => ".w",
+            _ => $".{new string(chars)}"
+        };
+    }
+
+    private static string RsxVertexConditionSwizzleText(RsxVertexInstruction instruction)
+    {
+        Span<char> chars = stackalloc char[4];
+        chars[0] = RsxFragmentSwizzleChar((int)((instruction.Word0 >> 8) & 0x3));
+        chars[1] = RsxFragmentSwizzleChar((int)((instruction.Word0 >> 6) & 0x3));
+        chars[2] = RsxFragmentSwizzleChar((int)((instruction.Word0 >> 4) & 0x3));
+        chars[3] = RsxFragmentSwizzleChar((int)((instruction.Word0 >> 2) & 0x3));
+        return new string(chars);
+    }
+
+    private static string VertexWriteMaskText(int mask)
+    {
+        if (mask == 0)
+            return "-";
+
+        Span<char> chars = stackalloc char[4];
+        int count = 0;
+        if ((mask & 0x8) != 0) chars[count++] = 'x';
+        if ((mask & 0x4) != 0) chars[count++] = 'y';
+        if ((mask & 0x2) != 0) chars[count++] = 'z';
+        if ((mask & 0x1) != 0) chars[count++] = 'w';
+        return new string(chars[..count]);
+    }
+
+    private static int RsxVertexVectorOperandCount(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 => 0,
+            0x01 or 0x0d or 0x0e or 0x0f or 0x17 or 0x18 or 0x19 => 1,
+            0x04 => 3,
+            _ => 2
+        };
+    }
+
+    private static int RsxVertexScalarOperandCount(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 or 0x09 or 0x0b or 0x0c or 0x13 or 0x14 => 0,
+            _ => 1
+        };
+    }
+
+    private static string RsxVertexInputName(int input)
+    {
+        return input switch
+        {
+            0x0 => "v0/POS",
+            0x1 => "v1/WEIGHT",
+            0x2 => "v2/NORMAL",
+            0x3 => "v3/COL0",
+            0x4 => "v4/COL1",
+            0x5 => "v5/FOGC",
+            >= 0x8 and <= 0xf => $"v{input}/TEX{input - 0x8}",
+            _ => $"v{input}/input"
+        };
+    }
+
+    private static string RsxVertexOutputName(int output)
+    {
+        return output switch
+        {
+            0x00 => "o0/POS",
+            0x01 => "o1/COL0",
+            0x02 => "o2/COL1",
+            0x03 => "o3/BFC0",
+            0x04 => "o4/BFC1",
+            0x05 => "o5/FOGC",
+            0x06 => "o6/PSZ",
+            >= 0x07 and <= 0x0e => $"o{output}/TEX{output - 0x07}",
+            0x1f => "temp",
+            _ => $"o{output}/output"
+        };
+    }
+
+    private readonly record struct RsxVertexInstruction(
+        int Index,
+        int Offset,
+        uint Word0,
+        uint Word1,
+        uint Word2,
+        uint Word3)
+    {
+        public bool Last => (Word3 & 0x1) != 0;
+        public bool VecResult => (Word0 & 0x40000000u) != 0;
+        public bool CondUpdateEnabled => (Word0 & 0x20004000u) != 0;
+        public bool IndexInput => (Word0 & 0x08000000u) != 0;
+        public bool Saturate => (Word0 & 0x04000000u) != 0;
+        public bool Source2Abs => (Word0 & 0x00800000u) != 0;
+        public bool Source1Abs => (Word0 & 0x00400000u) != 0;
+        public bool Source0Abs => (Word0 & 0x00200000u) != 0;
+        public int VecDestTemp => (int)((Word0 >> 15) & 0x3f);
+        public bool CondTestEnabled => (Word0 & 0x00002000u) != 0;
+        public int ConditionCode => (int)((Word0 >> 10) & 0x7);
+        public int AddressSwizzle => (int)(Word0 & 0x3);
+        public byte VecOpcode => (byte)((Word1 >> 22) & 0x1f);
+        public byte ScaOpcode => (byte)((Word1 >> 27) & 0x1f);
+        public int ConstSource => (int)((Word1 >> 12) & 0xff);
+        public int InputSource => (int)((Word1 >> 8) & 0x0f);
+        public uint Source0 => ((Word1 & 0xffu) << 9) | ((Word2 >> 23) & 0x1ffu);
+        public uint Source1 => (Word2 >> 6) & 0x1ffffu;
+        public uint Source2 => ((Word2 & 0x3fu) << 11) | ((Word3 >> 21) & 0x7ffu);
+        public int BranchTarget => (int)(((Word2 & 0x3fu) << 3) | ((Word3 >> 29) & 0x7u));
+        public int ScaWriteMask => (int)((Word3 >> 17) & 0x0f);
+        public int VecWriteMask => (int)((Word3 >> 13) & 0x0f);
+        public bool ScaResult => (Word3 & 0x00001000u) != 0;
+        public int ScaDestTemp => (int)((Word3 >> 7) & 0x1f);
+        public int ResultIndex => (int)((Word3 >> 2) & 0x1f);
+        public bool IndexConst => (Word3 & 0x2) != 0;
+        public bool HasControlFlow => ScaOpcode is 0x09 or 0x0b or 0x0c;
+        public string VecOpName => RsxVertexVectorOpcodeName(VecOpcode);
+        public string ScaOpName => RsxVertexScalarOpcodeName(ScaOpcode);
     }
 
     // PSL1GHT cgcomp writes fragment ucode with this byte-lane transform; reverse it before decoding fields.
@@ -1962,7 +3540,23 @@ internal sealed class MapRenderExporter
             0x3a => "DIV",
             0x3b => "DIVRSQ",
             0x3c => "LITEX2",
+            0x3d => "op3D",
+            0x3e => "op3E",
             _ => $"op{opcode:X2}"
+        };
+    }
+
+    private static string RsxFragmentBranchOpcodeName(byte opcode)
+    {
+        return opcode switch
+        {
+            0x00 => "BRK",
+            0x01 => "CAL",
+            0x02 => "IF",
+            0x03 => "LOOP",
+            0x04 => "REP",
+            0x05 => "RET",
+            _ => $"branchOp{opcode:X2}"
         };
     }
 
@@ -1976,24 +3570,25 @@ internal sealed class MapRenderExporter
             0x03 => "ADD",
             0x04 => "MAD",
             0x05 => "DP3",
-            0x06 => "DP4",
-            0x07 => "DST",
-            0x08 => "MIN",
-            0x09 => "MAX",
-            0x0a => "SLT",
-            0x0b => "SGE",
-            0x0c => "ARL",
-            0x0d => "FRC",
-            0x0e => "FLR",
-            0x0f => "SEQ",
-            0x10 => "SFL",
-            0x11 => "SGT",
-            0x12 => "SLE",
-            0x13 => "SNE",
-            0x14 => "STR",
-            0x15 => "SSG",
-            0x16 => "ARR",
-            0x17 => "ARA",
+            0x06 => "DPH",
+            0x07 => "DP4",
+            0x08 => "DST",
+            0x09 => "MIN",
+            0x0a => "MAX",
+            0x0b => "SLT",
+            0x0c => "SGE",
+            0x0d => "ARL",
+            0x0e => "FRC",
+            0x0f => "FLR",
+            0x10 => "SEQ",
+            0x11 => "SFL",
+            0x12 => "SGT",
+            0x13 => "SLE",
+            0x14 => "SNE",
+            0x15 => "STR",
+            0x16 => "SSG",
+            0x17 => "ARR",
+            0x18 => "ARA",
             0x19 => "TXL",
             _ => $"vop{opcode:X2}"
         };
@@ -2011,13 +3606,15 @@ internal sealed class MapRenderExporter
             0x05 => "EXP",
             0x06 => "LOG",
             0x07 => "LIT",
-            0x08 => "BRA",
-            0x09 => "CAL",
-            0x0a => "RET",
-            0x0b => "LG2",
-            0x0c => "EX2",
-            0x0d => "SIN",
-            0x0e => "COS",
+            0x09 => "BRA",
+            0x0b => "CAL",
+            0x0c => "RET",
+            0x0d => "LG2",
+            0x0e => "EX2",
+            0x0f => "SIN",
+            0x10 => "COS",
+            0x13 => "PUSHA",
+            0x14 => "POPA",
             _ => $"sop{opcode:X2}"
         };
     }

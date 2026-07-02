@@ -496,13 +496,13 @@ public sealed class MaterialTechniqueSetLoader
         if (pointer.Type == PointerType.Null)
             return null;
 
-        if (pointer.Type == PointerType.Offset)
+        if (pointer.PackedAddress is { } packedAddress)
         {
             context.PointerReader.ValidateOffsetPointerRange<MaterialShaderLiteralConstant>(
                 pointer,
                 LiteralFloat4Size,
                 "MaterialShaderLiteralConstant");
-            return null;
+            return ReadLiteralFloat4(context.Blocks.ReadBytes(packedAddress, LiteralFloat4Size), packedAddress);
         }
 
         if (pointer.Type is not (PointerType.Inline or PointerType.Insert))
@@ -517,6 +517,11 @@ public sealed class MaterialTechniqueSetLoader
         if (insertCell is { } cell)
             context.Blocks.WriteInt32(cell, XPointerCodec.Encode(literalAddress));
 
+        return ReadLiteralFloat4(literalBytes, literalAddress);
+    }
+
+    private static MaterialShaderLiteralConstant ReadLiteralFloat4(byte[] literalBytes, XBlockAddress literalAddress)
+    {
         var literalCursor = new FastFileCursor(literalBytes, literalAddress);
         var literal = new MaterialShaderLiteralConstant(
             ReadSingle(literalCursor),
